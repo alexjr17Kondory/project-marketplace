@@ -6,13 +6,20 @@ export type ProductCategory = 'clothing' | 'accessories' | 'home';
 
 // Zonas de estampado para cada tipo de producto
 export type PrintZone =
-  | 'front'       // Frente
-  | 'back'        // Espalda
-  | 'left-sleeve' // Manga izquierda
-  | 'right-sleeve'// Manga derecha
-  | 'chest'       // Pecho (pequeño)
-  | 'around'      // Alrededor (botellas, tazas)
-  | 'top';        // Superior (gorras)
+  | 'front'          // Frente genérico
+  | 'back'           // Espalda genérico
+  | 'front-regular'  // Frente regular 18x25cm
+  | 'front-large'    // Frente grande 20x30cm
+  | 'back-large'     // Espalda grande
+  | 'back-neck'      // Cuello (espalda)
+  | 'back-center'    // Centro mediano (espalda)
+  | 'sleeve-small'   // Manga pequeña 6x7cm
+  | 'sleeve-large'   // Manga grande 7x30cm
+  | 'left-sleeve'    // Manga izquierda
+  | 'right-sleeve'   // Manga derecha
+  | 'chest'          // Pecho (pequeño)
+  | 'around'         // Alrededor (botellas, tazas)
+  | 'top';           // Superior (gorras)
 
 // Configuración de zona de estampado
 export interface PrintZoneConfig {
