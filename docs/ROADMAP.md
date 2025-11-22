@@ -7,47 +7,47 @@
 ## 📍 FASE 1: MVP - CATÁLOGO + PERSONALIZADOR (Sin Pagos)
 
 **Duración estimada:** 3-4 semanas
-**Estado:** 🟡 Pendiente
+**Estado:** 🟢 En progreso (Semana 2 completada)
 **Objetivo:** Sitio web funcional con catálogo, personalizador y carrito simulado
 
-### Semana 1: Setup + Estructura Base
+### Semana 1: Setup + Estructura Base ✅
 
-#### Día 1-2: Configuración del Proyecto
-- [ ] Crear proyecto con Vite + React + TypeScript
-- [ ] Configurar Tailwind CSS
-- [ ] Configurar ESLint + Prettier
-- [ ] Configurar React Router
-- [ ] Estructura de carpetas completa
-- [ ] Configurar variables de entorno
-- [ ] Git: Inicializar repositorio, `.gitignore`
+#### Día 1-2: Configuración del Proyecto ✅
+- [x] Crear proyecto con Vite + React + TypeScript
+- [x] Configurar Tailwind CSS
+- [x] Configurar ESLint + Prettier
+- [x] Configurar React Router
+- [x] Estructura de carpetas completa
+- [x] Configurar variables de entorno
+- [x] Git: Inicializar repositorio, `.gitignore`
 
-#### Día 3-5: Componentes Base y Layout
-- [ ] Componente `Layout` (Header, Footer, Container)
-- [ ] Componente `Header` con navegación
-- [ ] Componente `Footer` con enlace oculto a admin
-- [ ] Componentes compartidos: `Button`, `Input`, `Modal`, `Toast`, `Loading`
-- [ ] Sistema de rutas base
-- [ ] Configurar Context API (estructura vacía)
+#### Día 3-5: Componentes Base y Layout ✅
+- [x] Componente `Layout` (Header, Footer, Container)
+- [x] Componente `Header` con navegación mobile-first
+- [x] Componente `Footer` con enlace oculto a admin
+- [x] Componentes compartidos: `Button`, `Input`, `Modal`, `Toast`, `Loading`
+- [x] Sistema de rutas base
+- [x] Configurar Context API (estructura vacía)
 
-### Semana 2: Catálogo de Productos
+### Semana 2: Catálogo de Productos ✅
 
-#### Día 6-7: Modelo de Datos y Tipos
-- [ ] Definir tipos TypeScript (`product.ts`, `cart.ts`, `design.ts`)
-- [ ] Crear datos iniciales de productos (6-8 productos hardcodeados)
+#### Día 6-7: Modelo de Datos y Tipos ✅
+- [x] Definir tipos TypeScript (`product.ts`, `cart.ts`, `design.ts`)
+- [x] Crear datos iniciales de productos (8 productos hardcodeados)
 - [ ] Crear configuración de tipos de producto
 - [ ] Crear configuración de zonas de estampado
 - [ ] Service: `storage.service.ts` (wrapper de localStorage)
 
-#### Día 8-10: Páginas y Componentes de Catálogo
-- [ ] Página `HomePage` con Hero Section
-- [ ] Componente `HeroSection` con CTA de personalización
-- [ ] Componente `FeaturedProducts` (grid de destacados)
-- [ ] Página `CatalogPage`
-- [ ] Componente `ProductCard`
-- [ ] Componente `ProductGrid`
-- [ ] Componente `ProductFilters` (tipo, precio)
-- [ ] Componente `ProductSort`
-- [ ] Context: `ProductsContext` (listar, filtrar, ordenar)
+#### Día 8-10: Páginas y Componentes de Catálogo ✅
+- [x] Página `HomePage` con Hero Section
+- [x] Componente `HeroSection` con CTA de personalización
+- [x] Componente `FeaturedProducts` (grid de destacados)
+- [x] Página `CatalogPage`
+- [x] Componente `ProductCard`
+- [x] Componente `ProductGrid`
+- [x] Componente `ProductFilters` (tipo, precio)
+- [x] Componente `ProductSort`
+- [x] Context: `ProductsContext` (listar, filtrar, ordenar)
 
 ### Semana 3: Personalizador de Productos
 
