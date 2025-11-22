@@ -1,5 +1,5 @@
-import { Product } from './product';
-import { CustomizedProduct } from './design';
+import type { Product } from './product';
+import type { CustomizedProduct } from './design';
 
 // Item básico del carrito (producto sin personalizar)
 export interface CartItem {

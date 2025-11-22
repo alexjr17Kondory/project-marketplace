@@ -1,4 +1,4 @@
-import { PrintZone, ProductType } from './product';
+import type { PrintZone, ProductType } from './product';
 
 // Diseño aplicado a una zona de estampado
 export interface Design {

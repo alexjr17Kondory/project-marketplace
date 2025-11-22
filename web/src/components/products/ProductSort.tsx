@@ -1,5 +1,5 @@
 import { ArrowUpDown } from 'lucide-react';
-import { ProductSortOption } from '../../types';
+import type { ProductSortOption } from '../../types/product';
 
 interface ProductSortProps {
   value: ProductSortOption;

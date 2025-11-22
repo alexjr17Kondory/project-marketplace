@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Search } from 'lucide-react';
 import { useProducts } from '../context/ProductsContext';
 import { ProductGrid } from '../components/products/ProductGrid';
-import { ProductFilters, FilterValues } from '../components/products/ProductFilters';
+import { ProductFilters, type FilterValues } from '../components/products/ProductFilters';
 import { ProductSort } from '../components/products/ProductSort';
-import { Product } from '../types';
+import type { Product } from '../types/product';
 
 export const CatalogPage = () => {
   const { filteredProducts, setFilters, sortOption, setSortOption, isLoading } = useProducts();

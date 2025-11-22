@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
-import { Product } from '../../types';
+import type { Product } from '../../types/product';
 import { Package } from 'lucide-react';
 
 interface ProductGridProps {

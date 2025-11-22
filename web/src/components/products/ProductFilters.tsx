@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Filter, X } from 'lucide-react';
-import { ProductCategory, ProductType } from '../../types';
+import type { ProductCategory, ProductType } from '../../types/product';
 
 interface ProductFiltersProps {
   onFilterChange: (filters: FilterValues) => void;

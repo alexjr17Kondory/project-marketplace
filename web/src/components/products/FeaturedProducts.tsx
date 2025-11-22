@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { ProductCard } from './ProductCard';
 import { getProducts } from '../../data/mockProducts';
-import { Product } from '../../types';
+import type { Product } from '../../types/product';
 
 export const FeaturedProducts = () => {
   const navigate = useNavigate();

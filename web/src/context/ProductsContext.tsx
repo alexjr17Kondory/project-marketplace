@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Product, ProductSortOption } from '../types';
+import type { Product, ProductSortOption } from '../types/product';
 import { mockProducts } from '../data/mockProducts';
-import { FilterValues } from '../components/products/ProductFilters';
+import type { FilterValues } from '../components/products/ProductFilters';
 
 interface ProductsContextType {
   products: Product[];
