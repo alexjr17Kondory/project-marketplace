@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Sparkles, ShoppingBag, Palette, Package } from 'lucide-react';
+import { FeaturedProducts } from '../components/products/FeaturedProducts';
 
 export const HomePage = () => {
   return (
@@ -142,121 +143,13 @@ export const HomePage = () => {
             </div>
           </div>
         </div>
-
-      {/* Productos Destacados */}
-      <div className="mt-20">
-        {/* Title */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-display font-black text-gray-900 mb-4">
-            Productos <span className="bg-gradient-to-r from-violet-600 via-pink-500 to-amber-500 bg-clip-text text-transparent">Destacados</span>
-          </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Descubre nuestras prendas más populares listas para personalizar
-          </p>
-        </div>
-
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              id: 1,
-              name: 'Camiseta Premium',
-              price: 29.99,
-              gradient: 'from-violet-500 to-purple-600',
-              bgColor: 'bg-violet-50',
-              textColor: 'text-violet-600',
-              emoji: '👕'
-            },
-            {
-              id: 2,
-              name: 'Hoodie Deluxe',
-              price: 49.99,
-              gradient: 'from-pink-500 to-rose-600',
-              bgColor: 'bg-pink-50',
-              textColor: 'text-pink-600',
-              emoji: '🧥'
-            },
-            {
-              id: 3,
-              name: 'Polo Casual',
-              price: 34.99,
-              gradient: 'from-amber-500 to-orange-600',
-              bgColor: 'bg-amber-50',
-              textColor: 'text-amber-600',
-              emoji: '👔'
-            }
-          ].map((product) => (
-            <div key={product.id} className="group relative">
-              {/* Glow Effect */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${product.gradient} rounded-3xl blur-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-300`}></div>
-
-              {/* Card */}
-              <div className="relative bg-white rounded-3xl overflow-hidden border-2 border-gray-100 hover:border-gray-200 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl">
-                {/* Image Area */}
-                <div className={`${product.bgColor} h-72 flex items-center justify-center relative overflow-hidden`}>
-                  {/* Background Pattern */}
-                  <div className="absolute inset-0 opacity-10">
-                    <div className="absolute inset-0" style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M0 0h20v20H0V0zm20 20h20v20H20V20z'/%3E%3C/g%3E%3C/svg%3E")`,
-                    }}></div>
-                  </div>
-
-                  {/* Product Icon */}
-                  <div className="relative transform group-hover:scale-110 transition-transform duration-300">
-                    <span className="text-9xl drop-shadow-2xl">{product.emoji}</span>
-                  </div>
-
-                  {/* Badge */}
-                  <div className="absolute top-4 right-4">
-                    <div className={`bg-gradient-to-br ${product.gradient} text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg`}>
-                      Popular
-                    </div>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-6">
-                  <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:${product.textColor} transition-colors">
-                    {product.name}
-                  </h3>
-                  <p className="text-gray-600 mb-4 text-sm">
-                    100% personalizable • Alta calidad • Envío rápido
-                  </p>
-
-                  {/* Price & CTA */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500 line-through">$39.99</p>
-                      <p className={`text-3xl font-black bg-gradient-to-br ${product.gradient} bg-clip-text text-transparent`}>
-                        ${product.price}
-                      </p>
-                    </div>
-                    <Link
-                      to="/customize"
-                      className={`bg-gradient-to-br ${product.gradient} text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-violet-500/30 transition-all hover:scale-105 inline-flex items-center gap-2`}
-                    >
-                      Diseñar
-                      <Palette className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* View All Link */}
-        <div className="text-center mt-12">
-          <Link
-            to="/catalog"
-            className="inline-flex items-center gap-3 bg-gradient-to-r from-violet-600 via-pink-500 to-amber-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:shadow-2xl hover:shadow-violet-500/40 transition-all hover:scale-105 group"
-          >
-            Ver Catálogo Completo
-            <ShoppingBag className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-          </Link>
-        </div>
       </div>
 
+      {/* Featured Products */}
+      <FeaturedProducts />
+
+      {/* Content Container */}
+      <div className="max-w-7xl mx-auto px-4">
       {/* CTA Section */}
       <div className="mt-20 relative group">
         {/* Glow Effect */}
