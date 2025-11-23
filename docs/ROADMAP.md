@@ -7,8 +7,10 @@
 ## 📍 FASE 1: MVP - CATÁLOGO + PERSONALIZADOR (Sin Pagos)
 
 **Duración estimada:** 3-4 semanas
-**Estado:** 🟢 En progreso (Semana 2 completada)
+**Estado:** 🟡 90% Completado - En producción
+**Progreso:** Semanas 1-4 completadas | Solo falta Panel Admin
 **Objetivo:** Sitio web funcional con catálogo, personalizador y carrito simulado
+**Deploy:** ✅ https://project-marketplace.vercel.app (En vivo)
 
 ### Semana 1: Setup + Estructura Base ✅
 
@@ -118,20 +120,33 @@
 - ✅ Personalizador funcional completo:
   - ✅ 6 tipos de productos (camiseta, hoodie, gorra, botella, taza, almohada)
   - ✅ 14 zonas de impresión diferentes
-  - ✅ Sistema de tallas con escalado visual
-  - ✅ Guía de tallas interactiva
+  - ✅ Sistema de tallas con escalado visual (factores 0.85-1.22)
+  - ✅ Guía de tallas interactiva con tablas de medidas
   - ✅ 8 colores base
-  - ✅ Canvas con renderizado realista
+  - ✅ Canvas con renderizado realista y piezas separadas
+  - ✅ Sistema de vistas automáticas (front/back/side)
+  - ✅ Export de preview como imagen PNG
 - ✅ Carrito de compras completo:
   - ✅ Productos estándar y personalizados
-  - ✅ Cálculo de impuestos y envío
+  - ✅ Cálculo de impuestos (16%) y envío (gratis >$50)
   - ✅ Persistencia en localStorage
   - ✅ UI diferenciada para productos personalizados
+  - ✅ Estado vacío con CTAs
+  - ✅ Sección de garantías y beneficios
 - ⚪ Panel admin básico (pendiente)
 - ✅ Documentación técnica completa:
-  - ✅ PRODUCT_SYSTEM.md
-  - ✅ REQUIREMENTS.md actualizado
+  - ✅ PRODUCT_SYSTEM.md (13 secciones)
+  - ✅ REQUIREMENTS.md actualizado (RF-004 ✅)
   - ✅ INDEX.md actualizado
+  - ✅ ROADMAP.md actualizado
+  - ✅ DEPLOY.md (guía de deployment)
+  - ✅ INSTRUCCIONES_DEPLOY.md
+- ✅ Deploy en producción:
+  - ✅ Vercel configurado correctamente
+  - ✅ Build optimizado (380KB, ~105KB gzipped)
+  - ✅ HTTPS automático
+  - ✅ CDN global
+  - ✅ Auto-deploy en cada push
 - ✅ Código en GitHub
 - ✅ README con instrucciones de instalación
 
@@ -440,10 +455,11 @@
 ## 📊 MÉTRICAS DE ÉXITO POR FASE
 
 ### Fase 1
-- [ ] 100% de productos visibles en catálogo
-- [ ] Personalización funcional en 2+ tipos de producto
-- [ ] Carrito con persistencia en localStorage
-- [ ] Panel admin operativo
+- [x] 100% de productos visibles en catálogo
+- [x] Personalización funcional en 6 tipos de producto
+- [x] Carrito con persistencia en localStorage
+- [x] Deploy en producción (Vercel)
+- [ ] Panel admin operativo (único pendiente)
 
 ### Fase 2
 - [ ] API con 95%+ uptime
@@ -464,20 +480,64 @@
 
 ## 🚀 PRÓXIMOS PASOS INMEDIATOS
 
-1. ✅ **Documentación completa** (HECHO)
-   - [x] Levantamiento de requerimientos
-   - [x] Diagrama de base de datos
-   - [x] Diagramas de flujo
-   - [x] Arquitectura del sistema
-   - [x] Roadmap de desarrollo
+### ✅ Completado Recientemente
 
-2. 🟡 **Iniciar Fase 1** (SIGUIENTE)
-   - [ ] Crear proyecto con Vite
-   - [ ] Configurar Tailwind CSS
-   - [ ] Estructura de carpetas
-   - [ ] Primeros componentes
+1. **Sistema de Tallas** (2025-11-22)
+   - [x] Selector de tallas con 6 opciones
+   - [x] Modal de guía de tallas
+   - [x] Escalado visual del producto
+   - [x] Tablas de medidas completas
+
+2. **Sistema de Carrito** (2025-11-22)
+   - [x] CartPage completa
+   - [x] Componentes CartItem y CustomizedCartItem
+   - [x] CartSummary con cálculos automáticos
+   - [x] Persistencia en localStorage
+
+3. **Deploy a Producción** (2025-11-22)
+   - [x] Configuración de Vercel
+   - [x] Build optimizado
+   - [x] Sitio público en vivo
+   - [x] Auto-deploy configurado
+
+4. **Documentación Técnica** (2025-11-22)
+   - [x] PRODUCT_SYSTEM.md
+   - [x] Actualización de REQUIREMENTS.md
+   - [x] Actualización de INDEX.md
+   - [x] Guías de deployment
+
+### 🎯 Lo Siguiente
+
+1. **Completar Fase 1** (Pendiente)
+   - [ ] Implementar Panel de Administración (CRUD de productos)
+   - [ ] Testing completo del sistema
+   - [ ] Optimizaciones finales
+
+2. **O Continuar con Features** (Opcional)
+   - [ ] Mejorar UX del personalizador
+   - [ ] Agregar más tipos de productos
+   - [ ] Implementar editor de texto
+
+3. **O Iniciar Fase 2** (Futuro)
+   - [ ] Setup de backend (Node.js + Express)
+   - [ ] Configurar base de datos (PostgreSQL)
+   - [ ] Implementar API REST
+
+---
+
+## 📈 Estado General del Proyecto
+
+**Fase 1:** 🟡 90% Completado
+- ✅ Catálogo y productos
+- ✅ Personalizador completo (6 productos, 14 zonas)
+- ✅ Sistema de tallas
+- ✅ Carrito de compras
+- ✅ Deploy en producción
+- ⚪ Panel de administración (pendiente)
+
+**URL en Producción:** https://project-marketplace.vercel.app
 
 ---
 
 **Última actualización:** 2025-11-22
-**Versión:** 1.0
+**Versión:** 1.1
