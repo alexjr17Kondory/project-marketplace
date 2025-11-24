@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductsContext';
 import { useCart } from '../context/CartContext';
 import { ProductGrid } from '../components/products/ProductGrid';
@@ -8,6 +9,7 @@ import { ProductSort } from '../components/products/ProductSort';
 import type { Product } from '../types/product';
 
 export const CatalogPage = () => {
+  const navigate = useNavigate();
   const { filteredProducts, setFilters, sortOption, setSortOption, isLoading } = useProducts();
   const { addStandardProduct } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,13 +40,23 @@ export const CatalogPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-amber-500 text-white py-12 md:py-16">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-amber-500 text-white py-6 shadow-lg">
         <div className="max-w-7xl mx-auto px-4">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Catálogo de Productos</h1>
-          <p className="text-lg md:text-xl text-white/90 max-w-2xl">
-            Explora nuestra colección completa de productos personalizables
-          </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/')}
+                className="hover:bg-white/10 p-2 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold">Catálogo de Productos</h1>
+                <p className="text-sm text-white/90">Explora nuestra colección completa de productos personalizables</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -115,10 +115,46 @@ export class CanvasService {
 
   /**
    * Dibujar camiseta realista con piezas separadas (cuerpo + mangas)
+   * Mejoras: textura de tela, sombras realistas, detalles de manufactura
    */
   private drawTShirt(ctx: CanvasRenderingContext2D, width: number, height: number, color: string, view: 'front' | 'back' | 'side'): void {
     const centerX = width / 2;
     const centerY = height / 2;
+
+    // Aplicar sombra suave a toda la camiseta para profundidad
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetX = 8;
+    ctx.shadowOffsetY = 8;
+
+    // Función auxiliar para crear gradientes de profundidad en las piezas
+    const createFabricGradient = (x1: number, y1: number, x2: number, y2: number, baseColor: string, darkness = 0): CanvasGradient => {
+      const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+      gradient.addColorStop(0, this.darkenColor(baseColor, 15 + darkness));
+      gradient.addColorStop(0.3, this.lightenColor(baseColor, 5));
+      gradient.addColorStop(0.5, baseColor);
+      gradient.addColorStop(0.7, this.lightenColor(baseColor, 5));
+      gradient.addColorStop(1, this.darkenColor(baseColor, 15 + darkness));
+      return gradient;
+    };
+
+    // Función auxiliar para agregar textura de tela sutil sobre una región
+    const addFabricTexture = (x: number, y: number, w: number, h: number): void => {
+      ctx.save();
+      ctx.globalAlpha = 0.03;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 0.5;
+
+      // Líneas horizontales sutiles simulando el tejido
+      for (let i = y; i < y + h; i += 3) {
+        ctx.beginPath();
+        ctx.moveTo(x, i);
+        ctx.lineTo(x + w, i);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    };
 
     if (view === 'side') {
       // ========== VISTA LATERAL ==========
@@ -139,7 +175,8 @@ export class CanvasService {
       ctx.quadraticCurveTo(centerX - 115, centerY - 85, centerX - 105, centerY - 125);
       ctx.closePath();
 
-      ctx.fillStyle = color;
+      // Aplicar gradiente de textura de tela
+      ctx.fillStyle = createFabricGradient(centerX - 118, centerY - 170, centerX + 55, centerY - 170, color);
       ctx.fill();
       ctx.strokeStyle = this.darkenColor(color, 15);
       ctx.lineWidth = 1.5;
@@ -158,8 +195,9 @@ export class CanvasService {
       ctx.lineTo(centerX + 40, centerY - 162);
       ctx.closePath();
 
-      // Manga con color ligeramente más oscuro
-      ctx.fillStyle = this.darkenColor(color, 5);
+      // Manga con gradiente más oscuro para simular profundidad
+      const sleeveColor = this.darkenColor(color, 5);
+      ctx.fillStyle = createFabricGradient(centerX + 40, centerY - 162, centerX + 195, centerY - 162, sleeveColor, 5);
       ctx.fill();
       ctx.strokeStyle = this.darkenColor(color, 15);
       ctx.lineWidth = 1.5;
@@ -190,7 +228,8 @@ export class CanvasService {
       ctx.lineTo(centerX - 135, centerY - 170);
       ctx.closePath();
 
-      ctx.fillStyle = color;
+      // Aplicar gradiente de textura de tela al cuerpo
+      ctx.fillStyle = createFabricGradient(centerX - 135, centerY, centerX + 135, centerY, color);
       ctx.fill();
       ctx.strokeStyle = this.darkenColor(color, 15);
       ctx.lineWidth = 1.5;
@@ -207,7 +246,8 @@ export class CanvasService {
       ctx.lineTo(centerX + 135, centerY - 170);
       ctx.closePath();
 
-      ctx.fillStyle = this.darkenColor(color, 5);
+      const sleeveColorRight = this.darkenColor(color, 5);
+      ctx.fillStyle = createFabricGradient(centerX + 135, centerY - 100, centerX + 175, centerY - 100, sleeveColorRight, 5);
       ctx.fill();
       ctx.strokeStyle = this.darkenColor(color, 15);
       ctx.lineWidth = 1.5;
@@ -224,7 +264,8 @@ export class CanvasService {
       ctx.lineTo(centerX - 135, centerY - 170);
       ctx.closePath();
 
-      ctx.fillStyle = this.darkenColor(color, 5);
+      const sleeveColorLeft = this.darkenColor(color, 5);
+      ctx.fillStyle = createFabricGradient(centerX - 175, centerY - 100, centerX - 135, centerY - 100, sleeveColorLeft, 5);
       ctx.fill();
       ctx.strokeStyle = this.darkenColor(color, 15);
       ctx.lineWidth = 1.5;
@@ -255,13 +296,14 @@ export class CanvasService {
       ctx.lineTo(centerX - 135, centerY - 170);
       ctx.closePath();
 
-      ctx.fillStyle = color;
+      // Aplicar gradiente de textura de tela al cuerpo (vista trasera)
+      ctx.fillStyle = createFabricGradient(centerX - 135, centerY, centerX + 135, centerY, color);
       ctx.fill();
       ctx.strokeStyle = this.darkenColor(color, 15);
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // PIEZA 2: Manga derecha
+      // PIEZA 2: Manga derecha (vista trasera)
       ctx.beginPath();
       ctx.moveTo(centerX + 135, centerY - 170);
       ctx.lineTo(centerX + 168, centerY - 145);
@@ -272,13 +314,14 @@ export class CanvasService {
       ctx.lineTo(centerX + 135, centerY - 170);
       ctx.closePath();
 
-      ctx.fillStyle = this.darkenColor(color, 5);
+      const sleeveColorRightBack = this.darkenColor(color, 5);
+      ctx.fillStyle = createFabricGradient(centerX + 135, centerY - 100, centerX + 175, centerY - 100, sleeveColorRightBack, 5);
       ctx.fill();
       ctx.strokeStyle = this.darkenColor(color, 15);
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // PIEZA 3: Manga izquierda
+      // PIEZA 3: Manga izquierda (vista trasera)
       ctx.beginPath();
       ctx.moveTo(centerX - 135, centerY - 170);
       ctx.lineTo(centerX - 168, centerY - 145);
@@ -289,11 +332,32 @@ export class CanvasService {
       ctx.lineTo(centerX - 135, centerY - 170);
       ctx.closePath();
 
-      ctx.fillStyle = this.darkenColor(color, 5);
+      const sleeveColorLeftBack = this.darkenColor(color, 5);
+      ctx.fillStyle = createFabricGradient(centerX - 175, centerY - 100, centerX - 135, centerY - 100, sleeveColorLeftBack, 5);
       ctx.fill();
       ctx.strokeStyle = this.darkenColor(color, 15);
       ctx.lineWidth = 1.5;
       ctx.stroke();
+    }
+
+    // Resetear sombras antes de dibujar detalles
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // ========== APLICAR TEXTURA DE TELA SUTIL ==========
+    if (view === 'front' || view === 'back') {
+      // Textura sobre el cuerpo principal
+      addFabricTexture(centerX - 135, centerY - 175, 270, 390);
+      // Textura sobre mangas
+      addFabricTexture(centerX + 135, centerY - 170, 40, 145);
+      addFabricTexture(centerX - 175, centerY - 170, 40, 145);
+    } else if (view === 'side') {
+      // Textura sobre el cuerpo (vista lateral)
+      addFabricTexture(centerX - 118, centerY - 175, 173, 390);
+      // Textura sobre la manga lateral
+      addFabricTexture(centerX + 40, centerY - 162, 155, 137);
     }
 
     // Costuras realistas - ahora marcan las uniones entre las piezas separadas
@@ -333,13 +397,29 @@ export class CanvasService {
 
       ctx.setLineDash([]);
 
-      // ========== COSTURA DEL CUELLO ==========
+      // ========== COSTURA DEL CUELLO CON RIBETE ==========
       if (view === 'front') {
-        ctx.strokeStyle = this.darkenColor(color, 20);
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 2]);
+        // Ribete del cuello (banda de tela más gruesa y oscura)
+        ctx.fillStyle = this.darkenColor(color, 12);
+        ctx.lineWidth = 0;
+        ctx.beginPath();
+        ctx.moveTo(centerX - 55, centerY - 175);
+        ctx.quadraticCurveTo(centerX - 35, centerY - 165, centerX - 28, centerY - 150);
+        ctx.quadraticCurveTo(centerX - 18, centerY - 142, centerX, centerY - 138);
+        ctx.quadraticCurveTo(centerX + 18, centerY - 142, centerX + 28, centerY - 150);
+        ctx.quadraticCurveTo(centerX + 35, centerY - 165, centerX + 55, centerY - 175);
+        // Hacer el ribete más ancho
+        ctx.quadraticCurveTo(centerX + 38, centerY - 168, centerX + 30, centerY - 153);
+        ctx.quadraticCurveTo(centerX + 20, centerY - 146, centerX, centerY - 143);
+        ctx.quadraticCurveTo(centerX - 20, centerY - 146, centerX - 30, centerY - 153);
+        ctx.quadraticCurveTo(centerX - 38, centerY - 168, centerX - 55, centerY - 175);
+        ctx.closePath();
+        ctx.fill();
 
-        // Cuello frontal en V
+        // Costura del ribete
+        ctx.strokeStyle = this.darkenColor(color, 25);
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 2]);
         ctx.beginPath();
         ctx.moveTo(centerX - 55, centerY - 175);
         ctx.quadraticCurveTo(centerX - 35, centerY - 165, centerX - 28, centerY - 150);
@@ -350,11 +430,27 @@ export class CanvasService {
 
         ctx.setLineDash([]);
       } else {
-        // Cuello trasero en U
-        ctx.strokeStyle = this.darkenColor(color, 20);
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 2]);
+        // Ribete del cuello trasero (banda de tela más gruesa y oscura)
+        ctx.fillStyle = this.darkenColor(color, 12);
+        ctx.lineWidth = 0;
+        ctx.beginPath();
+        ctx.moveTo(centerX - 45, centerY - 175);
+        ctx.quadraticCurveTo(centerX - 30, centerY - 168, centerX - 20, centerY - 160);
+        ctx.quadraticCurveTo(centerX - 10, centerY - 152, centerX, centerY - 150);
+        ctx.quadraticCurveTo(centerX + 10, centerY - 152, centerX + 20, centerY - 160);
+        ctx.quadraticCurveTo(centerX + 30, centerY - 168, centerX + 45, centerY - 175);
+        // Hacer el ribete más ancho
+        ctx.quadraticCurveTo(centerX + 32, centerY - 171, centerX + 22, centerY - 163);
+        ctx.quadraticCurveTo(centerX + 12, centerY - 156, centerX, centerY - 154);
+        ctx.quadraticCurveTo(centerX - 12, centerY - 156, centerX - 22, centerY - 163);
+        ctx.quadraticCurveTo(centerX - 32, centerY - 171, centerX - 45, centerY - 175);
+        ctx.closePath();
+        ctx.fill();
 
+        // Costura del ribete
+        ctx.strokeStyle = this.darkenColor(color, 25);
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 2]);
         ctx.beginPath();
         ctx.moveTo(centerX - 45, centerY - 175);
         ctx.quadraticCurveTo(centerX - 30, centerY - 168, centerX - 20, centerY - 160);
@@ -366,8 +462,9 @@ export class CanvasService {
         ctx.setLineDash([]);
       }
 
-      // ========== DOBLADILLO INFERIOR ==========
-      ctx.strokeStyle = this.darkenColor(color, 18);
+      // ========== DOBLADILLO INFERIOR CON DOBLE COSTURA ==========
+      // Primera costura (principal)
+      ctx.strokeStyle = this.darkenColor(color, 20);
       ctx.lineWidth = 2.5;
       ctx.setLineDash([8, 3]);
 
@@ -376,14 +473,24 @@ export class CanvasService {
       ctx.lineTo(centerX + 120, centerY + 213);
       ctx.stroke();
 
-      // Línea de refuerzo del dobladillo
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 2]);
-      ctx.strokeStyle = this.darkenColor(color, 12);
+      // Segunda costura paralela (refuerzo superior)
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 2]);
+      ctx.strokeStyle = this.darkenColor(color, 15);
 
       ctx.beginPath();
-      ctx.moveTo(centerX - 120, centerY + 210);
-      ctx.lineTo(centerX + 120, centerY + 210);
+      ctx.moveTo(centerX - 120, centerY + 208);
+      ctx.lineTo(centerX + 120, centerY + 208);
+      ctx.stroke();
+
+      // Tercera costura muy sutil (línea interna del doblez)
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.strokeStyle = this.darkenColor(color, 10);
+
+      ctx.beginPath();
+      ctx.moveTo(centerX - 120, centerY + 203);
+      ctx.lineTo(centerX + 120, centerY + 203);
       ctx.stroke();
 
       ctx.setLineDash([]);
@@ -408,6 +515,36 @@ export class CanvasService {
       ctx.quadraticCurveTo(centerX - 145, centerY - 28, centerX - 155, centerY - 35);
       ctx.quadraticCurveTo(centerX - 165, centerY - 45, centerX - 172, centerY - 65);
       ctx.lineTo(centerX - 174, centerY - 100);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+
+      // ========== PLIEGUES Y ARRUGAS NATURALES ==========
+      // Añadir sutiles líneas de pliegue en las axilas (donde se unen manga y cuerpo)
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+
+      // Pliegue axila derecha
+      ctx.beginPath();
+      ctx.moveTo(centerX + 135, centerY - 25);
+      ctx.quadraticCurveTo(centerX + 130, centerY - 15, centerX + 128, centerY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(centerX + 135, centerY - 18);
+      ctx.quadraticCurveTo(centerX + 132, centerY - 8, centerX + 130, centerY + 8);
+      ctx.stroke();
+
+      // Pliegue axila izquierda
+      ctx.beginPath();
+      ctx.moveTo(centerX - 135, centerY - 25);
+      ctx.quadraticCurveTo(centerX - 130, centerY - 15, centerX - 128, centerY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(centerX - 135, centerY - 18);
+      ctx.quadraticCurveTo(centerX - 132, centerY - 8, centerX - 130, centerY + 8);
       ctx.stroke();
 
       ctx.setLineDash([]);
