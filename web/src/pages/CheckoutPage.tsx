@@ -18,6 +18,7 @@ import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/shared/Input';
 import { Button } from '../components/shared/Button';
 import { WompiCheckout } from '../components/payment/WompiCheckout';
@@ -49,14 +50,15 @@ export const CheckoutPage = () => {
   const { createOrder, changeOrderStatus } = useOrders();
   const { settings } = useSettings();
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState<FormData>({
-    customerName: '',
-    customerEmail: '',
-    customerPhone: '',
-    shippingAddress: '',
-    shippingCity: '',
-    shippingPostalCode: '',
+    customerName: user?.name || '',
+    customerEmail: user?.email || '',
+    customerPhone: user?.profile?.phone || '',
+    shippingAddress: user?.profile?.address || '',
+    shippingCity: user?.profile?.city || '',
+    shippingPostalCode: user?.profile?.postalCode || '',
     shippingNotes: '',
     paymentMethod: 'wompi',
   });
@@ -543,6 +545,7 @@ export const CheckoutPage = () => {
                       onPaymentSuccess={handleWompiSuccess}
                       onPaymentError={handleWompiError}
                       onClose={handleWompiClose}
+                      simulationMode={wompiConfig.isTestMode}
                     />
                   </div>
                 )}

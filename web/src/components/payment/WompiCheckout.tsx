@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Shield, CreditCard, Loader2 } from 'lucide-react';
+import { Shield, CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 interface WompiCheckoutProps {
   publicKey: string;
@@ -13,6 +13,7 @@ interface WompiCheckoutProps {
   onPaymentSuccess?: (transactionId: string) => void;
   onPaymentError?: (error: string) => void;
   onClose?: () => void;
+  simulationMode?: boolean; // Modo de simulación para desarrollo
 }
 
 // Declaración para el objeto window con Wompi
@@ -61,12 +62,21 @@ export const WompiCheckout = ({
   onPaymentSuccess,
   onPaymentError,
   onClose,
+  simulationMode = false,
 }: WompiCheckoutProps) => {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!simulationMode);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showSimulator, setShowSimulator] = useState(false);
+  const [simCardNumber, setSimCardNumber] = useState('');
   const scriptLoaded = useRef(false);
 
   useEffect(() => {
+    // Si es modo simulación, no cargar el script real
+    if (simulationMode) {
+      setIsLoading(false);
+      return;
+    }
+
     // Cargar el script de Wompi
     if (!scriptLoaded.current) {
       const script = document.createElement('script');
@@ -88,9 +98,15 @@ export const WompiCheckout = ({
     } else {
       setIsLoading(false);
     }
-  }, [onPaymentError]);
+  }, [onPaymentError, simulationMode]);
 
   const handlePayment = () => {
+    // Modo simulación
+    if (simulationMode) {
+      setShowSimulator(true);
+      return;
+    }
+
     if (!window.WidgetCheckout) {
       onPaymentError?.('Widget de Wompi no disponible');
       return;
@@ -133,6 +149,28 @@ export const WompiCheckout = ({
         onClose?.();
       }
     });
+  };
+
+  // Manejar pago simulado
+  const handleSimulatedPayment = () => {
+    setIsProcessing(true);
+
+    // Simular delay de procesamiento
+    setTimeout(() => {
+      setIsProcessing(false);
+      setShowSimulator(false);
+
+      // 4242... = éxito, 4000... = rechazado
+      if (simCardNumber.replace(/\s/g, '').startsWith('4242')) {
+        const fakeTransactionId = `sim_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        onPaymentSuccess?.(fakeTransactionId);
+      } else if (simCardNumber.replace(/\s/g, '').startsWith('4000')) {
+        onPaymentError?.('Pago rechazado (simulación)');
+      } else {
+        const fakeTransactionId = `sim_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        onPaymentSuccess?.(fakeTransactionId);
+      }
+    }, 2000);
   };
 
   const formatCurrency = (cents: number) => {
@@ -221,12 +259,114 @@ export const WompiCheckout = ({
         <span className="hidden font-semibold text-purple-600">Wompi</span>
       </div>
 
-      {/* Nota de modo prueba */}
-      {publicKey.startsWith('pub_test_') && (
+      {/* Nota de modo prueba o simulación */}
+      {(publicKey.startsWith('pub_test_') || simulationMode) && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
           <p className="text-sm text-yellow-700">
-            🧪 <strong>Modo de prueba:</strong> Usa la tarjeta 4242 4242 4242 4242 para simular pagos
+            🧪 <strong>{simulationMode ? 'Modo simulación' : 'Modo de prueba'}:</strong> Usa la tarjeta 4242 4242 4242 4242 para simular pagos
           </p>
+        </div>
+      )}
+
+      {/* Modal de simulación de pago */}
+      {showSimulator && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CreditCard className="w-8 h-8 text-purple-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Simulador de Pago</h3>
+              <p className="text-sm text-gray-500 mt-1">Ambiente de desarrollo</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Número de tarjeta
+                </label>
+                <input
+                  type="text"
+                  value={simCardNumber}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 16);
+                    const formatted = value.replace(/(\d{4})/g, '$1 ').trim();
+                    setSimCardNumber(formatted);
+                  }}
+                  placeholder="4242 4242 4242 4242"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vencimiento
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="12/28"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    CVV
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="123"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                <p className="font-medium text-gray-700">Tarjetas de prueba:</p>
+                <ul className="text-gray-600 mt-1 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span>4242 4242 4242 4242 = Aprobado</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-red-500" />
+                    <span>4000 0000 0000 0000 = Rechazado</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-purple-50 rounded-lg p-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Total:</span>
+                  <span className="font-bold text-purple-600">{formatCurrency(amountInCents)}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowSimulator(false)}
+                  disabled={isProcessing}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSimulatedPayment}
+                  disabled={isProcessing || simCardNumber.replace(/\s/g, '').length < 16}
+                  className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    'Pagar'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

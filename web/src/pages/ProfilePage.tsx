@@ -3,20 +3,21 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/shared/Button';
 import { Input } from '../components/shared/Input';
 import { useToast } from '../context/ToastContext';
-import { User, Mail, Calendar, Shield, Edit2, Save, X, CreditCard, MapPin, Phone, Building2 } from 'lucide-react';
+import { User, Mail, Calendar, Shield, Edit2, Save, X, CreditCard, MapPin, Phone, Building2, Loader2 } from 'lucide-react';
 
 export const ProfilePage = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const toast = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
-    cedula: '',
-    phone: '',
-    address: '',
-    city: '',
-    postalCode: '',
-    country: 'Colombia',
+    cedula: user?.profile?.cedula || '',
+    phone: user?.profile?.phone || '',
+    address: user?.profile?.address || '',
+    city: user?.profile?.city || '',
+    postalCode: user?.profile?.postalCode || '',
+    country: user?.profile?.country || 'Colombia',
   });
 
   if (!user) {
@@ -31,23 +32,38 @@ export const ProfilePage = () => {
     );
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Aquí iría la lógica para actualizar el perfil
-    // Por ahora solo mostramos un toast
-    toast.success('Perfil actualizado correctamente');
-    setIsEditing(false);
+    setIsSaving(true);
+
+    try {
+      await updateProfile({
+        name: formData.name,
+        cedula: formData.cedula,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        postalCode: formData.postalCode,
+        country: formData.country,
+      });
+      toast.success('Perfil actualizado correctamente');
+      setIsEditing(false);
+    } catch {
+      toast.error('Error al actualizar el perfil');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
     setFormData({
       name: user.name,
-      cedula: '',
-      phone: '',
-      address: '',
-      city: '',
-      postalCode: '',
-      country: 'Colombia',
+      cedula: user.profile?.cedula || '',
+      phone: user.profile?.phone || '',
+      address: user.profile?.address || '',
+      city: user.profile?.city || '',
+      postalCode: user.profile?.postalCode || '',
+      country: user.profile?.country || 'Colombia',
     });
     setIsEditing(false);
   };
@@ -149,7 +165,7 @@ export const ProfilePage = () => {
                   />
                 ) : (
                   <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900 font-medium">
-                    {formData.cedula || 'No especificado'}
+                    {user.profile?.cedula || 'No especificado'}
                   </div>
                 )}
               </div>
@@ -169,7 +185,7 @@ export const ProfilePage = () => {
                   />
                 ) : (
                   <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900 font-medium">
-                    {formData.phone || 'No especificado'}
+                    {user.profile?.phone || 'No especificado'}
                   </div>
                 )}
               </div>
@@ -197,7 +213,7 @@ export const ProfilePage = () => {
                       />
                     ) : (
                       <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900 font-medium">
-                        {formData.address || 'No especificado'}
+                        {user.profile?.address || 'No especificado'}
                       </div>
                     )}
                   </div>
@@ -217,7 +233,7 @@ export const ProfilePage = () => {
                         />
                       ) : (
                         <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900 font-medium">
-                          {formData.city || 'No especificado'}
+                          {user.profile?.city || 'No especificado'}
                         </div>
                       )}
                     </div>
@@ -235,7 +251,7 @@ export const ProfilePage = () => {
                         />
                       ) : (
                         <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900 font-medium">
-                          {formData.postalCode || 'No especificado'}
+                          {user.profile?.postalCode || 'No especificado'}
                         </div>
                       )}
                     </div>
@@ -255,7 +271,7 @@ export const ProfilePage = () => {
                       />
                     ) : (
                       <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900 font-medium">
-                        {formData.country}
+                        {user.profile?.country || 'Colombia'}
                       </div>
                     )}
                   </div>
@@ -284,6 +300,7 @@ export const ProfilePage = () => {
                     type="button"
                     variant="outline"
                     onClick={handleCancel}
+                    disabled={isSaving}
                     className="flex-1 flex items-center justify-center gap-2"
                   >
                     <X className="w-4 h-4" />
@@ -291,10 +308,20 @@ export const ProfilePage = () => {
                   </Button>
                   <Button
                     type="submit"
+                    disabled={isSaving}
                     className="flex-1 flex items-center justify-center gap-2"
                   >
-                    <Save className="w-4 h-4" />
-                    Guardar Cambios
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Guardar Cambios
+                      </>
+                    )}
                   </Button>
                 </div>
               )}

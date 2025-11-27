@@ -3,12 +3,22 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 export type UserRole = 'user' | 'admin';
 
+export interface UserProfile {
+  phone?: string;
+  cedula?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
   createdAt: Date;
+  profile?: UserProfile;
 }
 
 interface AuthContextType {
@@ -18,6 +28,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (profile: Partial<UserProfile> & { name?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -113,6 +124,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   };
 
+  const updateProfile = async (profileData: Partial<UserProfile> & { name?: string }): Promise<void> => {
+    if (!user) {
+      throw new Error('No hay usuario autenticado');
+    }
+
+    // Simular delay de red
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    const { name, ...profileFields } = profileData;
+
+    setUser(prevUser => {
+      if (!prevUser) return null;
+      return {
+        ...prevUser,
+        name: name || prevUser.name,
+        profile: {
+          ...prevUser.profile,
+          ...profileFields,
+        },
+      };
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -122,6 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         register,
         logout,
+        updateProfile,
       }}
     >
       {children}
