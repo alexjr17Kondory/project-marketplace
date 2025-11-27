@@ -4,540 +4,372 @@
 
 ---
 
-## 📍 FASE 1: MVP - CATÁLOGO + PERSONALIZADOR (Sin Pagos)
+## 📍 FASE 1: MVP - CATÁLOGO + PERSONALIZADOR + ADMIN BÁSICO
 
-**Duración estimada:** 3-4 semanas
-**Estado:** 🟡 90% Completado - En producción
-**Progreso:** Semanas 1-4 completadas | Solo falta Panel Admin
-**Objetivo:** Sitio web funcional con catálogo, personalizador y carrito simulado
-**Deploy:** ✅ https://project-marketplace.vercel.app (En vivo)
+**Estado:** 🟢 95% Completado
+**Deploy:** ✅ https://project-marketplace.vercel.app
 
-### Semana 1: Setup + Estructura Base ✅
+### ✅ Completado
 
-#### Día 1-2: Configuración del Proyecto ✅
-- [x] Crear proyecto con Vite + React + TypeScript
-- [x] Configurar Tailwind CSS
-- [x] Configurar ESLint + Prettier
-- [x] Configurar React Router
-- [x] Estructura de carpetas completa
-- [x] Configurar variables de entorno
-- [x] Git: Inicializar repositorio, `.gitignore`
+#### Semana 1-2: Setup + Catálogo
+- [x] Proyecto Vite + React + TypeScript + Tailwind
+- [x] Estructura de carpetas y rutas
+- [x] Componentes base (Layout, Header, Footer, Button, Input, Modal, Toast)
+- [x] Catálogo de productos con filtros y ordenamiento
+- [x] ProductCard, ProductGrid, ProductFilters
 
-#### Día 3-5: Componentes Base y Layout ✅
-- [x] Componente `Layout` (Header, Footer, Container)
-- [x] Componente `Header` con navegación mobile-first
-- [x] Componente `Footer` con enlace oculto a admin
-- [x] Componentes compartidos: `Button`, `Input`, `Modal`, `Toast`, `Loading`
-- [x] Sistema de rutas base
-- [x] Configurar Context API (estructura vacía)
+#### Semana 3: Personalizador
+- [x] Canvas 2D con renderizado realista (sombras, costuras, texturas)
+- [x] 6 tipos de productos (camiseta, hoodie, gorra, botella, taza, almohada)
+- [x] 14 zonas de impresión diferentes
+- [x] Sistema de tallas con escalado visual
+- [x] Guía de tallas interactiva
+- [x] 8 colores base
+- [x] Subida de imágenes (2MB máx, PNG/JPG)
+- [x] Controles de diseño (posición en cm, tamaño, rotación, bloqueo de proporción)
+- [x] Export de preview como PNG
 
-### Semana 2: Catálogo de Productos ✅
+#### Semana 4: Carrito + Panel Admin
+- [x] Sistema de carrito completo con persistencia localStorage
+- [x] Cálculo de impuestos (16%) y envío (gratis >$50)
+- [x] Panel Admin con Dashboard y estadísticas
+- [x] CRUD de Productos (tabla con búsqueda, paginación, ordenamiento)
+- [x] ProductForm completo (nombre, descripción, tipo, categoría, precio, stock, imágenes, colores, tallas)
+- [x] Gestión de Catálogos:
+  - [x] Tipos de producto
+  - [x] Categorías
+  - [x] Colores
+  - [x] Tallas
 
-#### Día 6-7: Modelo de Datos y Tipos ✅
-- [x] Definir tipos TypeScript (`product.ts`, `cart.ts`, `design.ts`)
-- [x] Crear datos iniciales de productos (8 productos hardcodeados)
-- [x] Crear configuración de tipos de producto (`productTypeConfigs.ts`)
-- [x] Crear configuración de zonas de estampado (14 zonas diferentes)
-- [x] Crear sistema de tallas con tablas de medidas (`sizeCharts.ts`)
-- [x] Service: `storage.service.ts` (wrapper de localStorage)
-
-#### Día 8-10: Páginas y Componentes de Catálogo ✅
-- [x] Página `HomePage` con Hero Section
-- [x] Componente `HeroSection` con CTA de personalización
-- [x] Componente `FeaturedProducts` (grid de destacados)
-- [x] Página `CatalogPage`
-- [x] Componente `ProductCard`
-- [x] Componente `ProductGrid`
-- [x] Componente `ProductFilters` (tipo, precio)
-- [x] Componente `ProductSort`
-- [x] Context: `ProductsContext` (listar, filtrar, ordenar)
-
-### Semana 3: Personalizador de Productos ✅
-
-#### Día 11-12: Canvas y Renderizado ✅
-- [x] Service: `canvas.service.ts` (lógica de dibujo)
-- [x] Funciones para dibujar Camiseta (frente/espalda con 8 zonas)
-- [x] Funciones para dibujar Hoodie (frente/espalda con 5 zonas)
-- [x] Funciones para dibujar Gorra, Botella, Taza, Almohada
-- [x] Sistema de vistas automáticas (front/back/side)
-- [x] Funciones para dibujar zonas de estampado con indicadores visuales
-- [x] Funciones para aplicar diseños en canvas con transformaciones
-- [x] Sistema de escalado visual según talla seleccionada (factores 0.85-1.22)
-- [x] Renderizado realista con piezas separadas, sombras y costuras
-
-#### Día 13-15: Componentes del Personalizador ✅
-- [x] Página `CustomizerPage` (completa e integrada)
-- [x] Componente `ProductSelector` (selector de 6 tipos de producto)
-- [x] Componente `ColorPicker` (8 colores base)
-- [x] Componente `SizeSelector` (selector de talla)
-- [x] Componente `SizeGuideModal` (modal con guía de tallas interactiva)
-- [x] Componente `ViewToggle` (frente/espalda/lateral)
-- [x] Componente `ZoneSelector` (selector de 14 zonas diferentes)
-- [x] Canvas integrado con preview en tiempo real (600x600px)
-- [x] Componente `ImageUploader` (subida de archivos con reset)
-- [x] Componente `DesignControls` (controles de posición, escala, rotación, opacidad)
-- [x] Sistema de diseños independientes por zona
-- [x] Validaciones: tamaño máximo 2MB, formatos PNG/JPG
-- [x] Cálculo automático de precio ($2 por zona personalizada)
-- [x] Export de preview como imagen PNG
-
-### Semana 4: Carrito + Panel Admin ✅
-
-#### Día 16-18: Sistema de Carrito ✅
-- [x] Context: `CartContext` (agregar, eliminar, actualizar cantidad)
-- [x] Hook: `useCart`
-- [x] Hook: `useLocalStorage`
-- [x] Componente `CartItem` (producto estándar con color y talla)
-- [x] Componente `CustomizedCartItem` (producto personalizado con preview y badge)
-- [x] Componente `CartSummary` (resumen de costos con impuestos y envío)
-- [x] Estado vacío con CTAs de navegación
-- [x] Página `CartPage` (vista completa con grid responsivo)
-- [x] Icono de carrito en header con badge de cantidad
-- [x] Cálculo automático: subtotal, impuestos (16%), envío (gratis >$50)
-- [x] Persistencia completa en localStorage
-- [x] Diferenciación visual entre productos estándar y personalizados
-- [x] Sección de garantías y beneficios
-
-#### Día 19-21: Panel de Administración
-- [ ] Página `AdminPage` con tabs
-- [ ] Componente `ProductManager` (CRUD de productos)
-- [ ] Componente `ProductForm` (formulario agregar/editar)
-- [ ] Componente `ProductTypeManager` (gestión de tipos)
-- [ ] Validaciones de formularios
-- [ ] Vista de carritos simulados (desde localStorage)
-- [ ] Persistencia en localStorage de productos creados
-
-#### Día 22: Testing y Refinamiento
-- [ ] Pruebas manuales completas
-- [ ] Responsive design (mobile, tablet, desktop)
-- [ ] Fix de bugs encontrados
-- [ ] Optimización de rendimiento (lazy loading, memoización)
-- [ ] Documentación de componentes principales
-
-### Entregables Fase 1
-- ✅ Sitio web funcional con diseño moderno y responsivo
-- ✅ Catálogo navegable con filtros y ordenamiento
-- ✅ Personalizador funcional completo:
-  - ✅ 6 tipos de productos (camiseta, hoodie, gorra, botella, taza, almohada)
-  - ✅ 14 zonas de impresión diferentes
-  - ✅ Sistema de tallas con escalado visual (factores 0.85-1.22)
-  - ✅ Guía de tallas interactiva con tablas de medidas
-  - ✅ 8 colores base
-  - ✅ Canvas con renderizado realista y piezas separadas
-  - ✅ Sistema de vistas automáticas (front/back/side)
-  - ✅ Export de preview como imagen PNG
-- ✅ Carrito de compras completo:
-  - ✅ Productos estándar y personalizados
-  - ✅ Cálculo de impuestos (16%) y envío (gratis >$50)
-  - ✅ Persistencia en localStorage
-  - ✅ UI diferenciada para productos personalizados
-  - ✅ Estado vacío con CTAs
-  - ✅ Sección de garantías y beneficios
-- ⚪ Panel admin básico (pendiente)
-- ✅ Documentación técnica completa:
-  - ✅ PRODUCT_SYSTEM.md (13 secciones)
-  - ✅ REQUIREMENTS.md actualizado (RF-004 ✅)
-  - ✅ INDEX.md actualizado
-  - ✅ ROADMAP.md actualizado
-  - ✅ DEPLOY.md (guía de deployment)
-  - ✅ INSTRUCCIONES_DEPLOY.md
-- ✅ Deploy en producción:
-  - ✅ Vercel configurado correctamente
-  - ✅ Build optimizado (380KB, ~105KB gzipped)
-  - ✅ HTTPS automático
-  - ✅ CDN global
-  - ✅ Auto-deploy en cada push
-- ✅ Código en GitHub
-- ✅ README con instrucciones de instalación
+### ⚪ Pendiente Fase 1
+- [ ] Testing y refinamiento final
+- [ ] Optimización de rendimiento
 
 ---
 
-## 📍 FASE 2: BACKEND + BASE DE DATOS + AUTENTICACIÓN
+## 📍 FASE 2: USUARIOS + AUTENTICACIÓN + ROLES
 
-**Duración estimada:** 2-3 semanas
-**Estado:** ⚪ No iniciada
-**Objetivo:** Persistencia real de datos, API REST, sistema de usuarios
+**Estado:** 🟢 90% Completado
+**Objetivo:** Sistema de usuarios con roles diferenciados (Cliente, Admin, SuperAdmin)
 
-### Semana 5: Setup Backend + Base de Datos
+### Módulo de Autenticación
+- [x] Página de Login
+- [x] Página de Registro
+- [ ] Recuperación de contraseña
+- [ ] Verificación de email (opcional)
+- [x] Context: `AuthContext` (login, logout, register)
+- [x] Hook: `useAuth`
+- [x] Protección de rutas por rol
 
-#### Día 1-2: Configuración Inicial
-- [ ] Inicializar proyecto backend (Node.js + Express + TypeScript)
-- [ ] Configurar PostgreSQL local/cloud (Supabase o Railway)
-- [ ] Configurar Prisma ORM
-- [ ] Diseñar esquema de base de datos (prisma.schema)
-- [ ] Crear migraciones iniciales
-- [ ] Seeders con datos de prueba
+### Módulo de Usuarios (Clientes)
+- [x] Página `UsersPage` en Admin (lista de clientes con tabla)
+- [x] Ver perfil de usuario (`UserDetailPage`)
+- [x] Historial de pedidos del usuario
+- [x] Direcciones guardadas del usuario
+- [x] Activar/Desactivar usuario
+- [x] Filtros: estado, fecha registro, rol
 
-#### Día 3-5: Estructura del Backend
-- [ ] Estructura de carpetas (routes, controllers, services, middlewares)
-- [ ] Configurar variables de entorno
-- [ ] Middleware de error handling
-- [ ] Middleware de logging (Morgan)
-- [ ] Middleware de CORS
-- [ ] Middleware de validación (Zod)
+### Módulo de Administradores
+- [x] Página `AdminUsersPage` en Admin (lista de administradores)
+- [x] Crear nuevo administrador
+- [x] Asignar rol (Admin, SuperAdmin)
+- [x] Permisos por módulo (estructura definida)
+- [ ] Log de actividad del administrador
+- [x] Solo SuperAdmin puede crear/editar otros admins
 
-### Semana 6: API REST + Autenticación
-
-#### Día 6-8: Endpoints de Productos
-- [ ] GET `/api/products` (listar con filtros, paginación)
-- [ ] GET `/api/products/:id` (detalle)
-- [ ] POST `/api/products` (crear - solo admin)
-- [ ] PUT `/api/products/:id` (actualizar - solo admin)
-- [ ] DELETE `/api/products/:id` (eliminar - solo admin)
-- [ ] GET `/api/product-types` (listar tipos)
-- [ ] POST `/api/product-types` (crear tipo - solo admin)
-
-#### Día 9-11: Sistema de Autenticación
-- [ ] Modelo de usuarios (Prisma)
-- [ ] POST `/api/auth/register` (registro)
-- [ ] POST `/api/auth/login` (login)
-- [ ] POST `/api/auth/logout` (logout)
-- [ ] POST `/api/auth/refresh-token` (renovar token)
-- [ ] GET `/api/auth/me` (perfil usuario)
-- [ ] Middleware: `authenticate` (verificar JWT)
-- [ ] Middleware: `authorize` (verificar roles)
-- [ ] Hash de contraseñas (bcrypt)
-- [ ] Generación de tokens JWT
-
-### Semana 7: Integración Frontend + Backend
-
-#### Día 12-14: Cliente HTTP en Frontend
-- [ ] Service: `api.ts` (cliente Axios/Fetch)
-- [ ] Interceptores de request/response
-- [ ] Manejo de tokens (localStorage + refresh)
-- [ ] Context: `AuthContext` (login, logout, register)
-- [ ] Hook: `useAuth`
-- [ ] Componentes: `LoginForm`, `RegisterForm`
-- [ ] Protección de rutas (admin panel)
-
-#### Día 15-16: Migración de Datos
-- [ ] Migrar productos de localStorage → DB
-- [ ] Migrar carritos de localStorage → DB (por usuario)
-- [ ] Endpoints de carrito: GET, POST, PUT, DELETE
-- [ ] Context: `CartContext` actualizado para usar API
-
-#### Día 17-18: Subida de Imágenes
-- [ ] Configurar Cloudinary/AWS S3
-- [ ] Endpoint: POST `/api/upload` (subir imagen)
-- [ ] Actualizar `ImageUploader` para usar API
-- [ ] Guardar diseños personalizados en DB
+### Perfil de Usuario (Frontend público)
+- [x] Página `ProfilePage`
+- [x] Editar datos personales
+- [x] Cambiar contraseña
+- [x] Mis direcciones (CRUD)
+- [ ] Mis pedidos (historial)
 
 ### Entregables Fase 2
-- ✅ API REST funcional
-- ✅ Base de datos PostgreSQL
-- ✅ Sistema de autenticación completo
-- ✅ Gestión de roles y permisos
-- ✅ Imágenes en cloud storage
-- ✅ Frontend integrado con backend
-- ✅ Documentación de API (Swagger/Postman)
+- [x] Sistema de autenticación completo
+- [x] Gestión de usuarios clientes
+- [x] Gestión de administradores con roles
+- [x] Perfiles de usuario en frontend
 
 ---
 
-## 📍 FASE 3: PAGOS + ÓRDENES + EMAIL
+## 📍 FASE 3: PEDIDOS + HISTORIAL DE ESTADOS
 
-**Duración estimada:** 2-3 semanas
-**Estado:** ⚪ No iniciada
-**Objetivo:** Checkout funcional, procesamiento de pagos, gestión de pedidos
+**Estado:** 🟢 95% Completado
+**Objetivo:** Sistema simple de pedidos con registro de cambio de estados (sin pagos reales)
 
-### Semana 8: Sistema de Checkout
+### Flujo del Pedido (Estados)
 
-#### Día 1-2: Modelos de Datos
-- [ ] Modelo: `Order` (Prisma)
-- [ ] Modelo: `OrderItem` (Prisma)
-- [ ] Modelo: `OrderTimeline` (Prisma)
-- [ ] Modelo: `Address` (Prisma)
-- [ ] Migraciones
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│  PENDIENTE  │───►│ CONFIRMADO  │───►│ EN PROCESO  │───►│  COMPLETADO │
+│   (Nuevo)   │    │   (Pago OK) │    │ (Producción)│    │  (Listo)    │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+       │
+       ▼
+┌─────────────┐
+│  CANCELADO  │
+└─────────────┘
+```
 
-#### Día 3-5: Flujo de Checkout (Frontend)
-- [ ] Página `CheckoutPage` con steps
-- [ ] Componente `ShippingForm` (dirección de envío)
-- [ ] Componente `ShippingMethodSelector` (métodos de envío)
-- [ ] Componente `PaymentForm` (formulario de pago)
-- [ ] Componente `OrderSummary` (resumen final)
-- [ ] Componente `OrderConfirmation` (confirmación exitosa)
-- [ ] Validaciones de formularios
+### Estados del Pedido
+| Estado | Descripción | Acción Admin |
+|--------|-------------|--------------|
+| `pending` | Pedido creado, esperando confirmación | Confirmar / Cancelar |
+| `confirmed` | Pago verificado manualmente | Pasar a producción |
+| `processing` | En producción (estampado) | Marcar completado |
+| `completed` | Pedido listo/entregado | - |
+| `cancelled` | Cancelado | - |
 
-### Semana 9: Integración de Pagos
+### Modelo de Datos
 
-#### Día 6-8: Stripe / MercadoPago
-- [ ] Crear cuenta en Stripe/MercadoPago
-- [ ] Instalar SDK en backend
-- [ ] Endpoint: POST `/api/payments/create-intent` (crear intención de pago)
-- [ ] Endpoint: POST `/api/payments/confirm` (confirmar pago)
-- [ ] Webhook: `/api/webhooks/stripe` (eventos de Stripe)
-- [ ] Integrar widget de pago en frontend
-- [ ] Manejo de errores de pago
+**Pedido (Order)**
+```
+- id
+- orderNumber (ej: ORD-001)
+- customerName
+- customerEmail
+- customerPhone
+- items[] (productos del carrito)
+- subtotal
+- total
+- status (pending, confirmed, processing, completed, cancelled)
+- notes (notas del admin)
+- createdAt
+- updatedAt
+```
 
-#### Día 9-11: Sistema de Órdenes
-- [ ] Endpoint: POST `/api/orders` (crear orden)
-- [ ] Endpoint: GET `/api/orders` (listar órdenes usuario/admin)
-- [ ] Endpoint: GET `/api/orders/:id` (detalle de orden)
-- [ ] Endpoint: PUT `/api/orders/:id/status` (cambiar estado - admin)
-- [ ] Cálculo de impuestos
-- [ ] Cálculo de envío
-- [ ] Generación de número de orden único
-- [ ] Limpiar carrito después de orden exitosa
+**Timeline del Pedido (OrderTimeline)**
+```
+- id
+- orderId
+- status (estado al que cambió)
+- changedBy (quién hizo el cambio)
+- notes (comentario opcional)
+- createdAt
+```
 
-### Semana 10: Emails + Panel de Pedidos
+### Checkout (Frontend - Simple)
+- [ ] Página `CheckoutPage` básica:
+  - [ ] Resumen del carrito
+  - [ ] Formulario de datos del cliente (nombre, email, teléfono)
+  - [ ] Dirección de entrega (texto libre)
+  - [ ] Botón "Confirmar Pedido"
+- [ ] Página `OrderConfirmationPage` (número de pedido generado)
 
-#### Día 12-13: Sistema de Emails
-- [ ] Configurar SendGrid/Resend
-- [ ] Templates de email (HTML + texto plano)
-  - [ ] Confirmación de orden
-  - [ ] Cambio de estado
-  - [ ] Tracking de envío
-- [ ] Service: `email.service.ts`
-- [ ] Cola de emails (Bull/BullMQ) - opcional
+### Módulo de Pedidos (Admin)
+- [x] Página `OrdersPage` - Lista de pedidos con tabla
+- [x] Tabla: #Orden, Cliente, Fecha, Total, Estado, Acciones
+- [x] Filtros por estado
+- [x] Búsqueda por número de orden o cliente
+- [x] Página `OrderDetailPage`:
+  - [x] Datos del cliente
+  - [x] Productos del pedido (con preview)
+  - [x] Timeline del pedido (historial de cambios de estado)
+  - [x] Totales
+- [x] Botones de cambio de estado con flujo completo
+- [x] Campo de notas al cambiar estado
+- [x] Subir evidencias de pago
+- [ ] Descargar diseños para producción (PNG)
 
-#### Día 14-16: Panel de Pedidos (Admin)
-- [ ] Página `OrdersPage` (admin)
-- [ ] Componente `OrdersList` (tabla de pedidos)
-- [ ] Componente `OrderDetail` (detalle completo)
-- [ ] Filtros: estado, fecha, usuario
-- [ ] Cambiar estado de pedido
-- [ ] Ver diseños personalizados del pedido
-- [ ] Generar archivo de producción (PDF/PNG)
-
-#### Día 17-18: Historial de Pedidos (Usuario)
-- [ ] Página `MyOrdersPage` (usuario)
-- [ ] Componente `OrderCard` (resumen de orden)
-- [ ] Ver tracking de envío
-- [ ] Descargar factura (PDF)
+### Mis Pedidos (Cliente - Opcional)
+- [ ] Página `MyOrdersPage` - Ver mis pedidos por email
+- [ ] Ver estado actual y timeline
 
 ### Entregables Fase 3
-- ✅ Checkout funcional
-- ✅ Integración de pagos (Stripe/MercadoPago)
-- ✅ Sistema de órdenes completo
-- ✅ Emails transaccionales
-- ✅ Panel de gestión de pedidos
-- ✅ Historial de pedidos para usuarios
-- ✅ Generación de facturas
+- [ ] Checkout simple (sin pasarela de pago)
+- [x] Sistema de pedidos con cambio de estados
+- [x] Timeline/historial de cada pedido
+- [x] Panel de gestión de pedidos para admin
 
 ---
 
-## 📍 FASE 4: APP MÓVIL (React Native)
+## 📍 FASE 4: PAGOS + FACTURACIÓN + DESPACHOS
 
-**Duración estimada:** 1-2 semanas
+**Estado:** 🔮 Futuro (No prioritario)
+**Objetivo:** Integración de pasarela de pagos, facturación y sistema de despachos
+
+> ⚠️ **Nota:** Esta fase se implementará cuando el negocio lo requiera.
+> Por ahora el sistema funciona con confirmación manual de pagos.
+
+### Integración de Pagos (Futuro)
+- [ ] Pasarela de pagos (Stripe / MercadoPago / PayU)
+- [ ] Pago con tarjeta en checkout
+- [ ] Webhooks de confirmación automática
+- [ ] Pago por transferencia con comprobante
+
+### Facturación (Futuro)
+- [ ] Generación de facturas PDF
+- [ ] Datos fiscales configurables
+- [ ] Envío de factura por email
+
+### Sistema de Despachos (Futuro)
+- [ ] Métodos de envío configurables
+- [ ] Cálculo de costos de envío
+- [ ] Integración con couriers
+- [ ] Tracking de envíos
+
+---
+
+## 📍 FASE 5: NOTIFICACIONES + EMAILS
+
 **Estado:** ⚪ No iniciada
-**Objetivo:** App móvil funcional con WebView y funciones nativas
+**Objetivo:** Sistema de notificaciones y emails transaccionales
 
-### Semana 11: Setup + WebView Básico
+### Emails Transaccionales
+- [ ] Configurar servicio de email (SendGrid / Resend / AWS SES)
+- [ ] Templates de email:
+  - [ ] Bienvenida (registro)
+  - [ ] Confirmación de pedido
+  - [ ] Pago recibido
+  - [ ] Pedido en producción
+  - [ ] Pedido enviado (con tracking)
+  - [ ] Pedido entregado
+  - [ ] Pedido cancelado
+  - [ ] Recuperación de contraseña
+- [ ] Diseño responsive de emails
+- [ ] Variables dinámicas (nombre, #orden, productos, etc.)
 
-#### Día 1-2: Configuración Inicial
-- [ ] Inicializar proyecto con Expo
-- [ ] Configurar TypeScript
-- [ ] Instalar dependencias:
-  - [ ] react-native-webview
-  - [ ] expo-image-picker
-  - [ ] expo-camera
-  - [ ] expo-sharing
-  - [ ] expo-media-library
-  - [ ] expo-notifications
+### Notificaciones en App
+- [ ] Sistema de notificaciones internas
+- [ ] Icono de campana en header con badge
+- [ ] Lista de notificaciones
+- [ ] Marcar como leída
+- [ ] Tipos de notificación:
+  - [ ] Nuevo pedido (admin)
+  - [ ] Cambio de estado de pedido (cliente)
+  - [ ] Stock bajo (admin)
 
-#### Día 3-5: WebView + Comunicación
-- [ ] Componente `WebViewWrapper`
-- [ ] Inyección de `window.isNativeApp = true`
-- [ ] Sistema de mensajes bidireccional
-- [ ] Service: `messaging.service.ts`
-- [ ] Detección de conexión (online/offline)
-- [ ] Splash screen
+### Configuración de Notificaciones (Admin)
+- [ ] Página `NotificationConfigPage`
+- [ ] Activar/desactivar emails por tipo
+- [ ] Personalizar textos de email
+- [ ] Email de prueba
 
-### Semana 12: Funciones Nativas
-
-#### Día 6-7: Subida de Imágenes
-- [ ] Solicitar permisos de cámara
-- [ ] Solicitar permisos de galería
-- [ ] Abrir cámara nativa
-- [ ] Abrir galería nativa
-- [ ] Convertir imagen a base64
-- [ ] Enviar imagen a WebView
-
-#### Día 8-9: Compartir y Guardar
-- [ ] Compartir diseño en redes sociales
-- [ ] Guardar diseño en galería
-- [ ] Integración con Share API nativo
-
-#### Día 10-11: Notificaciones Push
-- [ ] Configurar Firebase Cloud Messaging
-- [ ] Solicitar permisos de notificaciones
-- [ ] Recibir notificaciones push
-- [ ] Manejar tap en notificación
-- [ ] Endpoint backend: POST `/api/notifications/send`
-
-#### Día 12-13: Testing y Publicación
-- [ ] Testing en iOS (simulador + dispositivo real)
-- [ ] Testing en Android (emulador + dispositivo real)
-- [ ] Configurar app.json (nombre, íconos, splash)
-- [ ] Build de producción (EAS Build)
-- [ ] Publicar en TestFlight (iOS)
-- [ ] Publicar en Google Play (Beta)
-
-### Entregables Fase 4
-- ✅ App móvil iOS/Android
-- ✅ WebView funcional
-- ✅ Comunicación Web ↔ Native
-- ✅ Subida de imágenes desde móvil
-- ✅ Compartir diseños
-- ✅ Notificaciones push
-- ✅ App publicada en stores (beta)
+### Entregables Fase 5
+- Emails transaccionales automáticos
+- Sistema de notificaciones in-app
+- Configuración de notificaciones
 
 ---
 
-## 📍 FASE 5: EXPANSIÓN DE PRODUCTOS
+## 📍 FASE 6: CONFIGURACIÓN GENERAL
 
-**Duración estimada:** Variable
+**Estado:** 🟢 85% Completado
+**Objetivo:** Configuración centralizada del sistema
+
+### Configuración del Negocio
+- [x] Página `SettingsPage` en Admin (con tabs)
+- [x] Datos del negocio:
+  - [x] Nombre de la tienda
+  - [ ] Logo
+  - [x] Dirección
+  - [x] Teléfono
+  - [x] Email de contacto
+  - [x] Redes sociales (Facebook, Instagram, WhatsApp)
+- [ ] Datos fiscales (para facturas)
+- [ ] Horario de atención
+
+### Configuración de Envíos
+- [x] Origen de envío (dirección de salida de paquetes)
+- [x] Zonas geográficas
+- [x] Transportadoras con tarifas por zona
+- [x] Factor volumétrico por transportadora
+- [x] Tiempo de preparación
+- [x] Configuración de paquetes por defecto
+
+### Configuración de Pagos
+- [x] Métodos de pago (Transferencia, PSE, Efectivo, Tarjeta)
+- [x] Información bancaria para transferencias
+- [x] Impuestos (IVA %)
+- [x] Moneda configurable
+
+### Términos y Políticas
+- [ ] Página de Términos y Condiciones
+- [ ] Página de Política de Privacidad
+- [ ] Página de Política de Devoluciones
+- [ ] Editor de contenido para cada página
+
+### Entregables Fase 6
+- [x] Configuración centralizada del negocio
+- [x] Configuración de envíos y transportadoras
+- [x] Configuración de métodos de pago
+- [ ] Páginas legales editables
+
+---
+
+## 📍 FASE 7: BACKEND + BASE DE DATOS (Cuando sea necesario)
+
 **Estado:** ⚪ No iniciada
-**Objetivo:** Más productos personalizables y funciones avanzadas
+**Objetivo:** Migrar de localStorage a persistencia real
 
-### Nuevos Productos
-- [ ] Gorras (con zonas: frente, lateral, trasera)
-- [ ] Botellas (con zona: alrededor)
-- [ ] Tazas (con zona: alrededor)
-- [ ] Almohadas (con zonas: frontal)
-- [ ] Stickers (forma libre)
+### Setup Backend
+- [ ] Proyecto Node.js + Express + TypeScript
+- [ ] PostgreSQL (Supabase / Railway / PlanetScale)
+- [ ] Prisma ORM
+- [ ] Esquema de base de datos
+- [ ] Seeders con datos iniciales
 
-### Editor de Texto
-- [ ] Agregar texto personalizado
-- [ ] Selector de fuentes (10+ fuentes)
-- [ ] Color de texto
-- [ ] Efectos: sombra, contorno, gradiente
-- [ ] Texto curvo
-- [ ] Alineación
+### API REST
+- [ ] Endpoints de productos
+- [ ] Endpoints de usuarios
+- [ ] Endpoints de pedidos
+- [ ] Endpoints de autenticación
+- [ ] Documentación Swagger
 
-### Biblioteca de Diseños
-- [ ] Cliparts predefinidos (categorías)
-- [ ] Stickers
-- [ ] Marcos decorativos
-- [ ] Plantillas populares
-- [ ] Búsqueda y filtros
+### Migración
+- [ ] Migrar productos de localStorage → DB
+- [ ] Migrar usuarios de localStorage → DB
+- [ ] Migrar pedidos de localStorage → DB
+- [ ] Actualizar servicios del frontend
 
-### Funciones Avanzadas
-- [ ] Vista 3D de productos (Three.js)
-- [ ] Rotación 360° del producto
-- [ ] Guardar diseños como plantillas
-- [ ] Compartir diseños con otros usuarios
-- [ ] Sistema de reviews y ratings
-- [ ] Cupones y descuentos
-- [ ] Programa de referidos
+### Storage de Imágenes
+- [ ] Cloudinary / AWS S3
+- [ ] Subida de imágenes de productos
+- [ ] Subida de diseños personalizados
+- [ ] Optimización de imágenes
 
 ---
 
-## 🔄 CICLO DE DESARROLLO CONTINUO
+## 📍 FASE 8: APP MÓVIL (Opcional)
 
-### Por cada Feature Nueva:
-1. **Planificación** (1 día)
-   - Definir requerimientos
-   - Diseñar UI/UX
-   - Estimar tiempo
+**Estado:** ⚪ No iniciada
+**Objetivo:** App móvil con React Native + WebView
 
-2. **Desarrollo** (2-5 días)
-   - Backend (si aplica)
-   - Frontend
-   - Integración
-
-3. **Testing** (1 día)
-   - Pruebas unitarias
-   - Pruebas manuales
-   - Fix de bugs
-
-4. **Deployment** (medio día)
-   - Deploy a staging
-   - Pruebas en staging
-   - Deploy a producción
-
-5. **Monitoreo** (continuo)
-   - Logs y errores
-   - Métricas de uso
-   - Feedback de usuarios
+### Contenido
+- [ ] Expo + React Native
+- [ ] WebView del sitio web
+- [ ] Subida de imágenes desde cámara/galería
+- [ ] Notificaciones push
+- [ ] Publicación en stores
 
 ---
 
-## 📊 MÉTRICAS DE ÉXITO POR FASE
+## 📊 RESUMEN DE ESTADO
 
-### Fase 1
-- [x] 100% de productos visibles en catálogo
-- [x] Personalización funcional en 6 tipos de producto
-- [x] Carrito con persistencia en localStorage
-- [x] Deploy en producción (Vercel)
-- [ ] Panel admin operativo (único pendiente)
-
-### Fase 2
-- [ ] API con 95%+ uptime
-- [ ] Autenticación sin errores
-- [ ] Tiempo de respuesta API < 200ms
-
-### Fase 3
-- [ ] Tasa de éxito de pagos > 98%
-- [ ] Emails entregados > 99%
-- [ ] Órdenes procesadas correctamente
-
-### Fase 4
-- [ ] App funcional en iOS y Android
-- [ ] Comunicación Web-Native sin fallos
-- [ ] Rating en stores > 4.5 estrellas
+| Fase | Nombre | Estado | Progreso |
+|------|--------|--------|----------|
+| 1 | MVP: Catálogo + Personalizador + Admin | 🟢 | 95% |
+| 2 | Usuarios + Autenticación + Roles | 🟢 | 90% |
+| 3 | Pedidos + Historial de Estados | 🟢 | 95% |
+| 4 | Pagos + Facturación + Despachos | 🔮 | Futuro |
+| 5 | Notificaciones + Emails | ⚪ | 0% |
+| 6 | Configuración General | 🟢 | 85% |
+| 7 | Backend + Base de Datos | ⚪ | 0% |
+| 8 | App Móvil | 🔮 | Futuro |
 
 ---
 
-## 🚀 PRÓXIMOS PASOS INMEDIATOS
+## 🎯 PRÓXIMOS PASOS RECOMENDADOS
 
-### ✅ Completado Recientemente
+### Pendientes prioritarios:
+1. **Checkout** - Página de checkout para completar compras
+2. **Mis Pedidos** - Vista de pedidos para clientes
+3. **Notificaciones** - Emails transaccionales básicos
 
-1. **Sistema de Tallas** (2025-11-22)
-   - [x] Selector de tallas con 6 opciones
-   - [x] Modal de guía de tallas
-   - [x] Escalado visual del producto
-   - [x] Tablas de medidas completas
-
-2. **Sistema de Carrito** (2025-11-22)
-   - [x] CartPage completa
-   - [x] Componentes CartItem y CustomizedCartItem
-   - [x] CartSummary con cálculos automáticos
-   - [x] Persistencia en localStorage
-
-3. **Deploy a Producción** (2025-11-22)
-   - [x] Configuración de Vercel
-   - [x] Build optimizado
-   - [x] Sitio público en vivo
-   - [x] Auto-deploy configurado
-
-4. **Documentación Técnica** (2025-11-22)
-   - [x] PRODUCT_SYSTEM.md
-   - [x] Actualización de REQUIREMENTS.md
-   - [x] Actualización de INDEX.md
-   - [x] Guías de deployment
-
-### 🎯 Lo Siguiente
-
-1. **Completar Fase 1** (Pendiente)
-   - [ ] Implementar Panel de Administración (CRUD de productos)
-   - [ ] Testing completo del sistema
-   - [ ] Optimizaciones finales
-
-2. **O Continuar con Features** (Opcional)
-   - [ ] Mejorar UX del personalizador
-   - [ ] Agregar más tipos de productos
-   - [ ] Implementar editor de texto
-
-3. **O Iniciar Fase 2** (Futuro)
-   - [ ] Setup de backend (Node.js + Express)
-   - [ ] Configurar base de datos (PostgreSQL)
-   - [ ] Implementar API REST
+### Nota sobre localStorage vs Backend:
+Por ahora todo funciona con localStorage. Cuando el volumen de datos lo requiera, se implementará la Fase 7 (Backend + Base de datos).
 
 ---
 
-## 📈 Estado General del Proyecto
-
-**Fase 1:** 🟡 90% Completado
-- ✅ Catálogo y productos
-- ✅ Personalizador completo (6 productos, 14 zonas)
-- ✅ Sistema de tallas
-- ✅ Carrito de compras
-- ✅ Deploy en producción
-- ⚪ Panel de administración (pendiente)
-
-**URL en Producción:** https://project-marketplace.vercel.app
-
----
-
-**Última actualización:** 2025-11-22
-**Versión:** 1.1
+**Última actualización:** 2025-11-26
+**Versión:** 3.0

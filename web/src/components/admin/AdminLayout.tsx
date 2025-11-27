@@ -15,7 +15,9 @@ import {
   ChevronRight,
   Layers,
   Truck,
-  FileText
+  FileText,
+  Shield,
+  UserCog,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -25,12 +27,21 @@ interface AdminLayoutProps {
 // Módulos principales sin submenú
 const menuItems = [
   { path: '/admin-panel', icon: BarChart3, label: 'Dashboard', exact: true },
-  { path: '/admin-panel/users', icon: Users, label: 'Usuarios' },
   { path: '/admin-panel/settings', icon: Settings, label: 'Configuración' },
 ];
 
 // Módulos con submenús
 const menuWithSubmenus = [
+  {
+    id: 'users',
+    label: 'Usuarios',
+    icon: Users,
+    basePath: '/admin-panel/users',
+    submenu: [
+      { path: '/admin-panel/users', label: 'Clientes', icon: UserCog },
+      { path: '/admin-panel/admins', label: 'Administradores', icon: Shield },
+    ],
+  },
   {
     id: 'catalogs',
     label: 'Catálogos',
@@ -64,6 +75,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   // Estado para cada submenú
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
+    users: false,
     catalogs: false,
     orders: false,
   });
@@ -210,7 +222,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
               {/* Menús con submenús */}
               {menuWithSubmenus.map((module) => {
                 const Icon = module.icon;
-                const moduleActive = isActive(module.basePath) || isActive('/admin-panel/products');
+                const moduleActive = isActive(module.basePath) || (module.id === 'catalogs' && isActive('/admin-panel/products')) || (module.id === 'users' && isActive('/admin-panel/admins'));
 
                 return (
                   <div key={module.id}>
