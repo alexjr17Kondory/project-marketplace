@@ -12,6 +12,7 @@ import {
   ChevronRight,
   AlertCircle,
   CheckCircle2,
+  Zap,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
@@ -19,6 +20,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import { Input } from '../components/shared/Input';
 import { Button } from '../components/shared/Button';
+import { WompiCheckout } from '../components/payment/WompiCheckout';
 import type { PaymentMethod } from '../types/order';
 
 interface FormData {
@@ -44,7 +46,7 @@ interface FormErrors {
 export const CheckoutPage = () => {
   const navigate = useNavigate();
   const { cart, clearCart } = useCart();
-  const { createOrder } = useOrders();
+  const { createOrder, changeOrderStatus } = useOrders();
   const { settings } = useSettings();
   const { showToast } = useToast();
 
@@ -56,12 +58,13 @@ export const CheckoutPage = () => {
     shippingCity: '',
     shippingPostalCode: '',
     shippingNotes: '',
-    paymentMethod: 'transfer',
+    paymentMethod: 'wompi',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [step, setStep] = useState<'info' | 'payment' | 'review'>('info');
+  const [step, setStep] = useState<'info' | 'payment' | 'processing'>('info');
+  const [paymentReference, setPaymentReference] = useState('');
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -70,7 +73,14 @@ export const CheckoutPage = () => {
     }
   }, [cart.items.length, navigate]);
 
+  // Generar referencia única para el pago
+  useEffect(() => {
+    const ref = `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    setPaymentReference(ref);
+  }, []);
+
   const activePaymentMethods = settings.payment.methods.filter((m) => m.isActive);
+  const wompiConfig = activePaymentMethods.find((m) => m.type === 'wompi')?.wompiConfig;
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -120,7 +130,96 @@ export const CheckoutPage = () => {
     }
   };
 
-  const handleSubmit = async () => {
+  const createOrderFromCart = (status: 'pending' | 'paid' = 'pending', transactionId?: string) => {
+    const orderItems = cart.items.map((item) => {
+      if (item.type === 'customized') {
+        const customized = item.customizedProduct;
+        return {
+          productId: customized.productId,
+          productName: customized.productName,
+          productImage: customized.previewImages.front,
+          size: customized.selectedSize,
+          color: customized.selectedColor,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          customization: {
+            designFront: customized.previewImages.front,
+            designBack: customized.previewImages.back,
+          },
+        };
+      } else {
+        const standardItem = item as import('../types/cart').CartItem;
+        return {
+          productId: standardItem.product.id,
+          productName: standardItem.product.name,
+          productImage: standardItem.product.images.front,
+          size: standardItem.selectedSize,
+          color: standardItem.selectedColor,
+          quantity: item.quantity,
+          unitPrice: item.price,
+        };
+      }
+    });
+
+    const order = createOrder({
+      customerName: formData.customerName,
+      customerEmail: formData.customerEmail,
+      customerPhone: formData.customerPhone,
+      shippingAddress: formData.shippingAddress,
+      shippingCity: formData.shippingCity,
+      shippingPostalCode: formData.shippingPostalCode,
+      shippingNotes: formData.shippingNotes,
+      paymentMethod: formData.paymentMethod,
+      items: orderItems,
+      subtotal: cart.subtotal,
+      shippingCost: cart.shipping,
+      discount: cart.discount,
+      total: cart.total,
+    });
+
+    // Si el pago fue exitoso (Wompi), cambiar estado a pagado
+    if (status === 'paid' && transactionId) {
+      changeOrderStatus({
+        orderId: order.id,
+        newStatus: 'paid',
+        note: `Pago confirmado via Wompi. ID: ${transactionId}`,
+      });
+    }
+
+    return order;
+  };
+
+  const handleWompiSuccess = (transactionId: string) => {
+    setIsSubmitting(true);
+
+    try {
+      // Crear pedido con estado pagado
+      const order = createOrderFromCart('paid', transactionId);
+
+      // Limpiar carrito
+      clearCart();
+
+      showToast('¡Pago exitoso! Tu pedido ha sido confirmado.', 'success');
+
+      // Redirigir a confirmación
+      navigate(`/order-confirmation/${order.orderNumber}`);
+    } catch {
+      showToast('Error al crear el pedido. Contacta soporte.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleWompiError = (error: string) => {
+    showToast(error, 'error');
+  };
+
+  const handleWompiClose = () => {
+    // Usuario cerró el widget sin pagar
+    showToast('Pago cancelado', 'info');
+  };
+
+  const handleSubmitOtherPayment = async () => {
     if (!validateForm()) {
       showToast('Por favor completa todos los campos requeridos', 'error');
       return;
@@ -129,59 +228,13 @@ export const CheckoutPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Simular delay de procesamiento
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const orderItems = cart.items.map((item) => {
-        if (item.type === 'customized') {
-          const customized = item.customizedProduct;
-          return {
-            productId: customized.productId,
-            productName: customized.productName,
-            productImage: customized.previewImages.front,
-            size: customized.selectedSize,
-            color: customized.selectedColor,
-            quantity: item.quantity,
-            unitPrice: item.price,
-            customization: {
-              designFront: customized.previewImages.front,
-              designBack: customized.previewImages.back,
-            },
-          };
-        } else {
-          const standardItem = item as import('../types/cart').CartItem;
-          return {
-            productId: standardItem.product.id,
-            productName: standardItem.product.name,
-            productImage: standardItem.product.images.front,
-            size: standardItem.selectedSize,
-            color: standardItem.selectedColor,
-            quantity: item.quantity,
-            unitPrice: item.price,
-          };
-        }
-      });
+      // Crear pedido pendiente (para métodos de pago manuales)
+      const order = createOrderFromCart('pending');
 
-      const order = createOrder({
-        customerName: formData.customerName,
-        customerEmail: formData.customerEmail,
-        customerPhone: formData.customerPhone,
-        shippingAddress: formData.shippingAddress,
-        shippingCity: formData.shippingCity,
-        shippingPostalCode: formData.shippingPostalCode,
-        shippingNotes: formData.shippingNotes,
-        paymentMethod: formData.paymentMethod,
-        items: orderItems,
-        subtotal: cart.subtotal,
-        shippingCost: cart.shipping,
-        discount: cart.discount,
-        total: cart.total,
-      });
-
-      // Limpiar carrito
       clearCart();
 
-      // Redirigir a página de confirmación
       navigate(`/order-confirmation/${order.orderNumber}`);
     } catch {
       showToast('Error al procesar el pedido. Intenta de nuevo.', 'error');
@@ -201,6 +254,8 @@ export const CheckoutPage = () => {
         return <Wallet className="w-5 h-5" />;
       case 'cash':
         return <Banknote className="w-5 h-5" />;
+      case 'wompi':
+        return <Zap className="w-5 h-5" />;
       default:
         return <CreditCard className="w-5 h-5" />;
     }
@@ -217,15 +272,16 @@ export const CheckoutPage = () => {
   const steps = [
     { id: 'info', label: 'Información', icon: User },
     { id: 'payment', label: 'Pago', icon: CreditCard },
-    { id: 'review', label: 'Confirmar', icon: CheckCircle2 },
   ];
 
   const canProceedToPayment = formData.customerName && formData.customerEmail && formData.customerPhone && formData.shippingAddress && formData.shippingCity;
-  const canProceedToReview = canProceedToPayment && formData.paymentMethod;
 
   if (cart.items.length === 0) {
     return null;
   }
+
+  // Convertir total a centavos para Wompi
+  const amountInCents = Math.round(cart.total * 100);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -248,14 +304,13 @@ export const CheckoutPage = () => {
 
         {/* Progress Steps */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-8">
-          <div className="flex items-center justify-between max-w-md mx-auto">
+          <div className="flex items-center justify-center gap-8">
             {steps.map((s, index) => (
               <div key={s.id} className="flex items-center">
                 <button
                   onClick={() => {
                     if (s.id === 'info') setStep('info');
                     else if (s.id === 'payment' && canProceedToPayment) setStep('payment');
-                    else if (s.id === 'review' && canProceedToReview) setStep('review');
                   }}
                   className={`flex flex-col items-center gap-1 transition-colors ${
                     step === s.id
@@ -279,7 +334,7 @@ export const CheckoutPage = () => {
                   <span className="text-xs font-medium">{s.label}</span>
                 </button>
                 {index < steps.length - 1 && (
-                  <ChevronRight className="w-5 h-5 text-gray-300 mx-2" />
+                  <ChevronRight className="w-5 h-5 text-gray-300 mx-4" />
                 )}
               </div>
             ))}
@@ -324,7 +379,7 @@ export const CheckoutPage = () => {
                       value={formData.customerPhone}
                       onChange={handleInputChange}
                       error={errors.customerPhone}
-                      placeholder="+57 300 123 4567"
+                      placeholder="300 123 4567"
                     />
                   </div>
 
@@ -378,7 +433,11 @@ export const CheckoutPage = () => {
 
                   <div className="flex justify-end pt-4">
                     <Button
-                      onClick={() => setStep('payment')}
+                      onClick={() => {
+                        if (validateForm()) {
+                          setStep('payment');
+                        }
+                      }}
                       disabled={!canProceedToPayment}
                     >
                       Continuar al Pago
@@ -389,123 +448,21 @@ export const CheckoutPage = () => {
               </div>
             )}
 
-            {/* Step 2: Payment Method */}
+            {/* Step 2: Payment */}
             {step === 'payment' && (
-              <div className="bg-white rounded-xl shadow-sm p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-purple-600" />
-                  Método de Pago
-                </h2>
-
-                {errors.paymentMethod && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.paymentMethod}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  {activePaymentMethods.map((method) => (
-                    <button
-                      key={method.id}
-                      onClick={() => handlePaymentMethodChange(method.type)}
-                      className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                        formData.paymentMethod === method.type
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-purple-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            formData.paymentMethod === method.type
-                              ? 'bg-purple-100 text-purple-600'
-                              : 'bg-gray-100 text-gray-500'
-                          }`}
-                        >
-                          {getPaymentIcon(method.type)}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">{method.name}</p>
-                          {method.description && (
-                            <p className="text-sm text-gray-500">{method.description}</p>
-                          )}
-                        </div>
-                        <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            formData.paymentMethod === method.type
-                              ? 'border-purple-500 bg-purple-500'
-                              : 'border-gray-300'
-                          }`}
-                        >
-                          {formData.paymentMethod === method.type && (
-                            <div className="w-2 h-2 rounded-full bg-white" />
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Show bank info for transfer */}
-                      {formData.paymentMethod === method.type &&
-                        method.type === 'transfer' &&
-                        method.bankInfo && (
-                          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                            <p className="text-sm font-medium text-gray-700 mb-2">
-                              Datos para transferencia:
-                            </p>
-                            <div className="text-sm text-gray-600 space-y-1">
-                              <p>
-                                <span className="font-medium">Banco:</span> {method.bankInfo.bankName}
-                              </p>
-                              <p>
-                                <span className="font-medium">Tipo:</span> {method.bankInfo.accountType}
-                              </p>
-                              <p>
-                                <span className="font-medium">Número:</span> {method.bankInfo.accountNumber}
-                              </p>
-                              <p>
-                                <span className="font-medium">Titular:</span> {method.bankInfo.accountHolder}
-                              </p>
-                              <p>
-                                <span className="font-medium">{method.bankInfo.documentType}:</span>{' '}
-                                {method.bankInfo.documentNumber}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                      {/* Show instructions if any */}
-                      {formData.paymentMethod === method.type && method.instructions && (
-                        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                          <p className="text-sm text-blue-700">{method.instructions}</p>
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex justify-between pt-6">
-                  <Button variant="outline" onClick={() => setStep('info')}>
-                    <ArrowLeft className="w-4 h-4 mr-1" />
-                    Volver
-                  </Button>
-                  <Button onClick={() => setStep('review')} disabled={!canProceedToReview}>
-                    Revisar Pedido
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Review Order */}
-            {step === 'review' && (
               <div className="space-y-6">
-                {/* Customer Info Summary */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                      <User className="w-5 h-5 text-purple-600" />
-                      Información del Cliente
-                    </h2>
+                {/* Resumen del cliente */}
+                <div className="bg-white rounded-xl shadow-sm p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{formData.customerName}</p>
+                        <p className="text-sm text-gray-500">{formData.shippingAddress}, {formData.shippingCity}</p>
+                      </div>
+                    </div>
                     <button
                       onClick={() => setStep('info')}
                       className="text-purple-600 text-sm font-medium hover:underline"
@@ -513,126 +470,144 @@ export const CheckoutPage = () => {
                       Editar
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-500">Nombre</p>
-                      <p className="font-medium text-gray-900">{formData.customerName}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Email</p>
-                      <p className="font-medium text-gray-900">{formData.customerEmail}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Teléfono</p>
-                      <p className="font-medium text-gray-900">{formData.customerPhone}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Dirección</p>
-                      <p className="font-medium text-gray-900">
-                        {formData.shippingAddress}, {formData.shippingCity}
-                        {formData.shippingPostalCode && ` - ${formData.shippingPostalCode}`}
-                      </p>
-                    </div>
-                  </div>
-                  {formData.shippingNotes && (
-                    <div className="mt-4 pt-4 border-t">
-                      <p className="text-gray-500 text-sm">Notas de entrega</p>
-                      <p className="font-medium text-gray-900 text-sm">{formData.shippingNotes}</p>
+                </div>
+
+                {/* Selección de método de pago */}
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-purple-600" />
+                    Selecciona tu método de pago
+                  </h2>
+
+                  {errors.paymentMethod && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.paymentMethod}
                     </div>
                   )}
-                </div>
 
-                {/* Payment Method Summary */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-purple-600" />
-                      Método de Pago
-                    </h2>
-                    <button
-                      onClick={() => setStep('payment')}
-                      className="text-purple-600 text-sm font-medium hover:underline"
-                    >
-                      Cambiar
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
-                      {getPaymentIcon(formData.paymentMethod)}
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {activePaymentMethods.find((m) => m.type === formData.paymentMethod)?.name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {activePaymentMethods.find((m) => m.type === formData.paymentMethod)?.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Products Summary */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <ShoppingBag className="w-5 h-5 text-purple-600" />
-                    Productos ({cart.totalItems})
-                  </h2>
-                  <div className="space-y-4">
-                    {cart.items.map((item) => {
-                      const isCustomized = item.type === 'customized';
-                      let name: string;
-                      let image: string;
-                      let size: string;
-                      let color: string;
-
-                      if (isCustomized) {
-                        const customized = item.customizedProduct;
-                        name = customized.productName;
-                        image = customized.previewImages.front;
-                        size = customized.selectedSize;
-                        color = customized.selectedColor;
-                      } else {
-                        const standardItem = item as import('../types/cart').CartItem;
-                        name = standardItem.product.name;
-                        image = standardItem.product.images.front;
-                        size = standardItem.selectedSize;
-                        color = standardItem.selectedColor;
-                      }
-
-                      return (
-                        <div key={item.id} className="flex gap-4 pb-4 border-b last:border-0">
-                          <img
-                            src={image}
-                            alt={name}
-                            className="w-16 h-16 object-cover rounded-lg"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate">{name}</p>
-                            <p className="text-sm text-gray-500">
-                              {size} / {color} • Cantidad: {item.quantity}
-                            </p>
-                            {isCustomized && (
-                              <span className="inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                                Personalizado
-                              </span>
+                  <div className="space-y-3">
+                    {activePaymentMethods.map((method) => (
+                      <button
+                        key={method.id}
+                        onClick={() => handlePaymentMethodChange(method.type as PaymentMethod)}
+                        className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                          formData.paymentMethod === method.type
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              formData.paymentMethod === method.type
+                                ? 'bg-purple-100 text-purple-600'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {getPaymentIcon(method.type)}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900">{method.name}</p>
+                            {method.description && (
+                              <p className="text-sm text-gray-500">{method.description}</p>
                             )}
                           </div>
-                          <p className="font-medium text-gray-900">{formatCurrency(item.subtotal)}</p>
+                          <div
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              formData.paymentMethod === method.type
+                                ? 'border-purple-500 bg-purple-500'
+                                : 'border-gray-300'
+                            }`}
+                          >
+                            {formData.paymentMethod === method.type && (
+                              <div className="w-2 h-2 rounded-full bg-white" />
+                            )}
+                          </div>
                         </div>
-                      );
-                    })}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Submit Button */}
-                <div className="flex justify-between pt-4">
-                  <Button variant="outline" onClick={() => setStep('payment')}>
+                {/* Área de pago según método seleccionado */}
+                {formData.paymentMethod === 'wompi' && wompiConfig && (
+                  <div className="bg-white rounded-xl shadow-sm p-6">
+                    <WompiCheckout
+                      publicKey={wompiConfig.publicKey}
+                      amountInCents={amountInCents}
+                      reference={paymentReference}
+                      customerEmail={formData.customerEmail}
+                      customerFullName={formData.customerName}
+                      customerPhone={formData.customerPhone}
+                      onPaymentSuccess={handleWompiSuccess}
+                      onPaymentError={handleWompiError}
+                      onClose={handleWompiClose}
+                    />
+                  </div>
+                )}
+
+                {/* Para otros métodos de pago */}
+                {formData.paymentMethod !== 'wompi' && (
+                  <div className="bg-white rounded-xl shadow-sm p-6">
+                    {/* Mostrar info de transferencia */}
+                    {formData.paymentMethod === 'transfer' && (
+                      <div className="mb-6">
+                        {activePaymentMethods.find((m) => m.type === 'transfer')?.bankInfo && (
+                          <div className="p-4 bg-gray-50 rounded-lg">
+                            <p className="text-sm font-medium text-gray-700 mb-2">
+                              Datos para transferencia:
+                            </p>
+                            <div className="text-sm text-gray-600 space-y-1">
+                              {(() => {
+                                const bankInfo = activePaymentMethods.find((m) => m.type === 'transfer')?.bankInfo;
+                                return bankInfo ? (
+                                  <>
+                                    <p><span className="font-medium">Banco:</span> {bankInfo.bankName}</p>
+                                    <p><span className="font-medium">Tipo:</span> {bankInfo.accountType}</p>
+                                    <p><span className="font-medium">Número:</span> {bankInfo.accountNumber}</p>
+                                    <p><span className="font-medium">Titular:</span> {bankInfo.accountHolder}</p>
+                                    <p><span className="font-medium">{bankInfo.documentType}:</span> {bankInfo.documentNumber}</p>
+                                  </>
+                                ) : null;
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Mostrar instrucciones de contra entrega */}
+                    {formData.paymentMethod === 'cash' && (
+                      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-700">
+                          {activePaymentMethods.find((m) => m.type === 'cash')?.instructions ||
+                            'El pago se realizará al momento de recibir el pedido.'}
+                        </p>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={handleSubmitOtherPayment}
+                      isLoading={isSubmitting}
+                      fullWidth
+                      size="lg"
+                    >
+                      <CheckCircle2 className="w-5 h-5 mr-2" />
+                      Confirmar Pedido - {formatCurrency(cart.total)}
+                    </Button>
+
+                    <p className="text-xs text-gray-500 text-center mt-4">
+                      Al confirmar, aceptas nuestros términos y condiciones
+                    </p>
+                  </div>
+                )}
+
+                {/* Botón volver */}
+                <div className="flex justify-start">
+                  <Button variant="outline" onClick={() => setStep('info')}>
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Volver
-                  </Button>
-                  <Button onClick={handleSubmit} isLoading={isSubmitting} size="lg">
-                    <CheckCircle2 className="w-5 h-5 mr-2" />
-                    Confirmar Pedido
                   </Button>
                 </div>
               </div>
@@ -644,14 +619,44 @@ export const CheckoutPage = () => {
             <div className="bg-white rounded-xl shadow-sm p-6 sticky top-4">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Resumen del Pedido</h2>
 
-              <div className="space-y-3 text-sm">
+              {/* Lista de productos */}
+              <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+                {cart.items.map((item) => {
+                  const isCustomized = item.type === 'customized';
+                  let name: string;
+                  let image: string;
+
+                  if (isCustomized) {
+                    const customized = item.customizedProduct;
+                    name = customized.productName;
+                    image = customized.previewImages.front;
+                  } else {
+                    const standardItem = item as import('../types/cart').CartItem;
+                    name = standardItem.product.name;
+                    image = standardItem.product.images.front;
+                  }
+
+                  return (
+                    <div key={item.id} className="flex gap-3">
+                      <img src={image} alt={name} className="w-12 h-12 object-cover rounded-lg" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                        <p className="text-xs text-gray-500">x{item.quantity}</p>
+                      </div>
+                      <p className="text-sm font-medium">{formatCurrency(item.subtotal)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="border-t pt-4 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal ({cart.totalItems} items)</span>
+                  <span className="text-gray-600">Subtotal</span>
                   <span className="font-medium">{formatCurrency(cart.subtotal)}</span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Impuestos (16%)</span>
+                  <span className="text-gray-600">Impuestos</span>
                   <span className="font-medium">{formatCurrency(cart.tax)}</span>
                 </div>
 
@@ -678,18 +683,14 @@ export const CheckoutPage = () => {
               </div>
 
               {/* Trust badges */}
-              <div className="mt-6 pt-6 border-t space-y-3">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="mt-6 pt-4 border-t space-y-2">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
                   <CheckCircle2 className="w-4 h-4 text-green-500" />
                   <span>Pago 100% seguro</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
                   <CheckCircle2 className="w-4 h-4 text-green-500" />
                   <span>Envío con seguimiento</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  <span>Garantía de satisfacción</span>
                 </div>
               </div>
             </div>

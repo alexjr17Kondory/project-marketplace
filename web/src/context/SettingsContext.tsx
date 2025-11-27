@@ -213,6 +213,17 @@ const mockSettings: Settings = {
         instructions: 'Solo disponible para Bogotá. El domiciliario recibe efectivo o Nequi.',
         isActive: true,
       },
+      {
+        id: 'pm-5',
+        type: 'wompi',
+        name: 'Wompi',
+        description: 'Paga con tarjeta, PSE o Nequi de forma segura',
+        isActive: true,
+        wompiConfig: {
+          publicKey: 'pub_test_X0zDA9xoKdePzhd8a0x9HAez7HgGO2fH',
+          isTestMode: true,
+        },
+      },
     ],
     taxRate: 19,
     taxIncluded: true,

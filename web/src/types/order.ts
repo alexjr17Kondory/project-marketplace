@@ -6,7 +6,7 @@ export type OrderStatus =
   | 'delivered'    // Entregado
   | 'cancelled';   // Cancelado
 
-export type PaymentMethod = 'credit_card' | 'debit_card' | 'pse' | 'cash' | 'transfer';
+export type PaymentMethod = 'credit_card' | 'debit_card' | 'pse' | 'cash' | 'transfer' | 'wompi';
 
 export interface OrderItem {
   id: string;
@@ -121,4 +121,5 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   pse: 'PSE',
   cash: 'Efectivo',
   transfer: 'Transferencia',
+  wompi: 'Wompi',
 };

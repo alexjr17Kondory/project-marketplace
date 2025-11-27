@@ -84,7 +84,7 @@ export interface ShippingSettings {
 
 export interface PaymentMethodConfig {
   id: string;
-  type: 'credit_card' | 'debit_card' | 'pse' | 'cash' | 'transfer';
+  type: 'credit_card' | 'debit_card' | 'pse' | 'cash' | 'transfer' | 'wompi';
   name: string;
   description?: string;
   instructions?: string;
@@ -96,6 +96,11 @@ export interface PaymentMethodConfig {
     accountHolder: string;
     documentType: string;
     documentNumber: string;
+  };
+  // Configuración específica de Wompi
+  wompiConfig?: {
+    publicKey: string;
+    isTestMode: boolean;
   };
 }
 
@@ -119,6 +124,7 @@ export const PAYMENT_TYPE_LABELS: Record<PaymentMethodConfig['type'], string> = 
   pse: 'PSE',
   cash: 'Efectivo',
   transfer: 'Transferencia Bancaria',
+  wompi: 'Wompi (Tarjeta, PSE, Nequi)',
 };
 
 export const CURRENCY_OPTIONS = [

@@ -1,0 +1,1 @@
+export { WompiCheckout } from './WompiCheckout';
