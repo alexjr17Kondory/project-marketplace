@@ -15,6 +15,7 @@ import { CartPage } from './pages/CartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { OrderConfirmationPage } from './pages/OrderConfirmationPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { MyOrdersPage } from './pages/MyOrdersPage';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { DashboardPage } from './pages/admin/DashboardPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
@@ -91,6 +92,7 @@ function App() {
                       <Route path="/checkout" element={<CheckoutPage />} />
                       <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmationPage />} />
                       <Route path="/profile" element={<ProfilePage />} />
+                      <Route path="/mis-pedidos" element={<MyOrdersPage />} />
                       <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                   </Layout>

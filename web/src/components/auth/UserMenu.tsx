@@ -119,7 +119,7 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
           </Link>
 
           <Link
-            to="/orders"
+            to="/mis-pedidos"
             onClick={() => setIsOpen(false)}
             className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors flex items-center gap-2"
           >

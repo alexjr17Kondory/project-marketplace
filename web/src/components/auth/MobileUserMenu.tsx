@@ -95,7 +95,7 @@ export const MobileUserMenu = ({ isOpen, onClose, onLoginClick, onRegisterClick 
                 </Link>
 
                 <Link
-                  to="/orders"
+                  to="/mis-pedidos"
                   onClick={handleLinkClick}
                   className="flex items-center gap-3 px-4 py-3.5 text-gray-700 hover:bg-violet-50 hover:text-violet-700 rounded-xl transition-colors font-medium"
                 >
