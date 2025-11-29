@@ -97,11 +97,22 @@ export const EVIDENCE_TYPE_LABELS: Record<PaymentEvidence['type'], string> = {
   other: 'Otro',
 };
 
+// Etiquetas para admin (internas)
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Pendiente',
   paid: 'Pagado',
   processing: 'En Preparación',
   shipped: 'Enviado',
+  delivered: 'Entregado',
+  cancelled: 'Cancelado',
+};
+
+// Etiquetas para usuarios (amigables, sin mencionar pago)
+export const ORDER_STATUS_USER_LABELS: Record<OrderStatus, string> = {
+  pending: 'Recibido',
+  paid: 'Confirmado',
+  processing: 'Preparando',
+  shipped: 'En camino',
   delivered: 'Entregado',
   cancelled: 'Cancelado',
 };

@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Clock, CheckCircle2, Truck, XCircle, CreditCard, ChevronRight, ShoppingBag, Search, Filter, Eye, MapPin, Calendar } from 'lucide-react';
+import { Package, Clock, CheckCircle2, Truck, XCircle, ChevronRight, ShoppingBag, Search, Filter, Eye, MapPin, Calendar, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrdersContext';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PAYMENT_METHOD_LABELS } from '../types/order';
+import { ORDER_STATUS_USER_LABELS, ORDER_STATUS_COLORS } from '../types/order';
 import type { Order, OrderStatus } from '../types/order';
 
 const STATUS_ICONS: Record<OrderStatus, React.ReactNode> = {
   pending: <Clock className="w-4 h-4" />,
-  paid: <CreditCard className="w-4 h-4" />,
+  paid: <CheckCircle2 className="w-4 h-4" />,
   processing: <Package className="w-4 h-4" />,
   shipped: <Truck className="w-4 h-4" />,
   delivered: <CheckCircle2 className="w-4 h-4" />,
@@ -63,7 +63,7 @@ export const MyOrdersPage = () => {
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'all')} className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 appearance-none bg-white">
                 <option value="all">Todos</option>
-                {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
+                {Object.entries(ORDER_STATUS_USER_LABELS).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
               </select>
             </div>
           </div>
@@ -89,12 +89,12 @@ export const MyOrdersPage = () => {
                         <p className="text-sm text-gray-500 flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(order.createdAt)}</p>
                       </div>
                     </div>
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${ORDER_STATUS_COLORS[order.status]}`}>{STATUS_ICONS[order.status]}{ORDER_STATUS_LABELS[order.status]}</span>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${ORDER_STATUS_COLORS[order.status]}`}>{STATUS_ICONS[order.status]}{ORDER_STATUS_USER_LABELS[order.status]}</span>
                   </div>
                 </div>
                 {order.status !== 'cancelled' && (
                   <div className="px-4 py-3 bg-gray-50">
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2"><span>Pendiente</span><span>Pagado</span><span>Preparacion</span><span>Enviado</span><span>Entregado</span></div>
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2"><span>Recibido</span><span>Confirmado</span><span>Preparando</span><span>En camino</span><span>Entregado</span></div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" style={{ width: `${getStatusProgress(order.status)}%` }} /></div>
                   </div>
                 )}
@@ -108,8 +108,7 @@ export const MyOrdersPage = () => {
                     </div>
                   </div>
                 </div>
-                <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                  <div className="text-sm text-gray-600"><span className="font-medium">Pago:</span> {PAYMENT_METHOD_LABELS[order.paymentMethod]}</div>
+                <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-end">
                   <button onClick={() => setSelectedOrder(order)} className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-700 font-medium text-sm"><Eye className="w-4 h-4" />Ver detalles<ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
@@ -127,7 +126,7 @@ export const MyOrdersPage = () => {
             </div>
             <div className="p-6 space-y-6">
               <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full font-medium ${ORDER_STATUS_COLORS[selectedOrder.status]}`}>{STATUS_ICONS[selectedOrder.status]}{ORDER_STATUS_LABELS[selectedOrder.status]}</span>
+                <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full font-medium ${ORDER_STATUS_COLORS[selectedOrder.status]}`}>{STATUS_ICONS[selectedOrder.status]}{ORDER_STATUS_USER_LABELS[selectedOrder.status]}</span>
                 {selectedOrder.trackingNumber && (<a href={selectedOrder.trackingUrl || '#'} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline text-sm">Rastrear: {selectedOrder.trackingNumber}</a>)}
               </div>
               <div>
@@ -159,7 +158,7 @@ export const MyOrdersPage = () => {
                 </div>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><CreditCard className="w-4 h-4" />Resumen de pago</h4>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><CreditCard className="w-4 h-4" />Resumen</h4>
                 <div className="p-4 bg-gray-50 rounded-lg space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-600">Subtotal</span><span>{formatCurrency(selectedOrder.subtotal)}</span></div>
                   <div className="flex justify-between"><span className="text-gray-600">Envio</span><span>{selectedOrder.shippingCost === 0 ? 'Gratis' : formatCurrency(selectedOrder.shippingCost)}</span></div>
