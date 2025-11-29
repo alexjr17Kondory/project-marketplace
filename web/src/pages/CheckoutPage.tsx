@@ -6,13 +6,14 @@ import {
   User,
   MapPin,
   CreditCard,
-  Building2,
-  Wallet,
-  Banknote,
   ChevronRight,
-  AlertCircle,
   CheckCircle2,
   Zap,
+  Building2,
+  Banknote,
+  Store,
+  Clock,
+  Phone,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
@@ -22,7 +23,6 @@ import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/shared/Input';
 import { Button } from '../components/shared/Button';
 import { WompiCheckout } from '../components/payment/WompiCheckout';
-import type { PaymentMethod } from '../types/order';
 
 interface FormData {
   customerName: string;
@@ -32,7 +32,6 @@ interface FormData {
   shippingCity: string;
   shippingPostalCode: string;
   shippingNotes: string;
-  paymentMethod: PaymentMethod;
 }
 
 interface FormErrors {
@@ -41,7 +40,6 @@ interface FormErrors {
   customerPhone?: string;
   shippingAddress?: string;
   shippingCity?: string;
-  paymentMethod?: string;
 }
 
 export const CheckoutPage = () => {
@@ -60,13 +58,13 @@ export const CheckoutPage = () => {
     shippingCity: user?.profile?.city || '',
     shippingPostalCode: user?.profile?.postalCode || '',
     shippingNotes: '',
-    paymentMethod: 'wompi',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [step, setStep] = useState<'info' | 'payment' | 'processing'>('info');
+  const [step, setStep] = useState<'info' | 'payment'>('info');
   const [paymentReference, setPaymentReference] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -81,8 +79,33 @@ export const CheckoutPage = () => {
     setPaymentReference(ref);
   }, []);
 
+  // Obtener métodos de pago activos desde settings
   const activePaymentMethods = settings.payment.methods.filter((m) => m.isActive);
-  const wompiConfig = activePaymentMethods.find((m) => m.type === 'wompi')?.wompiConfig;
+  const selectedMethod = activePaymentMethods.find((m) => m.id === selectedPaymentMethod);
+  const wompiConfig = selectedMethod?.type === 'wompi' ? selectedMethod.wompiConfig : undefined;
+
+  // Seleccionar primer método de pago activo por defecto
+  useEffect(() => {
+    if (activePaymentMethods.length > 0 && !selectedPaymentMethod) {
+      setSelectedPaymentMethod(activePaymentMethods[0].id);
+    }
+  }, [activePaymentMethods, selectedPaymentMethod]);
+
+  // Icono según tipo de método de pago
+  const getPaymentIcon = (type: string) => {
+    switch (type) {
+      case 'wompi':
+        return <Zap className="w-5 h-5" />;
+      case 'transfer':
+        return <Building2 className="w-5 h-5" />;
+      case 'cash':
+        return <Banknote className="w-5 h-5" />;
+      case 'pickup':
+        return <Store className="w-5 h-5" />;
+      default:
+        return <CreditCard className="w-5 h-5" />;
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -109,10 +132,6 @@ export const CheckoutPage = () => {
       newErrors.shippingCity = 'La ciudad es requerida';
     }
 
-    if (!formData.paymentMethod) {
-      newErrors.paymentMethod = 'Selecciona un método de pago';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -122,13 +141,6 @@ export const CheckoutPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
-  };
-
-  const handlePaymentMethodChange = (method: PaymentMethod) => {
-    setFormData((prev) => ({ ...prev, paymentMethod: method }));
-    if (errors.paymentMethod) {
-      setErrors((prev) => ({ ...prev, paymentMethod: undefined }));
     }
   };
 
@@ -145,8 +157,12 @@ export const CheckoutPage = () => {
           quantity: item.quantity,
           unitPrice: item.price,
           customization: {
+            // Preview comprimido para visualización
             designFront: customized.previewImages.front,
             designBack: customized.previewImages.back,
+            // Imágenes originales en alta calidad para producción
+            originalFront: customized.productionImages?.front,
+            originalBack: customized.productionImages?.back,
           },
         };
       } else {
@@ -171,7 +187,7 @@ export const CheckoutPage = () => {
       shippingCity: formData.shippingCity,
       shippingPostalCode: formData.shippingPostalCode,
       shippingNotes: formData.shippingNotes,
-      paymentMethod: formData.paymentMethod,
+      paymentMethod: (selectedMethod?.type || 'wompi') as import('../types/order').PaymentMethod,
       items: orderItems,
       subtotal: cart.subtotal,
       shippingCost: cart.shipping,
@@ -217,11 +233,11 @@ export const CheckoutPage = () => {
   };
 
   const handleWompiClose = () => {
-    // Usuario cerró el widget sin pagar
     showToast('Pago cancelado', 'info');
   };
 
-  const handleSubmitOtherPayment = async () => {
+  // Handler para métodos de pago manuales (transferencia, contra entrega)
+  const handleManualPayment = async () => {
     if (!validateForm()) {
       showToast('Por favor completa todos los campos requeridos', 'error');
       return;
@@ -230,36 +246,20 @@ export const CheckoutPage = () => {
     setIsSubmitting(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Crear pedido pendiente (para métodos de pago manuales)
+      // Crear pedido pendiente
       const order = createOrderFromCart('pending');
 
       clearCart();
+
+      showToast('¡Pedido creado! Te contactaremos pronto.', 'success');
 
       navigate(`/order-confirmation/${order.orderNumber}`);
     } catch {
       showToast('Error al procesar el pedido. Intenta de nuevo.', 'error');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const getPaymentIcon = (type: string) => {
-    switch (type) {
-      case 'credit_card':
-      case 'debit_card':
-        return <CreditCard className="w-5 h-5" />;
-      case 'pse':
-        return <Building2 className="w-5 h-5" />;
-      case 'transfer':
-        return <Wallet className="w-5 h-5" />;
-      case 'cash':
-        return <Banknote className="w-5 h-5" />;
-      case 'wompi':
-        return <Zap className="w-5 h-5" />;
-      default:
-        return <CreditCard className="w-5 h-5" />;
     }
   };
 
@@ -292,14 +292,14 @@ export const CheckoutPage = () => {
         <div className="mb-8">
           <button
             onClick={() => navigate('/cart')}
-            className="flex items-center gap-2 text-purple-600 hover:text-purple-700 font-medium mb-4 transition-colors"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Volver al carrito
           </button>
 
           <div className="flex items-center gap-3">
-            <ShoppingBag className="w-8 h-8 text-purple-600" />
+            <ShoppingBag className="w-8 h-8 text-gray-700" />
             <h1 className="text-3xl font-bold text-gray-900">Finalizar Compra</h1>
           </div>
         </div>
@@ -316,7 +316,7 @@ export const CheckoutPage = () => {
                   }}
                   className={`flex flex-col items-center gap-1 transition-colors ${
                     step === s.id
-                      ? 'text-purple-600'
+                      ? 'text-gray-900'
                       : steps.findIndex((x) => x.id === step) > index
                       ? 'text-green-600'
                       : 'text-gray-400'
@@ -325,7 +325,7 @@ export const CheckoutPage = () => {
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
                       step === s.id
-                        ? 'border-purple-600 bg-purple-50'
+                        ? 'border-gray-800 bg-gray-100'
                         : steps.findIndex((x) => x.id === step) > index
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-300'
@@ -350,7 +350,7 @@ export const CheckoutPage = () => {
             {step === 'info' && (
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <User className="w-5 h-5 text-purple-600" />
+                  <User className="w-5 h-5 text-gray-600" />
                   Información del Cliente
                 </h2>
 
@@ -387,7 +387,7 @@ export const CheckoutPage = () => {
 
                   <div className="border-t pt-4 mt-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-purple-600" />
+                      <MapPin className="w-5 h-5 text-gray-600" />
                       Dirección de Envío
                     </h3>
 
@@ -427,7 +427,7 @@ export const CheckoutPage = () => {
                         value={formData.shippingNotes}
                         onChange={handleInputChange}
                         rows={3}
-                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-500 transition-all"
+                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-500 transition-all"
                         placeholder="Edificio azul, portería 24h, timbre..."
                       />
                     </div>
@@ -467,7 +467,7 @@ export const CheckoutPage = () => {
                     </div>
                     <button
                       onClick={() => setStep('info')}
-                      className="text-purple-600 text-sm font-medium hover:underline"
+                      className="text-gray-600 text-sm font-medium hover:underline hover:text-gray-900"
                     >
                       Editar
                     </button>
@@ -475,134 +475,210 @@ export const CheckoutPage = () => {
                 </div>
 
                 {/* Selección de método de pago */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-purple-600" />
-                    Selecciona tu método de pago
-                  </h2>
-
-                  {errors.paymentMethod && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                      <AlertCircle className="w-4 h-4" />
-                      {errors.paymentMethod}
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    {activePaymentMethods.map((method) => (
-                      <button
-                        key={method.id}
-                        onClick={() => handlePaymentMethodChange(method.type as PaymentMethod)}
-                        className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                          formData.paymentMethod === method.type
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 hover:border-purple-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              formData.paymentMethod === method.type
-                                ? 'bg-purple-100 text-purple-600'
-                                : 'bg-gray-100 text-gray-500'
-                            }`}
-                          >
-                            {getPaymentIcon(method.type)}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-semibold text-gray-900">{method.name}</p>
-                            {method.description && (
-                              <p className="text-sm text-gray-500">{method.description}</p>
-                            )}
-                          </div>
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                              formData.paymentMethod === method.type
-                                ? 'border-purple-500 bg-purple-500'
-                                : 'border-gray-300'
-                            }`}
-                          >
-                            {formData.paymentMethod === method.type && (
-                              <div className="w-2 h-2 rounded-full bg-white" />
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Área de pago según método seleccionado */}
-                {formData.paymentMethod === 'wompi' && wompiConfig && (
+                {activePaymentMethods.length > 0 && (
                   <div className="bg-white rounded-xl shadow-sm p-6">
-                    <WompiCheckout
-                      publicKey={wompiConfig.publicKey}
-                      amountInCents={amountInCents}
-                      reference={paymentReference}
-                      customerEmail={formData.customerEmail}
-                      customerFullName={formData.customerName}
-                      customerPhone={formData.customerPhone}
-                      onPaymentSuccess={handleWompiSuccess}
-                      onPaymentError={handleWompiError}
-                      onClose={handleWompiClose}
-                      simulationMode={wompiConfig.isTestMode}
-                    />
-                  </div>
-                )}
+                    <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-gray-600" />
+                      Método de Pago
+                    </h2>
 
-                {/* Para otros métodos de pago */}
-                {formData.paymentMethod !== 'wompi' && (
-                  <div className="bg-white rounded-xl shadow-sm p-6">
-                    {/* Mostrar info de transferencia */}
-                    {formData.paymentMethod === 'transfer' && (
-                      <div className="mb-6">
-                        {activePaymentMethods.find((m) => m.type === 'transfer')?.bankInfo && (
-                          <div className="p-4 bg-gray-50 rounded-lg">
-                            <p className="text-sm font-medium text-gray-700 mb-2">
-                              Datos para transferencia:
-                            </p>
-                            <div className="text-sm text-gray-600 space-y-1">
-                              {(() => {
-                                const bankInfo = activePaymentMethods.find((m) => m.type === 'transfer')?.bankInfo;
-                                return bankInfo ? (
-                                  <>
-                                    <p><span className="font-medium">Banco:</span> {bankInfo.bankName}</p>
-                                    <p><span className="font-medium">Tipo:</span> {bankInfo.accountType}</p>
-                                    <p><span className="font-medium">Número:</span> {bankInfo.accountNumber}</p>
-                                    <p><span className="font-medium">Titular:</span> {bankInfo.accountHolder}</p>
-                                    <p><span className="font-medium">{bankInfo.documentType}:</span> {bankInfo.documentNumber}</p>
-                                  </>
-                                ) : null;
-                              })()}
+                    <div className="space-y-3 mb-6">
+                      {activePaymentMethods.map((method) => (
+                        <button
+                          key={method.id}
+                          onClick={() => setSelectedPaymentMethod(method.id)}
+                          className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                            selectedPaymentMethod === method.id
+                              ? 'border-gray-800 bg-gray-50'
+                              : 'border-gray-200 hover:border-gray-400'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                selectedPaymentMethod === method.id
+                                  ? 'bg-gray-200 text-gray-800'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
+                              {getPaymentIcon(method.type)}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900">{method.name}</p>
+                              {method.description && (
+                                <p className="text-sm text-gray-500">{method.description}</p>
+                              )}
+                            </div>
+                            <div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                selectedPaymentMethod === method.id
+                                  ? 'border-gray-800 bg-gray-800'
+                                  : 'border-gray-300'
+                              }`}
+                            >
+                              {selectedPaymentMethod === method.id && (
+                                <div className="w-2 h-2 rounded-full bg-white" />
+                              )}
                             </div>
                           </div>
-                        )}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Área de pago según método seleccionado */}
+                    {selectedMethod?.type === 'wompi' && wompiConfig && (
+                      <div className="border-t pt-6">
+                        <WompiCheckout
+                          publicKey={wompiConfig.publicKey}
+                          integrityKey={wompiConfig.integrityKey}
+                          amountInCents={amountInCents}
+                          reference={paymentReference}
+                          customerEmail={formData.customerEmail}
+                          customerFullName={formData.customerName}
+                          customerPhone={formData.customerPhone}
+                          onPaymentSuccess={handleWompiSuccess}
+                          onPaymentError={handleWompiError}
+                          onClose={handleWompiClose}
+                          isTestMode={wompiConfig.isTestMode}
+                        />
                       </div>
                     )}
 
-                    {/* Mostrar instrucciones de contra entrega */}
-                    {formData.paymentMethod === 'cash' && (
-                      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-700">
-                          {activePaymentMethods.find((m) => m.type === 'cash')?.instructions ||
-                            'El pago se realizará al momento de recibir el pedido.'}
+                    {/* Transferencia Bancaria */}
+                    {selectedMethod?.type === 'transfer' && (
+                      <div className="border-t pt-6">
+                        {selectedMethod.bankInfo && (
+                          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                            <p className="text-sm font-medium text-gray-700 mb-3">Datos para transferencia:</p>
+                            <div className="text-sm text-gray-600 space-y-1">
+                              <p><span className="font-medium">Banco:</span> {selectedMethod.bankInfo.bankName}</p>
+                              <p><span className="font-medium">Tipo:</span> {selectedMethod.bankInfo.accountType}</p>
+                              <p><span className="font-medium">Número:</span> {selectedMethod.bankInfo.accountNumber}</p>
+                              <p><span className="font-medium">Titular:</span> {selectedMethod.bankInfo.accountHolder}</p>
+                              <p><span className="font-medium">{selectedMethod.bankInfo.documentType}:</span> {selectedMethod.bankInfo.documentNumber}</p>
+                            </div>
+                          </div>
+                        )}
+                        {selectedMethod.instructions && (
+                          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-sm text-yellow-700">{selectedMethod.instructions}</p>
+                          </div>
+                        )}
+                        <Button
+                          onClick={handleManualPayment}
+                          isLoading={isSubmitting}
+                          fullWidth
+                          size="lg"
+                        >
+                          <CheckCircle2 className="w-5 h-5 mr-2" />
+                          Confirmar Pedido - {formatCurrency(cart.total)}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Contra Entrega */}
+                    {selectedMethod?.type === 'cash' && (
+                      <div className="border-t pt-6">
+                        {selectedMethod.instructions && (
+                          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-sm text-yellow-700">{selectedMethod.instructions}</p>
+                          </div>
+                        )}
+                        <Button
+                          onClick={handleManualPayment}
+                          isLoading={isSubmitting}
+                          fullWidth
+                          size="lg"
+                        >
+                          <Banknote className="w-5 h-5 mr-2" />
+                          Confirmar Pedido - {formatCurrency(cart.total)}
+                        </Button>
+                        <p className="text-xs text-gray-500 text-center mt-3">
+                          Pagarás {formatCurrency(cart.total)} al momento de recibir tu pedido
                         </p>
                       </div>
                     )}
 
-                    <Button
-                      onClick={handleSubmitOtherPayment}
-                      isLoading={isSubmitting}
-                      fullWidth
-                      size="lg"
-                    >
-                      <CheckCircle2 className="w-5 h-5 mr-2" />
-                      Confirmar Pedido - {formatCurrency(cart.total)}
-                    </Button>
+                    {/* Punto Físico */}
+                    {selectedMethod?.type === 'pickup' && (
+                      <div className="border-t pt-6">
+                        {selectedMethod.pickupConfig && (
+                          <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                <Store className="w-5 h-5 text-green-600" />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-900">
+                                  {selectedMethod.pickupConfig.storeName}
+                                </h4>
+                                <div className="mt-2 space-y-1.5 text-sm text-gray-600">
+                                  <p className="flex items-center gap-2">
+                                    <MapPin className="w-4 h-4 text-green-600" />
+                                    {selectedMethod.pickupConfig.address}, {selectedMethod.pickupConfig.city}
+                                  </p>
+                                  <p className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-green-600" />
+                                    {selectedMethod.pickupConfig.scheduleWeekdays}
+                                  </p>
+                                  {selectedMethod.pickupConfig.scheduleWeekends && (
+                                    <p className="flex items-center gap-2">
+                                      <Clock className="w-4 h-4 text-green-600" />
+                                      {selectedMethod.pickupConfig.scheduleWeekends}
+                                    </p>
+                                  )}
+                                  {selectedMethod.pickupConfig.phone && (
+                                    <p className="flex items-center gap-2">
+                                      <Phone className="w-4 h-4 text-green-600" />
+                                      {selectedMethod.pickupConfig.phone}
+                                    </p>
+                                  )}
+                                </div>
+                                {selectedMethod.pickupConfig.mapUrl && (
+                                  <a
+                                    href={selectedMethod.pickupConfig.mapUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 mt-3 text-sm text-green-600 hover:text-green-700 font-medium"
+                                  >
+                                    <MapPin className="w-4 h-4" />
+                                    Ver en Google Maps
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {selectedMethod.instructions && (
+                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-700">{selectedMethod.instructions}</p>
+                          </div>
+                        )}
+                        <Button
+                          onClick={handleManualPayment}
+                          isLoading={isSubmitting}
+                          fullWidth
+                          size="lg"
+                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                        >
+                          <Store className="w-5 h-5 mr-2" />
+                          Reservar para Recoger - {formatCurrency(cart.total)}
+                        </Button>
+                        <p className="text-xs text-gray-500 text-center mt-3">
+                          Pagarás {formatCurrency(cart.total)} al recoger tu pedido en tienda
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                    <p className="text-xs text-gray-500 text-center mt-4">
-                      Al confirmar, aceptas nuestros términos y condiciones
-                    </p>
+                {/* Mensaje si no hay métodos de pago activos */}
+                {activePaymentMethods.length === 0 && (
+                  <div className="bg-white rounded-xl shadow-sm p-6">
+                    <div className="text-center py-8">
+                      <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No hay métodos de pago disponibles en este momento.</p>
+                    </div>
                   </div>
                 )}
 
@@ -680,7 +756,7 @@ export const CheckoutPage = () => {
                 <div className="border-t pt-3 mt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span className="text-purple-600">{formatCurrency(cart.total)}</span>
+                    <span className="text-gray-900">{formatCurrency(cart.total)}</span>
                   </div>
                 </div>
               </div>

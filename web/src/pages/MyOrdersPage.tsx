@@ -57,11 +57,11 @@ export const MyOrdersPage = () => {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input type="text" placeholder="Buscar por numero de pedido..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+              <input type="text" placeholder="Buscar por numero de pedido..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-transparent" />
             </div>
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'all')} className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 appearance-none bg-white">
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'all')} className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400 appearance-none bg-white">
                 <option value="all">Todos</option>
                 {Object.entries(ORDER_STATUS_USER_LABELS).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}
               </select>
@@ -74,7 +74,7 @@ export const MyOrdersPage = () => {
             <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">{orders.length === 0 ? 'No tienes pedidos aun' : 'No se encontraron pedidos'}</h3>
             <p className="text-gray-600 mb-6">{orders.length === 0 ? 'Cuando realices tu primera compra, aparecera aqui' : 'Intenta con otros filtros'}</p>
-            {orders.length === 0 && (<Link to="/catalog" className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"><ShoppingBag className="w-5 h-5" />Ver Catalogo</Link>)}
+            {orders.length === 0 && (<Link to="/catalog" className="inline-flex items-center gap-2 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700"><ShoppingBag className="w-5 h-5" />Ver Catalogo</Link>)}
           </div>
         ) : (
           <div className="space-y-4">
@@ -83,7 +83,7 @@ export const MyOrdersPage = () => {
                 <div className="p-4 border-b border-gray-100">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center"><Package className="w-5 h-5 text-purple-600" /></div>
+                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center"><Package className="w-5 h-5 text-gray-600" /></div>
                       <div>
                         <p className="font-bold text-gray-900">{order.orderNumber}</p>
                         <p className="text-sm text-gray-500 flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(order.createdAt)}</p>
@@ -95,7 +95,7 @@ export const MyOrdersPage = () => {
                 {order.status !== 'cancelled' && (
                   <div className="px-4 py-3 bg-gray-50">
                     <div className="flex items-center justify-between text-xs text-gray-500 mb-2"><span>Recibido</span><span>Confirmado</span><span>Preparando</span><span>En camino</span><span>Entregado</span></div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" style={{ width: `${getStatusProgress(order.status)}%` }} /></div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-gray-600 rounded-full" style={{ width: `${getStatusProgress(order.status)}%` }} /></div>
                   </div>
                 )}
                 <div className="p-4">
@@ -109,7 +109,7 @@ export const MyOrdersPage = () => {
                   </div>
                 </div>
                 <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-end">
-                  <button onClick={() => setSelectedOrder(order)} className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-700 font-medium text-sm"><Eye className="w-4 h-4" />Ver detalles<ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={() => setSelectedOrder(order)} className="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 font-medium text-sm"><Eye className="w-4 h-4" />Ver detalles<ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
@@ -127,7 +127,49 @@ export const MyOrdersPage = () => {
             <div className="p-6 space-y-6">
               <div className="flex items-center gap-3">
                 <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full font-medium ${ORDER_STATUS_COLORS[selectedOrder.status]}`}>{STATUS_ICONS[selectedOrder.status]}{ORDER_STATUS_USER_LABELS[selectedOrder.status]}</span>
-                {selectedOrder.trackingNumber && (<a href={selectedOrder.trackingUrl || '#'} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline text-sm">Rastrear: {selectedOrder.trackingNumber}</a>)}
+              </div>
+
+              {/* Sección de Tracking */}
+              <div className="mt-4 p-4 bg-gray-100 rounded-xl">
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <Truck className="w-4 h-4" />
+                  Información de Envío
+                </h4>
+                {selectedOrder.trackingNumber ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Número de guía:</span>
+                      <span className="font-mono font-bold text-gray-900">{selectedOrder.trackingNumber}</span>
+                    </div>
+                    {selectedOrder.trackingUrl && (
+                      <a
+                        href={selectedOrder.trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium w-full justify-center"
+                      >
+                        <Truck className="w-4 h-4" />
+                        Rastrear mi pedido
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    {selectedOrder.status === 'pending' || selectedOrder.status === 'paid' || selectedOrder.status === 'processing' ? (
+                      <p className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-yellow-500" />
+                        Tu número de guía estará disponible cuando el pedido sea enviado
+                      </p>
+                    ) : selectedOrder.status === 'cancelled' ? (
+                      <p className="flex items-center gap-2">
+                        <XCircle className="w-4 h-4 text-red-500" />
+                        Pedido cancelado - No aplica envío
+                      </p>
+                    ) : (
+                      <p>No hay información de rastreo disponible</p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <h4 className="font-semibold text-gray-900 mb-3">Productos</h4>
@@ -138,7 +180,7 @@ export const MyOrdersPage = () => {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900">{item.productName}</p>
                         <p className="text-sm text-gray-500">Talla: {item.size} | Color: {item.color} | Cant: {item.quantity}</p>
-                        {item.customization && <p className="text-xs text-purple-600 mt-1">Personalizado</p>}
+                        {item.customization && <p className="text-xs text-gray-600 font-medium mt-1">✨ Personalizado</p>}
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-gray-900">{formatCurrency(item.unitPrice * item.quantity)}</p>
@@ -163,7 +205,7 @@ export const MyOrdersPage = () => {
                   <div className="flex justify-between"><span className="text-gray-600">Subtotal</span><span>{formatCurrency(selectedOrder.subtotal)}</span></div>
                   <div className="flex justify-between"><span className="text-gray-600">Envio</span><span>{selectedOrder.shippingCost === 0 ? 'Gratis' : formatCurrency(selectedOrder.shippingCost)}</span></div>
                   {selectedOrder.discount > 0 && (<div className="flex justify-between text-green-600"><span>Descuento</span><span>-{formatCurrency(selectedOrder.discount)}</span></div>)}
-                  <div className="flex justify-between font-bold text-lg pt-2 border-t border-gray-200"><span>Total</span><span className="text-purple-600">{formatCurrency(selectedOrder.total)}</span></div>
+                  <div className="flex justify-between font-bold text-lg pt-2 border-t border-gray-200"><span>Total</span><span className="text-gray-900">{formatCurrency(selectedOrder.total)}</span></div>
                 </div>
               </div>
             </div>

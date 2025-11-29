@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUsers } from '../../context/UsersContext';
+import { useRoles } from '../../context/RolesContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
@@ -30,9 +31,13 @@ export const AdminDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getAdminById, updateAdmin, toggleAdminStatus } = useUsers();
+  const { roles, getRoleById } = useRoles();
   const toast = useToast();
 
   const admin = id ? getAdminById(id) : undefined;
+
+  // Roles disponibles para asignar (excluyendo Usuario normal - id: 1)
+  const assignableRoles = roles.filter(r => r.id !== 1 && r.isActive);
 
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [isEditing, setIsEditing] = useState(false);
@@ -40,6 +45,7 @@ export const AdminDetailPage = () => {
     name: admin?.name || '',
     phone: admin?.phone || '',
     cedula: admin?.cedula || '',
+    roleId: admin?.role === 'superadmin' ? 0 : 2, // Asignar roleId basado en el role actual
   });
 
   // Direcciones mock para demostración
@@ -101,11 +107,21 @@ export const AdminDetailPage = () => {
   const isSuperAdmin = admin.role === 'superadmin';
 
   const handleSaveProfile = () => {
-    updateAdmin(admin.id, {
-      name: formData.name,
-      phone: formData.phone || undefined,
-      cedula: formData.cedula || undefined,
-    });
+    // No permitir cambiar rol del superadmin original
+    if (isSuperAdmin && admin.id === 'super-admin-001') {
+      updateAdmin(admin.id, {
+        name: formData.name,
+        phone: formData.phone || undefined,
+        cedula: formData.cedula || undefined,
+      });
+    } else {
+      updateAdmin(admin.id, {
+        name: formData.name,
+        phone: formData.phone || undefined,
+        cedula: formData.cedula || undefined,
+        roleId: formData.roleId,
+      });
+    }
     toast.success('Perfil actualizado correctamente');
     setIsEditing(false);
   };
@@ -374,9 +390,41 @@ export const AdminDetailPage = () => {
                   <Shield className="w-4 h-4" />
                   Rol
                 </label>
-                <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900">
-                  {isSuperAdmin ? 'Super Administrador' : 'Administrador'}
-                </div>
+                {isEditing && !(isSuperAdmin && admin.id === 'super-admin-001') ? (
+                  <div>
+                    <select
+                      value={formData.roleId}
+                      onChange={(e) => setFormData({ ...formData, roleId: Number(e.target.value) })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    >
+                      {assignableRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Selecciona el rol que define los permisos
+                    </p>
+                  </div>
+                ) : (
+                  <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-900 flex items-center gap-2">
+                    {isSuperAdmin ? (
+                      <>
+                        <Crown className="w-4 h-4 text-yellow-500" />
+                        Super Administrador
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4 text-blue-500" />
+                        {getRoleById(formData.roleId)?.name || 'Administrador'}
+                      </>
+                    )}
+                    {isSuperAdmin && admin.id === 'super-admin-001' && (
+                      <span className="text-xs text-gray-500 ml-2">(No editable)</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

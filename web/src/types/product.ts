@@ -1,8 +1,37 @@
-// Tipos de productos disponibles
-export type ProductType = 'tshirt' | 'hoodie' | 'cap' | 'bottle' | 'mug' | 'pillow';
+// Tipos de productos disponibles (enfocados en sublimación)
+export type ProductType =
+  // Ropa sublimable
+  | 'tshirt'           // Camiseta
+  | 'hoodie'           // Hoodie/Buzo con capucha
+  | 'sweatshirt'       // Suéter/Buzo sin capucha
+  | 'polo'             // Polo
+  | 'tanktop'          // Camisilla
+  | 'longsleeve'       // Manga larga
+  // Accesorios sublimables
+  | 'cap'              // Gorra
+  | 'totebag'          // Bolsa de tela
+  | 'keychain'         // Llavero
+  | 'mousepad'         // Mouse pad
+  | 'phonecase'        // Funda de celular
+  | 'lanyard'          // Cordón/Lanyard
+  // Drinkware (bebidas)
+  | 'mug'              // Taza cerámica
+  | 'magicmug'         // Taza mágica (cambia color)
+  | 'bottle'           // Botella/Termo
+  | 'tumbler'          // Vaso térmico
+  // Hogar y decoración
+  | 'aluminumframe'    // Cuadro en aluminio
+  | 'coaster'          // Posa vasos
+  | 'pillow'           // Cojín/Almohada
+  | 'blanket'          // Manta/Cobija
+  | 'clock'            // Reloj de pared
+  | 'puzzle'           // Rompecabezas
+  // Oficina
+  | 'notebook'         // Libreta/Cuaderno
+  | 'calendar';        // Calendario
 
 // Categorías de productos
-export type ProductCategory = 'clothing' | 'accessories' | 'home';
+export type ProductCategory = 'clothing' | 'accessories' | 'drinkware' | 'home' | 'office';
 
 // Zonas de estampado para cada tipo de producto
 export type PrintZone =

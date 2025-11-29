@@ -6,10 +6,11 @@ import { getProductById } from '../data/mockProducts';
 import { getPrintZones } from '../data/productTypeConfigs';
 import { getSizeChart, getAvailableSizes } from '../data/sizeCharts';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext';
 import { ProductSelector } from '../components/customizer/ProductSelector';
 import { ColorPicker } from '../components/customizer/ColorPicker';
 import { ViewToggle } from '../components/customizer/ViewToggle';
-import { ImageUploader } from '../components/customizer/ImageUploader';
+import { ImageUploader, type ImageUploadData } from '../components/customizer/ImageUploader';
 import { DesignControls } from '../components/customizer/DesignControls';
 import { ZoneSelector } from '../components/customizer/ZoneSelector';
 import { SizeSelector } from '../components/customizer/SizeSelector';
@@ -22,6 +23,15 @@ export const CustomizerPage = () => {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { addCustomizedProduct } = useCart();
+  const { settings } = useSettings();
+
+  // Colores de marca dinámicos
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
+  const gradientStyle = `linear-gradient(to right, ${brandColors.primary}, ${brandColors.secondary}, ${brandColors.accent})`;
 
   // State
   const [productType, setProductType] = useState<ProductType>('tshirt');
@@ -107,7 +117,7 @@ export const CustomizerPage = () => {
     }
   };
 
-  const handleImageUpload = (imageData: string) => {
+  const handleImageUpload = (imageData: string, uploadData?: ImageUploadData) => {
     setIsUploading(true);
 
     // Obtener configuración de la zona seleccionada
@@ -122,7 +132,10 @@ export const CustomizerPage = () => {
       id: `design-${selectedZone}-${Date.now()}`,
       zoneId: selectedZone,
       imageUrl: '',
-      imageData: imageData,
+      imageData: imageData, // Versión comprimida para preview/canvas
+      originalImageData: uploadData?.original, // Versión original para producción
+      originalFileName: uploadData?.fileName,
+      originalFileSize: uploadData?.fileSize,
       position: { x: posX, y: posY },
       size: { width: Math.min(defaultWidth, 200), height: Math.min(defaultHeight, 200) },
       rotation: 0,
@@ -191,6 +204,11 @@ export const CustomizerPage = () => {
     const customizationPrice = designs.size * 2.00;
     const totalPrice = product.basePrice + customizationPrice;
 
+    // Generar imágenes de producción (con diseños originales en alta calidad)
+    // Buscamos diseños de frente y espalda
+    const frontDesign = allDesigns.find(d => d.zoneId.includes('front') || d.zoneId.includes('chest') || d.zoneId.includes('sleeve'));
+    const backDesign = allDesigns.find(d => d.zoneId.includes('back'));
+
     // Crear objeto CustomizedProduct
     const customizedProduct: CustomizedProduct = {
       id: `custom-${Date.now()}`,
@@ -202,7 +220,12 @@ export const CustomizerPage = () => {
       selectedSize: selectedSize,
       designs: allDesigns,
       previewImages: {
-        front: previewImage,
+        front: previewImage, // Comprimido para preview
+      },
+      productionImages: {
+        // Imágenes originales sin compresión para producción
+        front: frontDesign?.originalImageData || frontDesign?.imageData,
+        back: backDesign?.originalImageData || backDesign?.imageData,
       },
       customizationPrice: customizationPrice,
       totalPrice: totalPrice,
@@ -231,7 +254,7 @@ export const CustomizerPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-amber-500 text-white py-6 shadow-lg">
+      <div className="text-white py-6 shadow-lg" style={{ background: gradientStyle }}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -343,7 +366,7 @@ export const CustomizerPage = () => {
                   <button
                     onClick={() => handleAddToCart(quantity)}
                     disabled={designs.size === 0}
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     <ShoppingCart className="w-5 h-5" />
                     Agregar al Carrito

@@ -1,13 +1,25 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useRoles } from '../context/RolesContext';
+import { useSettings } from '../context/SettingsContext';
 import { Button } from '../components/shared/Button';
 import { Input } from '../components/shared/Input';
 import { useToast } from '../context/ToastContext';
 import { User, Mail, Calendar, Shield, Edit2, Save, X, CreditCard, MapPin, Phone, Building2, Loader2 } from 'lucide-react';
 
 export const ProfilePage = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, isAdmin, isSuperAdmin } = useAuth();
+  const { getRoleById } = useRoles();
+  const { settings } = useSettings();
   const toast = useToast();
+
+  // Colores de marca dinámicos
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
+  const gradientBgStyle = `linear-gradient(to bottom right, ${brandColors.primary}, ${brandColors.secondary}, ${brandColors.accent})`;
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -80,20 +92,23 @@ export const ProfilePage = () => {
         {/* Profile Card */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           {/* Header con Avatar */}
-          <div className="bg-gradient-to-br from-violet-600 via-pink-500 to-amber-500 px-8 py-12">
+          <div className="px-8 py-12" style={{ background: gradientBgStyle }}>
             <div className="flex flex-col sm:flex-row items-center gap-6">
               <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-lg">
-                <span className="text-4xl font-bold bg-gradient-to-br from-violet-600 to-pink-500 bg-clip-text text-transparent">
+                <span
+                  className="text-4xl font-bold bg-clip-text text-transparent"
+                  style={{ backgroundImage: gradientBgStyle, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+                >
                   {user.name.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div className="text-center sm:text-left">
                 <h2 className="text-2xl font-bold text-white">{user.name}</h2>
-                <p className="text-violet-100 mt-1">{user.email}</p>
-                {user.role === 'admin' && (
+                <p className="text-white/80 mt-1">{user.email}</p>
+                {(isAdmin || isSuperAdmin) && (
                   <span className="inline-block mt-3 px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-sm font-medium rounded-full">
                     <Shield className="w-4 h-4 inline mr-1" />
-                    Administrador
+                    {getRoleById(user.roleId)?.name || 'Administrador'}
                   </span>
                 )}
               </div>

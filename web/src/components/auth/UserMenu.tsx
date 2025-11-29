@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 import { User, Package, Settings, LogOut, ChevronDown } from 'lucide-react';
 
 interface UserMenuProps {
@@ -10,8 +11,17 @@ interface UserMenuProps {
 
 export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { settings } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Colores de marca dinámicos
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
+  const gradientBgStyle = `linear-gradient(to bottom right, ${brandColors.primary}, ${brandColors.secondary}, ${brandColors.accent})`;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -39,11 +49,16 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2.5 rounded-lg hover:bg-gray-100 transition-all group"
+          className="relative p-2.5 rounded-full hover:bg-gray-100 transition-all group overflow-hidden"
         >
           <User
-            className="w-6 h-6 text-gray-700 group-hover:text-violet-600 transition-colors"
+            className="w-6 h-6 text-gray-700 group-hover:text-white transition-colors relative z-10"
             strokeWidth={2}
+          />
+          {/* Fondo con gradiente dinámico en hover */}
+          <div
+            className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: gradientBgStyle }}
           />
         </button>
 
@@ -58,7 +73,7 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
                 setIsOpen(false);
                 onLoginClick();
               }}
-              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2"
             >
               <User className="w-4 h-4" />
               Iniciar Sesión
@@ -68,7 +83,7 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
                 setIsOpen(false);
                 onRegisterClick();
               }}
-              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2"
             >
               <User className="w-4 h-4" />
               Registrarse
@@ -85,7 +100,10 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 p-2 pr-3 rounded-lg hover:bg-gray-100 transition-all group"
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-pink-500 flex items-center justify-center">
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center"
+          style={{ background: gradientBgStyle }}
+        >
           <span className="text-white text-sm font-bold">
             {user?.name.charAt(0).toUpperCase() || 'U'}
           </span>
@@ -112,16 +130,16 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
           <Link
             to="/profile"
             onClick={() => setIsOpen(false)}
-            className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors flex items-center gap-2"
+            className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2"
           >
             <User className="w-4 h-4" />
             Mi Perfil
           </Link>
 
           <Link
-            to="/mis-pedidos"
+            to="/my-orders"
             onClick={() => setIsOpen(false)}
-            className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors flex items-center gap-2"
+            className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2"
           >
             <Package className="w-4 h-4" />
             Mis Pedidos

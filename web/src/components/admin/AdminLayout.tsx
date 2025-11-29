@@ -18,28 +18,44 @@ import {
   FileText,
   Shield,
   UserCog,
+  DollarSign,
+  Key,
 } from 'lucide-react';
+import type { Permission } from '../../types/roles';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-// Módulos principales sin submenú
-const menuItems = [
-  { path: '/admin-panel', icon: BarChart3, label: 'Dashboard', exact: true },
-  { path: '/admin-panel/settings', icon: Settings, label: 'Configuración' },
+// Módulos principales sin submenú (con permisos requeridos)
+const menuItems: {
+  path: string;
+  icon: typeof BarChart3;
+  label: string;
+  exact?: boolean;
+  permission?: Permission;
+}[] = [
+  { path: '/admin-panel', icon: BarChart3, label: 'Dashboard', exact: true, permission: 'dashboard.view' },
+  { path: '/admin-panel/payments', icon: DollarSign, label: 'Pagos', permission: 'settings.payment' },
 ];
 
-// Módulos con submenús
-const menuWithSubmenus = [
+// Módulos con submenús (con permisos requeridos)
+const menuWithSubmenus: {
+  id: string;
+  label: string;
+  icon: typeof Users;
+  basePath: string;
+  submenu: { path: string; label: string; icon?: typeof UserCog; permission?: Permission }[];
+}[] = [
   {
     id: 'users',
     label: 'Usuarios',
     icon: Users,
     basePath: '/admin-panel/users',
     submenu: [
-      { path: '/admin-panel/users', label: 'Clientes', icon: UserCog },
-      { path: '/admin-panel/admins', label: 'Administradores', icon: Shield },
+      { path: '/admin-panel/users', label: 'Clientes', icon: UserCog, permission: 'users.view' },
+      { path: '/admin-panel/admins', label: 'Administradores', icon: Shield, permission: 'admins.view' },
+      { path: '/admin-panel/roles', label: 'Roles y Permisos', icon: Key, permission: 'roles.view' },
     ],
   },
   {
@@ -48,11 +64,11 @@ const menuWithSubmenus = [
     icon: Layers,
     basePath: '/admin-panel/catalogs',
     submenu: [
-      { path: '/admin-panel/products', label: 'Productos', icon: Package },
-      { path: '/admin-panel/catalogs/sizes', label: 'Tallas' },
-      { path: '/admin-panel/catalogs/colors', label: 'Colores' },
-      { path: '/admin-panel/catalogs/product-types', label: 'Tipos de Producto' },
-      { path: '/admin-panel/catalogs/categories', label: 'Categorías' },
+      { path: '/admin-panel/products', label: 'Productos', icon: Package, permission: 'products.view' },
+      { path: '/admin-panel/catalogs/sizes', label: 'Tallas', permission: 'catalogs.view' },
+      { path: '/admin-panel/catalogs/colors', label: 'Colores', permission: 'catalogs.view' },
+      { path: '/admin-panel/catalogs/product-types', label: 'Tipos de Producto', permission: 'catalogs.view' },
+      { path: '/admin-panel/catalogs/categories', label: 'Categorías', permission: 'catalogs.view' },
     ],
   },
   {
@@ -61,23 +77,54 @@ const menuWithSubmenus = [
     icon: ShoppingBag,
     basePath: '/admin-panel/orders',
     submenu: [
-      { path: '/admin-panel/orders', label: 'Todos los Pedidos', icon: FileText },
-      { path: '/admin-panel/orders/shipping', label: 'Despacho', icon: Truck },
+      { path: '/admin-panel/orders', label: 'Todos los Pedidos', icon: FileText, permission: 'orders.view' },
+      { path: '/admin-panel/orders/shipping', label: 'Despacho', icon: Truck, permission: 'orders.manage' },
+    ],
+  },
+  {
+    id: 'settings',
+    label: 'Configuración',
+    icon: Settings,
+    basePath: '/admin-panel/settings',
+    submenu: [
+      { path: '/admin-panel/settings/general', label: 'General', permission: 'settings.general' },
+      { path: '/admin-panel/settings/appearance', label: 'Apariencia', permission: 'settings.appearance' },
+      { path: '/admin-panel/settings/home', label: 'Página de Inicio', permission: 'settings.home' },
+      { path: '/admin-panel/settings/catalog', label: 'Catálogo', permission: 'settings.catalog' },
+      { path: '/admin-panel/settings/shipping', label: 'Envíos', permission: 'settings.shipping' },
+      { path: '/admin-panel/settings/payment', label: 'Pagos', permission: 'settings.payment' },
+      { path: '/admin-panel/settings/legal', label: 'Legal', permission: 'settings.legal' },
     ],
   },
 ];
 
 export const AdminLayout = ({ children }: AdminLayoutProps) => {
-  const { user, logout } = useAuth();
+  const { user, role, logout, hasPermission } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+  // Filtrar menú items según permisos
+  const visibleMenuItems = menuItems.filter(
+    item => !item.permission || hasPermission(item.permission)
+  );
+
+  // Filtrar módulos con submenús según permisos
+  const visibleModules = menuWithSubmenus
+    .map(module => ({
+      ...module,
+      submenu: module.submenu.filter(
+        sub => !sub.permission || hasPermission(sub.permission)
+      ),
+    }))
+    .filter(module => module.submenu.length > 0);
 
   // Estado para cada submenú
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     users: false,
     catalogs: false,
     orders: false,
+    settings: false,
   });
 
   const toggleSubmenu = (id: string) => {
@@ -155,7 +202,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                       <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                       <p className="text-xs text-gray-500 mt-1">{user?.email}</p>
                       <span className="inline-block mt-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded">
-                        Administrador
+                        {role?.name || 'Usuario'}
                       </span>
                     </div>
 
@@ -199,7 +246,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
           <div className={`w-64 h-full ${sidebarOpen ? 'block' : 'hidden'}`}>
             <nav className="p-4 space-y-1 relative z-30 bg-white h-full overflow-y-auto pb-20">
               {/* Menús simples sin submenú */}
-              {menuItems.map((item) => {
+              {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path, item.exact);
 
@@ -220,9 +267,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
               })}
 
               {/* Menús con submenús */}
-              {menuWithSubmenus.map((module) => {
+              {visibleModules.map((module) => {
                 const Icon = module.icon;
-                const moduleActive = isActive(module.basePath) || (module.id === 'catalogs' && isActive('/admin-panel/products')) || (module.id === 'users' && isActive('/admin-panel/admins'));
+                const moduleActive = isActive(module.basePath) || (module.id === 'catalogs' && isActive('/admin-panel/products')) || (module.id === 'users' && (isActive('/admin-panel/admins') || isActive('/admin-panel/roles')));
 
                 return (
                   <div key={module.id}>

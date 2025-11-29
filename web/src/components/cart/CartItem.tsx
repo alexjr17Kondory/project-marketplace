@@ -1,4 +1,5 @@
 import { Minus, Plus, Trash2 } from 'lucide-react';
+import { useCurrency } from '../../hooks/useCurrency';
 import type { CartItem as CartItemType } from '../../types/cart';
 
 interface CartItemProps {
@@ -8,6 +9,8 @@ interface CartItemProps {
 }
 
 export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) => {
+  const { format } = useCurrency();
+
   const handleDecrease = () => {
     if (item.quantity > 1) {
       onUpdateQuantity(item.id, item.quantity - 1);
@@ -21,7 +24,7 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
   };
 
   return (
-    <div className="flex gap-4 p-4 bg-white rounded-lg border border-gray-200 hover:border-purple-200 transition-colors">
+    <div className="flex gap-4 p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
       {/* Imagen del producto */}
       <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
         <div
@@ -66,10 +69,10 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
 
         <div className="text-right">
           <p className="text-sm text-gray-500 mb-2">
-            ${item.price.toFixed(2)} c/u
+            {format(item.price)} c/u
           </p>
           <p className="text-lg font-bold text-gray-900">
-            ${item.subtotal.toFixed(2)}
+            {format(item.subtotal)}
           </p>
         </div>
 

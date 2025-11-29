@@ -1,10 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Filter, X } from 'lucide-react';
+import { useSettings } from '../../context/SettingsContext';
+import { PRODUCT_CATEGORIES, PRODUCT_TYPES } from '../../types/settings';
 import type { ProductCategory, ProductType } from '../../types/product';
-
-interface ProductFiltersProps {
-  onFilterChange: (filters: FilterValues) => void;
-}
 
 export interface FilterValues {
   category?: ProductCategory;
@@ -13,26 +11,44 @@ export interface FilterValues {
   maxPrice?: number;
   inStock?: boolean;
   featured?: boolean;
+  bestsellers?: boolean;
+  newArrivals?: boolean;
 }
 
-export const ProductFilters = ({ onFilterChange }: ProductFiltersProps) => {
+interface ProductFiltersProps {
+  onFilterChange: (filters: FilterValues) => void;
+  initialFilters?: FilterValues;
+}
+
+export const ProductFilters = ({ onFilterChange, initialFilters = {} }: ProductFiltersProps) => {
+  const { settings } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
-  const [filters, setFilters] = useState<FilterValues>({});
+  const [filters, setFilters] = useState<FilterValues>(initialFilters);
 
-  const categories: { value: ProductCategory; label: string }[] = [
-    { value: 'clothing', label: 'Ropa' },
-    { value: 'accessories', label: 'Accesorios' },
-    { value: 'home', label: 'Hogar' },
-  ];
+  const catalogConfig = settings.catalog?.filters;
 
-  const types: { value: ProductType; label: string }[] = [
-    { value: 'tshirt', label: 'Camisetas' },
-    { value: 'hoodie', label: 'Hoodies' },
-    { value: 'cap', label: 'Gorras' },
-    { value: 'bottle', label: 'Botellas' },
-    { value: 'mug', label: 'Tazas' },
-    { value: 'pillow', label: 'Almohadas' },
-  ];
+  // Filtrar categorías habilitadas
+  const enabledCategories = useMemo(() => {
+    if (!catalogConfig?.showCategoryFilter) return [];
+    return PRODUCT_CATEGORIES.filter(cat =>
+      catalogConfig.enabledCategories?.includes(cat.id) ?? true
+    );
+  }, [catalogConfig]);
+
+  // Filtrar tipos habilitados
+  const enabledTypes = useMemo(() => {
+    if (!catalogConfig?.showTypeFilter) return [];
+    return PRODUCT_TYPES.filter(type =>
+      catalogConfig.enabledProductTypes?.includes(type.id) ?? true
+    );
+  }, [catalogConfig]);
+
+  // Actualizar filtros cuando cambien los initialFilters (desde URL)
+  useEffect(() => {
+    if (Object.keys(initialFilters).length > 0) {
+      setFilters(initialFilters);
+    }
+  }, [initialFilters]);
 
   const handleFilterChange = (key: keyof FilterValues, value: any) => {
     const newFilters = { ...filters, [key]: value };
@@ -53,6 +69,18 @@ export const ProductFilters = ({ onFilterChange }: ProductFiltersProps) => {
   };
 
   const activeFiltersCount = Object.keys(filters).length;
+
+  // Verificar si hay algún filtro habilitado
+  const hasAnyFilter =
+    catalogConfig?.showCategoryFilter ||
+    catalogConfig?.showTypeFilter ||
+    catalogConfig?.showPriceFilter ||
+    catalogConfig?.showStockFilter ||
+    catalogConfig?.showFeaturedFilter;
+
+  if (!hasAnyFilter) {
+    return null;
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -78,131 +106,141 @@ export const ProductFilters = ({ onFilterChange }: ProductFiltersProps) => {
       {/* Filters Content */}
       <div className={`p-4 space-y-6 ${isOpen ? 'block' : 'hidden'} md:block`}>
         {/* Category Filter */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-3">
-            Categoría
-          </label>
-          <div className="space-y-2">
-            {categories.map((category) => (
-              <label
-                key={category.value}
-                className="flex items-center gap-2 cursor-pointer group"
+        {catalogConfig?.showCategoryFilter && enabledCategories.length > 0 && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-3">
+              Categoría
+            </label>
+            <div className="space-y-2">
+              {enabledCategories.map((category) => (
+                <label
+                  key={category.id}
+                  className="flex items-center gap-2 cursor-pointer group"
+                >
+                  <input
+                    type="radio"
+                    name="category"
+                    value={category.id}
+                    checked={filters.category === category.id}
+                    onChange={(e) => handleFilterChange('category', e.target.value as ProductCategory)}
+                    className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span className="text-gray-700 group-hover:text-purple-600 transition-colors">
+                    {category.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {filters.category && (
+              <button
+                onClick={() => clearFilter('category')}
+                className="mt-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
               >
-                <input
-                  type="radio"
-                  name="category"
-                  value={category.value}
-                  checked={filters.category === category.value}
-                  onChange={(e) => handleFilterChange('category', e.target.value as ProductCategory)}
-                  className="w-4 h-4 text-purple-600 focus:ring-purple-500"
-                />
-                <span className="text-gray-700 group-hover:text-purple-600 transition-colors">
-                  {category.label}
-                </span>
-              </label>
-            ))}
+                Limpiar
+              </button>
+            )}
           </div>
-          {filters.category && (
-            <button
-              onClick={() => clearFilter('category')}
-              className="mt-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
+        )}
 
         {/* Type Filter */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-3">
-            Tipo de Producto
-          </label>
-          <div className="space-y-2">
-            {types.map((type) => (
-              <label
-                key={type.value}
-                className="flex items-center gap-2 cursor-pointer group"
-              >
-                <input
-                  type="checkbox"
-                  checked={filters.type === type.value}
-                  onChange={(e) =>
-                    handleFilterChange('type', e.target.checked ? type.value : undefined)
-                  }
-                  className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded"
-                />
-                <span className="text-gray-700 group-hover:text-purple-600 transition-colors">
-                  {type.label}
-                </span>
-              </label>
-            ))}
+        {catalogConfig?.showTypeFilter && enabledTypes.length > 0 && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-3">
+              Tipo de Producto
+            </label>
+            <div className="space-y-2">
+              {enabledTypes.map((type) => (
+                <label
+                  key={type.id}
+                  className="flex items-center gap-2 cursor-pointer group"
+                >
+                  <input
+                    type="checkbox"
+                    checked={filters.type === type.id}
+                    onChange={(e) =>
+                      handleFilterChange('type', e.target.checked ? type.id as ProductType : undefined)
+                    }
+                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded"
+                  />
+                  <span className="text-gray-700 group-hover:text-purple-600 transition-colors">
+                    {type.label}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Price Range */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-3">
-            Rango de Precio
-          </label>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">Mínimo</label>
-              <input
-                type="number"
-                min="0"
-                placeholder="$0"
-                value={filters.minPrice || ''}
-                onChange={(e) =>
-                  handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">Máximo</label>
-              <input
-                type="number"
-                min="0"
-                placeholder="$100"
-                value={filters.maxPrice || ''}
-                onChange={(e) =>
-                  handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
+        {catalogConfig?.showPriceFilter && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-3">
+              Rango de Precio
+            </label>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">Mínimo</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="$0"
+                  value={filters.minPrice || ''}
+                  onChange={(e) =>
+                    handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">Máximo</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="$100"
+                  value={filters.maxPrice || ''}
+                  onChange={(e) =>
+                    handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Stock Filter */}
-        <div>
-          <label className="flex items-center gap-2 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={filters.inStock || false}
-              onChange={(e) => handleFilterChange('inStock', e.target.checked || undefined)}
-              className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded"
-            />
-            <span className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
-              Solo productos en stock
-            </span>
-          </label>
-        </div>
+        {catalogConfig?.showStockFilter && (
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.inStock || false}
+                onChange={(e) => handleFilterChange('inStock', e.target.checked || undefined)}
+                className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded"
+              />
+              <span className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
+                Solo productos en stock
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* Featured Filter */}
-        <div>
-          <label className="flex items-center gap-2 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={filters.featured || false}
-              onChange={(e) => handleFilterChange('featured', e.target.checked || undefined)}
-              className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded"
-            />
-            <span className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
-              Solo destacados
-            </span>
-          </label>
-        </div>
+        {catalogConfig?.showFeaturedFilter && (
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.featured || false}
+                onChange={(e) => handleFilterChange('featured', e.target.checked || undefined)}
+                className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded"
+              />
+              <span className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
+                Solo destacados
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* Clear All Button */}
         {activeFiltersCount > 0 && (

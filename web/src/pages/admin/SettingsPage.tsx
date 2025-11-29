@@ -4,15 +4,21 @@ import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import { Modal } from '../../components/shared/Modal';
+import { RichTextEditor } from '../../components/shared/RichTextEditor';
+import { ImageUpload } from '../../components/shared/ImageUpload';
 import type {
   ShippingZone,
   ShippingCarrier,
   PaymentMethodConfig,
   CarrierZoneRate,
+  LegalSettings,
+  AppearanceSettings,
 } from '../../types/settings';
 import {
   PAYMENT_TYPE_LABELS,
   CURRENCY_OPTIONS,
+  BRAND_COLOR_PRESETS,
+  THEME_PRESETS,
 } from '../../types/settings';
 import {
   Settings,
@@ -36,16 +42,28 @@ import {
   Facebook,
   Instagram,
   MessageCircle,
+  Zap,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  FileText,
+  Shield,
+  RefreshCw,
+  ToggleLeft,
+  ToggleRight,
+  Palette,
 } from 'lucide-react';
+import type { WompiConfig, PickupConfig } from '../../types/settings';
 
-type TabType = 'general' | 'shipping' | 'payment';
+type TabType = 'general' | 'appearance' | 'shipping' | 'payment' | 'legal';
 
 export const SettingsPage = () => {
-  const { settings, updateGeneralSettings, updateShippingSettings, updatePaymentSettings,
+  const { settings, updateGeneralSettings, updateAppearanceSettings, updateShippingSettings, updatePaymentSettings,
     addShippingZone, updateShippingZone, deleteShippingZone,
     addCarrier, updateCarrier, deleteCarrier,
     updateCarrierZoneRate, addCarrierZoneRate,
-    addPaymentMethod, updatePaymentMethod, deletePaymentMethod, togglePaymentMethod
+    addPaymentMethod, updatePaymentMethod, deletePaymentMethod, togglePaymentMethod,
+    updateLegalPage
   } = useSettings();
   const toast = useToast();
 
@@ -61,6 +79,7 @@ export const SettingsPage = () => {
 
   // Form states
   const [generalForm, setGeneralForm] = useState(settings.general);
+  const [appearanceForm, setAppearanceForm] = useState<AppearanceSettings>(settings.appearance);
   const [zoneForm, setZoneForm] = useState<Omit<ShippingZone, 'id'>>({
     name: '',
     cities: [],
@@ -90,18 +109,53 @@ export const SettingsPage = () => {
     instructions: '',
     isActive: true,
   });
+  const [wompiForm, setWompiForm] = useState<WompiConfig>({
+    publicKey: '',
+    privateKey: '',
+    integrityKey: '',
+    eventSecret: '',
+    isTestMode: true,
+  });
+  const [pickupForm, setPickupForm] = useState<PickupConfig>({
+    storeName: '',
+    address: '',
+    city: '',
+    scheduleWeekdays: '',
+    scheduleWeekends: '',
+    phone: '',
+    mapUrl: '',
+    additionalInfo: '',
+  });
+  const [showSecrets, setShowSecrets] = useState(false);
   const [citiesInput, setCitiesInput] = useState('');
+
+  // Legal page editing states
+  const [editingLegalPage, setEditingLegalPage] = useState<keyof LegalSettings | null>(null);
+  const [legalForm, setLegalForm] = useState({
+    title: '',
+    content: '',
+    isActive: true,
+  });
 
   const tabs = [
     { id: 'general' as TabType, label: 'General', icon: Store },
+    { id: 'appearance' as TabType, label: 'Apariencia', icon: Palette },
     { id: 'shipping' as TabType, label: 'Envíos', icon: Truck },
     { id: 'payment' as TabType, label: 'Pagos', icon: CreditCard },
+    { id: 'legal' as TabType, label: 'Legal', icon: FileText },
   ];
 
   // Handlers General
   const handleSaveGeneral = () => {
     updateGeneralSettings(generalForm);
     toast.success('Configuración general guardada');
+
+  };
+
+  // Handlers Apariencia
+  const handleSaveAppearance = () => {
+    updateAppearanceSettings(appearanceForm);
+    toast.success('Configuración de apariencia guardada');
   };
 
   // Handlers Zonas
@@ -271,7 +325,51 @@ export const SettingsPage = () => {
         instructions: method.instructions || '',
         isActive: method.isActive,
         bankInfo: method.bankInfo,
+        wompiConfig: method.wompiConfig,
+        pickupConfig: method.pickupConfig,
       });
+      // Cargar config de Wompi si existe
+      if (method.wompiConfig) {
+        setWompiForm({
+          publicKey: method.wompiConfig.publicKey || '',
+          privateKey: method.wompiConfig.privateKey || '',
+          integrityKey: method.wompiConfig.integrityKey || '',
+          eventSecret: method.wompiConfig.eventSecret || '',
+          isTestMode: method.wompiConfig.isTestMode ?? true,
+        });
+      } else {
+        setWompiForm({
+          publicKey: '',
+          privateKey: '',
+          integrityKey: '',
+          eventSecret: '',
+          isTestMode: true,
+        });
+      }
+      // Cargar config de Pickup si existe
+      if (method.pickupConfig) {
+        setPickupForm({
+          storeName: method.pickupConfig.storeName || '',
+          address: method.pickupConfig.address || '',
+          city: method.pickupConfig.city || '',
+          scheduleWeekdays: method.pickupConfig.scheduleWeekdays || '',
+          scheduleWeekends: method.pickupConfig.scheduleWeekends || '',
+          phone: method.pickupConfig.phone || '',
+          mapUrl: method.pickupConfig.mapUrl || '',
+          additionalInfo: method.pickupConfig.additionalInfo || '',
+        });
+      } else {
+        setPickupForm({
+          storeName: '',
+          address: '',
+          city: '',
+          scheduleWeekdays: '',
+          scheduleWeekends: '',
+          phone: '',
+          mapUrl: '',
+          additionalInfo: '',
+        });
+      }
     } else {
       setEditingPayment(null);
       setPaymentForm({
@@ -281,16 +379,60 @@ export const SettingsPage = () => {
         instructions: '',
         isActive: true,
       });
+      setWompiForm({
+        publicKey: '',
+        privateKey: '',
+        integrityKey: '',
+        eventSecret: '',
+        isTestMode: true,
+      });
+      setPickupForm({
+        storeName: '',
+        address: '',
+        city: '',
+        scheduleWeekdays: '',
+        scheduleWeekends: '',
+        phone: '',
+        mapUrl: '',
+        additionalInfo: '',
+      });
     }
+    setShowSecrets(false);
     setIsPaymentModalOpen(true);
   };
 
   const handleSavePayment = () => {
+    // Preparar datos con config de Wompi o Pickup si aplica
+    const dataToSave = { ...paymentForm };
+
+    if (paymentForm.type === 'wompi') {
+      dataToSave.wompiConfig = {
+        publicKey: wompiForm.publicKey,
+        privateKey: wompiForm.privateKey || undefined,
+        integrityKey: wompiForm.integrityKey || undefined,
+        eventSecret: wompiForm.eventSecret || undefined,
+        isTestMode: wompiForm.isTestMode,
+      };
+    }
+
+    if (paymentForm.type === 'pickup') {
+      dataToSave.pickupConfig = {
+        storeName: pickupForm.storeName,
+        address: pickupForm.address,
+        city: pickupForm.city,
+        scheduleWeekdays: pickupForm.scheduleWeekdays,
+        scheduleWeekends: pickupForm.scheduleWeekends || undefined,
+        phone: pickupForm.phone || undefined,
+        mapUrl: pickupForm.mapUrl || undefined,
+        additionalInfo: pickupForm.additionalInfo || undefined,
+      };
+    }
+
     if (editingPayment) {
-      updatePaymentMethod(editingPayment.id, paymentForm);
+      updatePaymentMethod(editingPayment.id, dataToSave);
       toast.success('Método de pago actualizado');
     } else {
-      addPaymentMethod(paymentForm);
+      addPaymentMethod(dataToSave);
       toast.success('Método de pago creado');
     }
     setIsPaymentModalOpen(false);
@@ -306,6 +448,36 @@ export const SettingsPage = () => {
   const handleUpdateTax = (taxRate: number, taxIncluded: boolean) => {
     updatePaymentSettings({ taxRate, taxIncluded });
     toast.success('Configuración de impuestos actualizada');
+  };
+
+  // Handlers Legal
+  const handleOpenLegalEditor = (pageKey: keyof LegalSettings) => {
+    const page = settings.legal[pageKey];
+    setLegalForm({
+      title: page.title,
+      content: page.content,
+      isActive: page.isActive,
+    });
+    setEditingLegalPage(pageKey);
+  };
+
+  const handleSaveLegalPage = () => {
+    if (!editingLegalPage) return;
+    updateLegalPage(editingLegalPage, legalForm);
+    toast.success('Página legal actualizada');
+    setEditingLegalPage(null);
+  };
+
+  const handleToggleLegalPage = (pageKey: keyof LegalSettings) => {
+    const page = settings.legal[pageKey];
+    updateLegalPage(pageKey, { isActive: !page.isActive });
+    toast.success(`Página ${!page.isActive ? 'activada' : 'desactivada'}`);
+  };
+
+  const legalPageInfo: Record<keyof LegalSettings, { icon: typeof FileText; label: string; slug: string }> = {
+    termsAndConditions: { icon: FileText, label: 'Términos y Condiciones', slug: 'terms' },
+    privacyPolicy: { icon: Shield, label: 'Política de Privacidad', slug: 'privacy' },
+    returnsPolicy: { icon: RefreshCw, label: 'Política de Devoluciones', slug: 'returns' },
   };
 
   return (
@@ -372,6 +544,19 @@ export const SettingsPage = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Slogan
+                  </label>
+                  <Input
+                    value={generalForm.slogan || ''}
+                    onChange={(e) => setGeneralForm({ ...generalForm, slogan: e.target.value })}
+                    placeholder="Tu Estilo, Tu Diseño"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Texto que aparece debajo del nombre en el header
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Moneda
                   </label>
                   <select
@@ -406,6 +591,25 @@ export const SettingsPage = () => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Logo */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Store className="w-5 h-5 text-orange-500" />
+                Logo del Sitio
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Sube el logo de tu tienda. Se mostrará junto al nombre en el header y footer.
+              </p>
+              <ImageUpload
+                value={generalForm.logo}
+                onChange={(imageData) => setGeneralForm({ ...generalForm, logo: imageData })}
+                label=""
+                hint="Recomendado: PNG transparente, máximo 200x60px. El nombre y slogan siempre se mostrarán."
+                maxSizeMB={1}
+                aspectRatio="landscape"
+              />
             </div>
 
             {/* Contacto */}
@@ -527,6 +731,336 @@ export const SettingsPage = () => {
 
             <div className="flex justify-end">
               <Button onClick={handleSaveGeneral}>
+                <Save className="w-4 h-4 mr-2" />
+                Guardar Cambios
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Appearance Tab */}
+        {activeTab === 'appearance' && (
+          <div className="space-y-6">
+            {/* Temas Predefinidos */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Palette className="w-5 h-5 text-orange-500" />
+                Temas Predefinidos
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Selecciona un tema predefinido para aplicar todos los colores de una vez.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {THEME_PRESETS.map((theme, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setAppearanceForm({
+                      ...appearanceForm,
+                      brandColors: theme.brandColors,
+                      buttonColor: theme.buttonColor,
+                      footerBgColor: theme.footerBgColor,
+                    })}
+                    className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
+                      appearanceForm.brandColors.primary === theme.brandColors.primary
+                        ? 'border-orange-500 ring-2 ring-orange-200'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div
+                      className="h-12 rounded-md mb-2"
+                      style={{
+                        background: `linear-gradient(to right, ${theme.brandColors.primary}, ${theme.brandColors.secondary}, ${theme.brandColors.accent})`
+                      }}
+                    />
+                    <span className="text-sm font-medium text-gray-700">{theme.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Colores de Marca */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Palette className="w-5 h-5 text-orange-500" />
+                Colores de Marca (Gradiente)
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Define los colores del gradiente que se usará en el nombre del sitio y elementos destacados.
+              </p>
+
+              {/* Paletas de gradiente */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Paletas de gradiente
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {BRAND_COLOR_PRESETS.map((preset, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setAppearanceForm({
+                        ...appearanceForm,
+                        brandColors: {
+                          primary: preset.primary,
+                          secondary: preset.secondary,
+                          accent: preset.accent,
+                        }
+                      })}
+                      className={`p-3 rounded-lg border-2 transition-all hover:scale-105 ${
+                        appearanceForm.brandColors.primary === preset.primary &&
+                        appearanceForm.brandColors.secondary === preset.secondary
+                          ? 'border-orange-500 ring-2 ring-orange-200'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div
+                        className="h-8 rounded-md mb-2"
+                        style={{
+                          background: `linear-gradient(to right, ${preset.primary}, ${preset.secondary}, ${preset.accent})`
+                        }}
+                      />
+                      <span className="text-xs font-medium text-gray-700">{preset.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Colores personalizados */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Colores personalizados
+                </label>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Primario</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={appearanceForm.brandColors.primary}
+                        onChange={(e) => setAppearanceForm({
+                          ...appearanceForm,
+                          brandColors: { ...appearanceForm.brandColors, primary: e.target.value }
+                        })}
+                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                      />
+                      <Input
+                        value={appearanceForm.brandColors.primary}
+                        onChange={(e) => setAppearanceForm({
+                          ...appearanceForm,
+                          brandColors: { ...appearanceForm.brandColors, primary: e.target.value }
+                        })}
+                        className="flex-1 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Secundario</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={appearanceForm.brandColors.secondary}
+                        onChange={(e) => setAppearanceForm({
+                          ...appearanceForm,
+                          brandColors: { ...appearanceForm.brandColors, secondary: e.target.value }
+                        })}
+                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                      />
+                      <Input
+                        value={appearanceForm.brandColors.secondary}
+                        onChange={(e) => setAppearanceForm({
+                          ...appearanceForm,
+                          brandColors: { ...appearanceForm.brandColors, secondary: e.target.value }
+                        })}
+                        className="flex-1 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Acento</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={appearanceForm.brandColors.accent}
+                        onChange={(e) => setAppearanceForm({
+                          ...appearanceForm,
+                          brandColors: { ...appearanceForm.brandColors, accent: e.target.value }
+                        })}
+                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                      />
+                      <Input
+                        value={appearanceForm.brandColors.accent}
+                        onChange={(e) => setAppearanceForm({
+                          ...appearanceForm,
+                          brandColors: { ...appearanceForm.brandColors, accent: e.target.value }
+                        })}
+                        className="flex-1 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vista previa del gradiente */}
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <label className="block text-xs text-gray-500 mb-2">Vista previa</label>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-12 h-12 rounded-xl"
+                    style={{
+                      background: `linear-gradient(to bottom right, ${appearanceForm.brandColors.primary}, ${appearanceForm.brandColors.secondary}, ${appearanceForm.brandColors.accent})`
+                    }}
+                  />
+                  <span
+                    className="text-2xl font-black"
+                    style={{
+                      background: `linear-gradient(to right, ${appearanceForm.brandColors.primary}, ${appearanceForm.brandColors.secondary}, ${appearanceForm.brandColors.accent})`,
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    }}
+                  >
+                    {settings.general.siteName || 'StylePrint'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones y elementos */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-orange-500" />
+                Color de Botones
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Color principal para botones y elementos interactivos.
+              </p>
+              <div className="flex items-center gap-4">
+                <input
+                  type="color"
+                  value={appearanceForm.buttonColor}
+                  onChange={(e) => setAppearanceForm({ ...appearanceForm, buttonColor: e.target.value })}
+                  className="w-12 h-12 rounded-lg border border-gray-300 cursor-pointer"
+                />
+                <Input
+                  value={appearanceForm.buttonColor}
+                  onChange={(e) => setAppearanceForm({ ...appearanceForm, buttonColor: e.target.value })}
+                  className="w-32 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  className="px-6 py-2 rounded-lg text-white font-medium"
+                  style={{ backgroundColor: appearanceForm.buttonColor }}
+                >
+                  Ejemplo de botón
+                </button>
+              </div>
+            </div>
+
+            {/* Opciones del Header */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Store className="w-5 h-5 text-orange-500" />
+                Opciones del Header
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">Mostrar Slogan</p>
+                    <p className="text-sm text-gray-500">Muestra el slogan debajo del nombre en el header</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAppearanceForm({ ...appearanceForm, showSlogan: !appearanceForm.showSlogan })}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${
+                      appearanceForm.showSlogan ? 'bg-orange-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        appearanceForm.showSlogan ? 'left-8' : 'left-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Opciones del Footer */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Globe className="w-5 h-5 text-orange-500" />
+                Opciones del Footer
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Color de fondo del Footer
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="color"
+                      value={appearanceForm.footerBgColor}
+                      onChange={(e) => setAppearanceForm({ ...appearanceForm, footerBgColor: e.target.value })}
+                      className="w-12 h-12 rounded-lg border border-gray-300 cursor-pointer"
+                    />
+                    <Input
+                      value={appearanceForm.footerBgColor}
+                      onChange={(e) => setAppearanceForm({ ...appearanceForm, footerBgColor: e.target.value })}
+                      className="w-32 font-mono text-sm"
+                    />
+                    <div
+                      className="w-24 h-12 rounded-lg border border-gray-200"
+                      style={{ backgroundColor: appearanceForm.footerBgColor }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">Mostrar Redes Sociales</p>
+                    <p className="text-sm text-gray-500">Muestra los iconos de redes sociales en el footer</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAppearanceForm({ ...appearanceForm, showSocialInFooter: !appearanceForm.showSocialInFooter })}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${
+                      appearanceForm.showSocialInFooter ? 'bg-orange-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        appearanceForm.showSocialInFooter ? 'left-8' : 'left-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">Mostrar Horarios</p>
+                    <p className="text-sm text-gray-500">Muestra la sección de horarios de atención en el footer</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAppearanceForm({ ...appearanceForm, showScheduleInFooter: !appearanceForm.showScheduleInFooter })}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${
+                      appearanceForm.showScheduleInFooter ? 'bg-orange-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        appearanceForm.showScheduleInFooter ? 'left-8' : 'left-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Guardar */}
+            <div className="flex justify-end">
+              <Button onClick={handleSaveAppearance}>
                 <Save className="w-4 h-4 mr-2" />
                 Guardar Cambios
               </Button>
@@ -1003,6 +1537,37 @@ export const SettingsPage = () => {
                               <p><strong>Titular:</strong> {method.bankInfo.accountHolder}</p>
                             </div>
                           )}
+                          {method.type === 'wompi' && method.wompiConfig && (
+                            <div className="mt-2 text-xs bg-purple-50 p-2 rounded">
+                              <div className="flex items-center gap-2">
+                                <Zap className="w-3 h-3 text-purple-600" />
+                                <span className={`font-medium ${method.wompiConfig.isTestMode ? 'text-yellow-700' : 'text-green-700'}`}>
+                                  {method.wompiConfig.isTestMode ? 'Modo Prueba' : 'Modo Producción'}
+                                </span>
+                              </div>
+                              {method.wompiConfig.publicKey && (
+                                <p className="text-gray-500 mt-1">
+                                  <strong>Public Key:</strong> {method.wompiConfig.publicKey.slice(0, 20)}...
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {method.type === 'pickup' && method.pickupConfig && (
+                            <div className="mt-2 text-xs bg-green-50 p-2 rounded">
+                              <div className="flex items-center gap-2">
+                                <Store className="w-3 h-3 text-green-600" />
+                                <span className="font-medium text-green-700">
+                                  {method.pickupConfig.storeName}
+                                </span>
+                              </div>
+                              <p className="text-gray-500 mt-1">
+                                <strong>Dirección:</strong> {method.pickupConfig.address}, {method.pickupConfig.city}
+                              </p>
+                              <p className="text-gray-500">
+                                <strong>Horario:</strong> {method.pickupConfig.scheduleWeekdays}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
@@ -1038,7 +1603,143 @@ export const SettingsPage = () => {
             </div>
           </div>
         )}
+
+        {/* Legal Tab */}
+        {activeTab === 'legal' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-orange-500" />
+                  Páginas Legales
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Administra el contenido de tus páginas legales. Estas páginas son accesibles desde el pie de página.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {(Object.keys(legalPageInfo) as Array<keyof LegalSettings>).map((pageKey) => {
+                  const info = legalPageInfo[pageKey];
+                  const page = settings.legal[pageKey];
+                  const Icon = info.icon;
+                  const formattedDate = new Date(page.lastUpdated).toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  });
+
+                  return (
+                    <div
+                      key={pageKey}
+                      className={`border rounded-lg p-4 ${page.isActive ? 'border-gray-200' : 'border-gray-100 bg-gray-50'}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${page.isActive ? 'bg-orange-100' : 'bg-gray-100'}`}>
+                            <Icon className={`w-5 h-5 ${page.isActive ? 'text-orange-600' : 'text-gray-400'}`} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-gray-900">{page.title}</h4>
+                              {!page.isActive && (
+                                <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                                  Inactiva
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">
+                              /legal/{info.slug} • Última actualización: {formattedDate}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                              {page.content.replace(/<[^>]*>/g, '').substring(0, 150)}...
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleToggleLegalPage(pageKey)}
+                            className={`p-2 rounded-lg ${page.isActive ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'}`}
+                            title={page.isActive ? 'Desactivar' : 'Activar'}
+                          >
+                            {page.isActive ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                          </button>
+                          <button
+                            onClick={() => handleOpenLegalEditor(pageKey)}
+                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <a
+                            href={`/legal/${info.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg"
+                            title="Ver página"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Legal Page Editor Modal */}
+      <Modal
+        isOpen={!!editingLegalPage}
+        onClose={() => setEditingLegalPage(null)}
+        title={editingLegalPage ? `Editar ${legalPageInfo[editingLegalPage].label}` : 'Editar Página'}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Título de la Página
+            </label>
+            <Input
+              value={legalForm.title}
+              onChange={(e) => setLegalForm({ ...legalForm, title: e.target.value })}
+              placeholder="Ej: Términos y Condiciones"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Contenido
+            </label>
+            <RichTextEditor
+              content={legalForm.content}
+              onChange={(html) => setLegalForm({ ...legalForm, content: html })}
+            />
+          </div>
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={legalForm.isActive}
+                onChange={(e) => setLegalForm({ ...legalForm, isActive: e.target.checked })}
+                className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+              />
+              <span className="text-sm text-gray-700">Página activa (visible en el sitio)</span>
+            </label>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button variant="admin-secondary" onClick={() => setEditingLegalPage(null)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveLegalPage} className="flex-1">
+              <Save className="w-4 h-4 mr-2" />
+              Guardar Cambios
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Zone Modal - Simplificado */}
       <Modal
@@ -1409,6 +2110,140 @@ export const SettingsPage = () => {
             />
           </div>
 
+          {paymentForm.type === 'wompi' && (
+            <div className="bg-purple-50 rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-purple-600" />
+                  Configuración de Wompi
+                </h4>
+                <a
+                  href="https://comercios.wompi.co"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-purple-600 hover:underline"
+                >
+                  Ir a Wompi Dashboard →
+                </a>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-yellow-700">
+                  <p className="font-medium">Obtén tus credenciales en Wompi</p>
+                  <p className="mt-1">
+                    1. Ingresa a <strong>comercios.wompi.co</strong><br />
+                    2. Ve a <strong>Desarrolladores → Llaves de API</strong><br />
+                    3. Copia las llaves según el ambiente (Pruebas o Producción)
+                  </p>
+                </div>
+              </div>
+
+              {/* Modo */}
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="wompiMode"
+                    checked={wompiForm.isTestMode}
+                    onChange={() => setWompiForm({ ...wompiForm, isTestMode: true })}
+                    className="w-4 h-4 text-purple-600"
+                  />
+                  <span className="text-sm text-gray-700">Modo Prueba (Sandbox)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="wompiMode"
+                    checked={!wompiForm.isTestMode}
+                    onChange={() => setWompiForm({ ...wompiForm, isTestMode: false })}
+                    className="w-4 h-4 text-purple-600"
+                  />
+                  <span className="text-sm text-gray-700">Producción</span>
+                </label>
+              </div>
+
+              {/* Public Key */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Llave Pública (Public Key) *
+                </label>
+                <Input
+                  value={wompiForm.publicKey}
+                  onChange={(e) => setWompiForm({ ...wompiForm, publicKey: e.target.value })}
+                  placeholder={wompiForm.isTestMode ? 'pub_test_...' : 'pub_prod_...'}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {wompiForm.isTestMode
+                    ? 'Debe empezar con "pub_test_"'
+                    : 'Debe empezar con "pub_prod_"'}
+                </p>
+              </div>
+
+              {/* Mostrar/Ocultar claves secretas */}
+              <button
+                type="button"
+                onClick={() => setShowSecrets(!showSecrets)}
+                className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700"
+              >
+                {showSecrets ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showSecrets ? 'Ocultar claves secretas' : 'Mostrar claves secretas (opcional)'}
+              </button>
+
+              {showSecrets && (
+                <div className="space-y-3 pt-2 border-t border-purple-200">
+                  {/* Integrity Key */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Llave de Integridad (Integrity Key)
+                    </label>
+                    <Input
+                      type="password"
+                      value={wompiForm.integrityKey}
+                      onChange={(e) => setWompiForm({ ...wompiForm, integrityKey: e.target.value })}
+                      placeholder="Opcional - para firmar transacciones"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Se usa para generar una firma SHA256 y prevenir modificaciones
+                    </p>
+                  </div>
+
+                  {/* Private Key */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Llave Privada (Private Key)
+                    </label>
+                    <Input
+                      type="password"
+                      value={wompiForm.privateKey}
+                      onChange={(e) => setWompiForm({ ...wompiForm, privateKey: e.target.value })}
+                      placeholder={wompiForm.isTestMode ? 'prv_test_...' : 'prv_prod_...'}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Usada para consultar transacciones desde el servidor
+                    </p>
+                  </div>
+
+                  {/* Events Secret */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Secreto de Eventos (Events Secret)
+                    </label>
+                    <Input
+                      type="password"
+                      value={wompiForm.eventSecret}
+                      onChange={(e) => setWompiForm({ ...wompiForm, eventSecret: e.target.value })}
+                      placeholder="Opcional - para validar webhooks"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Para verificar la autenticidad de los webhooks de Wompi
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {paymentForm.type === 'transfer' && (
             <div className="bg-gray-50 rounded-lg p-4 space-y-3">
               <h4 className="font-medium text-gray-900">Información Bancaria</h4>
@@ -1484,6 +2319,112 @@ export const SettingsPage = () => {
                       bankInfo: { ...paymentForm.bankInfo!, documentNumber: e.target.value }
                     })}
                     placeholder="123.456.789"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {paymentForm.type === 'pickup' && (
+            <div className="bg-green-50 rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Store className="w-4 h-4 text-green-600" />
+                  Configuración del Punto Físico
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Nombre de la Tienda *
+                  </label>
+                  <Input
+                    value={pickupForm.storeName}
+                    onChange={(e) => setPickupForm({ ...pickupForm, storeName: e.target.value })}
+                    placeholder="StylePrint Store"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Dirección *
+                  </label>
+                  <Input
+                    value={pickupForm.address}
+                    onChange={(e) => setPickupForm({ ...pickupForm, address: e.target.value })}
+                    placeholder="Calle 123 #45-67, Local 101"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Ciudad *
+                  </label>
+                  <Input
+                    value={pickupForm.city}
+                    onChange={(e) => setPickupForm({ ...pickupForm, city: e.target.value })}
+                    placeholder="Bogotá"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Teléfono
+                  </label>
+                  <Input
+                    value={pickupForm.phone || ''}
+                    onChange={(e) => setPickupForm({ ...pickupForm, phone: e.target.value })}
+                    placeholder="+57 300 123 4567"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Horario entre semana *
+                  </label>
+                  <Input
+                    value={pickupForm.scheduleWeekdays}
+                    onChange={(e) => setPickupForm({ ...pickupForm, scheduleWeekdays: e.target.value })}
+                    placeholder="Lunes a Viernes: 9:00 AM - 6:00 PM"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Horario fines de semana
+                  </label>
+                  <Input
+                    value={pickupForm.scheduleWeekends || ''}
+                    onChange={(e) => setPickupForm({ ...pickupForm, scheduleWeekends: e.target.value })}
+                    placeholder="Sábados: 10:00 AM - 2:00 PM"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    URL de Google Maps
+                  </label>
+                  <Input
+                    value={pickupForm.mapUrl || ''}
+                    onChange={(e) => setPickupForm({ ...pickupForm, mapUrl: e.target.value })}
+                    placeholder="https://maps.google.com/..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Opcional - Link para que el cliente ubique la tienda
+                  </p>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Información adicional
+                  </label>
+                  <textarea
+                    value={pickupForm.additionalInfo || ''}
+                    onChange={(e) => setPickupForm({ ...pickupForm, additionalInfo: e.target.value })}
+                    rows={2}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="Centro comercial X, piso 2, al lado de..."
                   />
                 </div>
               </div>

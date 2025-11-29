@@ -24,14 +24,14 @@ export const CartPage = () => {
         <div className="mb-8">
           <button
             onClick={handleContinueShopping}
-            className="flex items-center gap-2 text-purple-600 hover:text-purple-700 font-medium mb-4 transition-colors"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Continuar Comprando
           </button>
 
           <div className="flex items-center gap-3">
-            <ShoppingCart className="w-8 h-8 text-purple-600" />
+            <ShoppingCart className="w-8 h-8 text-gray-700" />
             <h1 className="text-4xl font-bold text-gray-900">Carrito de Compras</h1>
           </div>
 
@@ -57,13 +57,13 @@ export const CartPage = () => {
             <div className="flex gap-4 justify-center">
               <button
                 onClick={handleContinueShopping}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold py-3 px-6 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-md hover:shadow-lg"
+                className="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transition-all shadow-md hover:shadow-lg"
               >
                 Ir al Catálogo
               </button>
               <button
                 onClick={() => navigate('/customize')}
-                className="bg-white text-purple-600 font-semibold py-3 px-6 rounded-lg border-2 border-purple-600 hover:bg-purple-50 transition-all"
+                className="bg-white text-gray-700 font-semibold py-3 px-6 rounded-lg border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all"
               >
                 Personalizar Producto
               </button>
@@ -99,7 +99,7 @@ export const CartPage = () => {
               {/* Botón para seguir comprando (mobile) */}
               <button
                 onClick={handleContinueShopping}
-                className="w-full py-3 px-6 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:border-purple-300 hover:text-purple-600 transition-colors"
+                className="w-full py-3 px-6 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:border-gray-400 hover:text-gray-900 transition-colors"
               >
                 Agregar más productos
               </button>
@@ -138,8 +138,8 @@ export const CartPage = () => {
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
               </div>

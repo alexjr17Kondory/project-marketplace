@@ -5,7 +5,10 @@ export interface Design {
   id: string;
   zoneId: PrintZone;
   imageUrl: string;
-  imageData?: string; // Base64 si la imagen es local
+  imageData?: string; // Base64 comprimido para preview
+  originalImageData?: string; // Base64 original sin compresión para producción
+  originalFileName?: string; // Nombre original del archivo
+  originalFileSize?: number; // Tamaño original en bytes
   position: {
     x: number;
     y: number;
@@ -23,6 +26,12 @@ export interface Design {
   };
 }
 
+// Imágenes de producción (originales sin compresión)
+export interface ProductionImages {
+  front?: string; // Base64 original para producción
+  back?: string;
+}
+
 // Producto personalizado
 export interface CustomizedProduct {
   id: string;
@@ -34,9 +43,10 @@ export interface CustomizedProduct {
   selectedSize: string;
   designs: Design[];
   previewImages: {
-    front: string;
+    front: string; // Comprimido para preview
     back?: string;
   };
+  productionImages?: ProductionImages; // Originales para producción
   customizationPrice: number; // Precio adicional por personalización
   totalPrice: number;
   createdAt: Date;

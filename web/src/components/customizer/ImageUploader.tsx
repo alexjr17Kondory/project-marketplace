@@ -1,15 +1,59 @@
 import { Upload, Image as ImageIcon } from 'lucide-react';
 import { useRef, type ChangeEvent } from 'react';
 
+// Datos de imagen con original y comprimida
+export interface ImageUploadData {
+  compressed: string; // Para preview (menor peso)
+  original: string; // Para producción (calidad original)
+  fileName: string;
+  fileSize: number;
+}
+
 interface ImageUploaderProps {
-  onImageUpload: (imageData: string) => void;
+  onImageUpload: (imageData: string, uploadData?: ImageUploadData) => void;
   isUploading?: boolean;
 }
+
+// Comprimir imagen para preview manteniendo calidad aceptable
+const compressImage = (
+  originalDataUrl: string,
+  maxWidth: number = 800,
+  quality: number = 0.8
+): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let { width, height } = img;
+
+      // Solo redimensionar si es más grande que maxWidth
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        // Usar JPEG para mejor compresión, pero PNG si tiene transparencia
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      } else {
+        resolve(originalDataUrl);
+      }
+    };
+    img.onerror = () => resolve(originalDataUrl);
+    img.src = originalDataUrl;
+  });
+};
 
 export const ImageUploader = ({ onImageUpload, isUploading = false }: ImageUploaderProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -19,17 +63,30 @@ export const ImageUploader = ({ onImageUpload, isUploading = false }: ImageUploa
       return;
     }
 
-    // Validar tamaño (máximo 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen es demasiado grande. Máximo 5MB');
+    // Validar tamaño (máximo 10MB para originales de alta calidad)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('La imagen es demasiado grande. Máximo 10MB');
       return;
     }
 
-    // Leer archivo como base64
+    // Leer archivo como base64 (original)
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const imageData = event.target?.result as string;
-      onImageUpload(imageData);
+    reader.onload = async (event) => {
+      const originalData = event.target?.result as string;
+
+      // Comprimir para preview
+      const compressedData = await compressImage(originalData);
+
+      // Crear objeto con ambas versiones
+      const uploadData: ImageUploadData = {
+        compressed: compressedData,
+        original: originalData,
+        fileName: file.name,
+        fileSize: file.size,
+      };
+
+      // Enviar la versión comprimida para el canvas, pero incluir datos completos
+      onImageUpload(compressedData, uploadData);
 
       // Reset file input to allow uploading to different zones
       if (fileInputRef.current) {
@@ -56,7 +113,7 @@ export const ImageUploader = ({ onImageUpload, isUploading = false }: ImageUploa
       <button
         onClick={handleClick}
         disabled={isUploading}
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-lg transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {isUploading ? (
           <>
@@ -78,7 +135,7 @@ export const ImageUploader = ({ onImageUpload, isUploading = false }: ImageUploa
             <p className="font-semibold mb-1">Recomendaciones:</p>
             <ul className="text-xs space-y-1 text-blue-700">
               <li>• Formato: PNG, JPG, SVG</li>
-              <li>• Tamaño máximo: 5MB</li>
+              <li>• Tamaño máximo: 10MB</li>
               <li>• Resolución: 300 DPI para mejor calidad</li>
               <li>• Fondo transparente (PNG) recomendado</li>
             </ul>

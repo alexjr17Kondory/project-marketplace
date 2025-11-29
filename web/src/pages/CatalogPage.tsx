@@ -1,30 +1,111 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProducts } from '../context/ProductsContext';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext';
 import { ProductGrid } from '../components/products/ProductGrid';
 import { ProductFilters, type FilterValues } from '../components/products/ProductFilters';
 import { ProductSort } from '../components/products/ProductSort';
+import { Pagination } from '../components/common/Pagination';
 import type { Product } from '../types/product';
+import type { ProductCategory, ProductType } from '../types/product';
 
 export const CatalogPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { filteredProducts, setFilters, sortOption, setSortOption, isLoading } = useProducts();
   const { addStandardProduct } = useCart();
+  const { settings } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [initialFilters, setInitialFilters] = useState<FilterValues>({});
+
+  // Leer filtros de la URL al cargar
+  useEffect(() => {
+    const urlFilters: FilterValues = {};
+
+    const category = searchParams.get('category');
+    const type = searchParams.get('type');
+    const featured = searchParams.get('featured');
+    const inStock = searchParams.get('inStock');
+    const bestsellers = searchParams.get('bestsellers');
+    const newArrivals = searchParams.get('newArrivals');
+    const sort = searchParams.get('sort');
+
+    if (category) urlFilters.category = category as ProductCategory;
+    if (type) urlFilters.type = type as ProductType;
+    if (featured === 'true') urlFilters.featured = true;
+    if (inStock === 'true') urlFilters.inStock = true;
+    if (bestsellers === 'true') urlFilters.bestsellers = true;
+    if (newArrivals === 'true') urlFilters.newArrivals = true;
+
+    // Aplicar ordenamiento desde URL
+    if (sort) {
+      const sortMapping: Record<string, typeof sortOption> = {
+        'price': 'price-asc',
+        'price-asc': 'price-asc',
+        'price-desc': 'price-desc',
+        'newest': 'newest',
+        'rating': 'rating',
+        'reviewsCount': 'popular',
+      };
+      if (sortMapping[sort]) {
+        setSortOption(sortMapping[sort]);
+      }
+    }
+
+    if (Object.keys(urlFilters).length > 0) {
+      setInitialFilters(urlFilters);
+      setFilters(urlFilters);
+    }
+  }, [searchParams, setFilters, setSortOption]);
+
+  // Colores de marca dinámicos
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
+  const gradientStyle = `linear-gradient(to right, ${brandColors.primary}, ${brandColors.secondary}, ${brandColors.accent})`;
 
   // Filter by search query
-  const displayedProducts = searchQuery
-    ? filteredProducts.filter((product) =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : filteredProducts;
+  const searchFilteredProducts = useMemo(() => {
+    return searchQuery
+      ? filteredProducts.filter((product) =>
+          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          product.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+      : filteredProducts;
+  }, [filteredProducts, searchQuery]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(searchFilteredProducts.length / itemsPerPage);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return searchFilteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [searchFilteredProducts, currentPage, itemsPerPage]);
 
   const handleFilterChange = (filters: FilterValues) => {
     setFilters(filters);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1); // Reset to first page when search changes
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when items per page changes
   };
 
   const handleAddToCart = (product: Product) => {
@@ -41,7 +122,7 @@ export const CatalogPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-amber-500 text-white py-6 shadow-lg">
+      <div className="text-white py-6 shadow-lg" style={{ background: gradientStyle }}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -70,8 +151,8 @@ export const CatalogPage = () => {
               type="text"
               placeholder="Buscar productos..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent shadow-sm"
+              onChange={handleSearchChange}
+              className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent shadow-sm"
             />
           </div>
         </div>
@@ -83,8 +164,8 @@ export const CatalogPage = () => {
               <span>Cargando productos...</span>
             ) : (
               <span>
-                Mostrando <span className="font-semibold text-gray-900">{displayedProducts.length}</span> de{' '}
-                <span className="font-semibold text-gray-900">{filteredProducts.length}</span> productos
+                Mostrando <span className="font-semibold text-gray-900">{paginatedProducts.length}</span> de{' '}
+                <span className="font-semibold text-gray-900">{searchFilteredProducts.length}</span> productos
               </span>
             )}
           </div>
@@ -95,17 +176,27 @@ export const CatalogPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Filters Sidebar */}
           <aside className="lg:col-span-1">
-            <ProductFilters onFilterChange={handleFilterChange} />
+            <ProductFilters onFilterChange={handleFilterChange} initialFilters={initialFilters} />
           </aside>
 
           {/* Products Grid */}
           <main className="lg:col-span-3">
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-600 border-t-transparent"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-600 border-t-transparent"></div>
               </div>
             ) : (
-              <ProductGrid products={displayedProducts} onAddToCart={handleAddToCart} />
+              <>
+                <ProductGrid products={paginatedProducts} onAddToCart={handleAddToCart} />
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={searchFilteredProducts.length}
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                />
+              </>
             )}
           </main>
         </div>

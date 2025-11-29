@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Star, Palette } from 'lucide-react';
+import { ShoppingCart, Star, Palette, Eye } from 'lucide-react';
+import { useSettings } from '../../context/SettingsContext';
+import { useCurrency } from '../../hooks/useCurrency';
 import type { Product } from '../../types/product';
 
 interface ProductCardProps {
@@ -8,135 +10,145 @@ interface ProductCardProps {
   onCustomize?: (product: Product) => void;
 }
 
+const categoryLabels: Record<string, string> = {
+  clothing: 'Ropa',
+  accessories: 'Accesorios',
+  drinkware: 'Bebidas',
+  home: 'Hogar',
+  office: 'Oficina',
+};
+
 export const ProductCard = ({ product, onAddToCart, onCustomize }: ProductCardProps) => {
+  const { settings } = useSettings();
+  const { format } = useCurrency();
+  const enableCustomizer = settings.home?.enableCustomizer ?? true;
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     onAddToCart?.(product);
   };
 
   const handleCustomize = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     onCustomize?.(product);
   };
 
   return (
     <Link
       to={`/catalog/${product.id}`}
-      className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
+      className="group bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
     >
-      {/* Image Container */}
-      <div className="relative overflow-hidden aspect-square bg-gray-100">
+      {/* Image Container - Más compacto */}
+      <div className="relative overflow-hidden aspect-[4/3] bg-gray-50">
         <img
           src={product.images.front}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
 
-        {/* Badge */}
-        {product.featured && (
-          <div className="absolute top-3 left-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-            Destacado
-          </div>
-        )}
+        {/* Badges container */}
+        <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
+          {/* Featured Badge */}
+          {product.featured && (
+            <span className="bg-gray-900 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+              DESTACADO
+            </span>
+          )}
+          {/* Stock Badge */}
+          {product.stock < 20 && product.stock > 0 && (
+            <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded ml-auto">
+              ÚLTIMAS {product.stock}
+            </span>
+          )}
+          {product.stock === 0 && (
+            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded ml-auto">
+              AGOTADO
+            </span>
+          )}
+        </div>
 
-        {/* Stock Badge */}
-        {product.stock < 20 && (
-          <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-            ¡Últimas unidades!
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="flex gap-2">
+        {/* Quick Actions - Aparecen al hover */}
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            className="bg-white/90 hover:bg-white text-gray-800 p-2.5 rounded-full transition-all hover:scale-110 shadow-lg"
+            title="Ver detalles"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          {enableCustomizer && (
             <button
               onClick={handleCustomize}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+              className="bg-gray-900 hover:bg-gray-800 text-white p-2.5 rounded-full transition-all hover:scale-110 shadow-lg"
+              title="Personalizar"
             >
               <Palette className="w-4 h-4" />
-              Personalizar
             </button>
-            <button
-              onClick={handleAddToCart}
-              className="bg-white hover:bg-gray-100 text-gray-800 p-2 rounded-lg transition-colors"
-              title="Agregar al carrito"
-            >
-              <ShoppingCart className="w-5 h-5" />
-            </button>
-          </div>
+          )}
+          <button
+            onClick={handleAddToCart}
+            className="bg-gray-900 hover:bg-gray-800 text-white p-2.5 rounded-full transition-all hover:scale-110 shadow-lg"
+            title="Agregar al carrito"
+          >
+            <ShoppingCart className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Product Info */}
-      <div className="p-4">
-        {/* Category */}
-        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-          {product.category === 'clothing' && 'Ropa'}
-          {product.category === 'accessories' && 'Accesorios'}
-          {product.category === 'home' && 'Hogar'}
-        </p>
-
-        {/* Name */}
-        <h3 className="font-bold text-gray-800 text-lg mb-2 line-clamp-1 group-hover:text-purple-600 transition-colors">
-          {product.name}
-        </h3>
-
-        {/* Rating */}
-        {product.rating && (
-          <div className="flex items-center gap-1 mb-2">
-            <div className="flex items-center">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm font-semibold text-gray-700 ml-1">
+      {/* Product Info - Más compacto */}
+      <div className="p-3 flex flex-col flex-1">
+        {/* Category & Rating */}
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+            {categoryLabels[product.category] || product.category}
+          </span>
+          {product.rating && (
+            <div className="flex items-center gap-0.5">
+              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+              <span className="text-xs font-medium text-gray-600">
                 {product.rating.toFixed(1)}
               </span>
             </div>
-            {product.reviewsCount && (
-              <span className="text-xs text-gray-500">
-                ({product.reviewsCount})
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Description */}
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-          {product.description}
-        </p>
-
-        {/* Colors */}
-        <div className="flex items-center gap-1 mb-3">
-          <span className="text-xs text-gray-500 mr-1">Colores:</span>
-          <div className="flex gap-1">
-            {product.colors.slice(0, 5).map((color, idx) => (
-              <div
-                key={idx}
-                className="w-5 h-5 rounded-full border-2 border-gray-200 shadow-sm"
-                style={{ backgroundColor: color.hex }}
-                title={color.name}
-              />
-            ))}
-            {product.colors.length > 5 && (
-              <div className="w-5 h-5 rounded-full border-2 border-gray-200 bg-gray-100 flex items-center justify-center">
-                <span className="text-xs text-gray-600">+{product.colors.length - 5}</span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
-        {/* Price */}
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-2xl font-bold text-gray-900">
-              ${product.basePrice.toFixed(2)}
+        {/* Name */}
+        <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-1.5 line-clamp-2 group-hover:text-gray-700 transition-colors min-h-[2.5rem]">
+          {product.name}
+        </h3>
+
+        {/* Colors - Más pequeños */}
+        <div className="flex items-center gap-0.5 mb-2">
+          {product.colors.slice(0, 4).map((color, idx) => (
+            <div
+              key={idx}
+              className="w-3.5 h-3.5 rounded-full border border-gray-200"
+              style={{ backgroundColor: color.hex }}
+              title={color.name}
+            />
+          ))}
+          {product.colors.length > 4 && (
+            <span className="text-[10px] text-gray-400 ml-0.5">
+              +{product.colors.length - 4}
             </span>
-            <span className="text-sm text-gray-500 ml-1">USD</span>
+          )}
+        </div>
+
+        {/* Price & Stock - Al final */}
+        <div className="flex items-end justify-between mt-auto pt-2 border-t border-gray-100">
+          <div>
+            <span className="text-lg font-bold text-gray-900">
+              {format(product.basePrice)}
+            </span>
           </div>
           {product.stock > 0 ? (
-            <span className="text-xs text-green-600 font-semibold">
+            <span className="text-[10px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">
               En stock
             </span>
           ) : (
-            <span className="text-xs text-red-600 font-semibold">
+            <span className="text-[10px] text-red-600 font-medium bg-red-50 px-1.5 py-0.5 rounded">
               Agotado
             </span>
           )}

@@ -49,17 +49,18 @@
 
 ## 📍 FASE 2: USUARIOS + AUTENTICACIÓN + ROLES
 
-**Estado:** 🟢 90% Completado
+**Estado:** ✅ 100% Completado
 **Objetivo:** Sistema de usuarios con roles diferenciados (Cliente, Admin, SuperAdmin)
 
 ### Módulo de Autenticación
-- [x] Página de Login
+- [x] Página de Login con credenciales de prueba visibles
 - [x] Página de Registro
-- [ ] Recuperación de contraseña
-- [ ] Verificación de email (opcional)
+- [x] Recuperación de contraseña (ForgotPasswordModal + ResetPasswordPage)
+- [ ] Verificación de email (opcional/futuro)
 - [x] Context: `AuthContext` (login, logout, register)
 - [x] Hook: `useAuth`
 - [x] Protección de rutas por rol
+- [x] Logout limpia correctamente localStorage
 
 ### Módulo de Usuarios (Clientes)
 - [x] Página `UsersPage` en Admin (lista de clientes con tabla)
@@ -67,34 +68,56 @@
 - [x] Historial de pedidos del usuario
 - [x] Direcciones guardadas del usuario
 - [x] Activar/Desactivar usuario
-- [x] Filtros: estado, fecha registro, rol
+- [x] Filtros: estado, fecha registro
+- [x] Clientes no pueden cambiar de rol (protegido)
 
 ### Módulo de Administradores
 - [x] Página `AdminUsersPage` en Admin (lista de administradores)
-- [x] Crear nuevo administrador
-- [x] Asignar rol (Admin, SuperAdmin)
+- [x] Crear nuevo administrador con selector de rol
+- [x] Asignar rol desde RolesContext (roles personalizados)
+- [x] Editar rol del administrador en detalle
+- [x] SuperAdmin original protegido (no puede cambiar rol)
 - [x] Permisos por módulo (estructura definida)
-- [ ] Log de actividad del administrador
+- [ ] Log de actividad del administrador (futuro)
 - [x] Solo SuperAdmin puede crear/editar otros admins
+
+### Sistema de Roles y Permisos
+- [x] Página `RolesPage` con lista de roles en cards
+- [x] Página `RoleFormPage` para crear/editar roles (vista independiente)
+- [x] Context: `RolesContext` (CRUD de roles)
+- [x] 27 permisos organizados en 8 módulos
+- [x] Roles del sistema protegidos (SuperAdmin ID:0, Usuario ID:1)
+- [x] Roles personalizados (ID:2+) editables
+- [x] Permisos agrupados por módulo en UI
+- [x] Barra de progreso de permisos
+- [x] Selector de todos los permisos / ninguno
 
 ### Perfil de Usuario (Frontend público)
 - [x] Página `ProfilePage`
 - [x] Editar datos personales
 - [x] Cambiar contraseña
 - [x] Mis direcciones (CRUD)
-- [ ] Mis pedidos (historial)
+- [x] Auto-llenado de datos en checkout
+
+### Unificación de Contextos
+- [x] `UsersContext` y `AuthContext` comparten misma fuente de datos
+- [x] Usuarios creados en admin pueden iniciar sesión
+- [x] Usuarios registrados en frontend aparecen en admin
+- [x] Contraseñas genéricas: `admin123` (admins), `cliente123` (clientes)
 
 ### Entregables Fase 2
 - [x] Sistema de autenticación completo
 - [x] Gestión de usuarios clientes
 - [x] Gestión de administradores con roles
+- [x] Sistema de roles y permisos personalizable
 - [x] Perfiles de usuario en frontend
+- [x] Contextos unificados para sincronización
 
 ---
 
-## 📍 FASE 3: PEDIDOS + HISTORIAL DE ESTADOS
+## 📍 FASE 3: PEDIDOS + HISTORIAL DE ESTADOS + PAGOS
 
-**Estado:** 🟢 98% Completado
+**Estado:** ✅ 100% Completado
 **Objetivo:** Sistema simple de pedidos con registro de cambio de estados (sin pagos reales)
 
 ### Flujo del Pedido (Estados)
@@ -170,33 +193,43 @@
 - [x] Botones de cambio de estado con flujo completo
 - [x] Campo de notas al cambiar estado
 - [x] Subir evidencias de pago
-- [ ] Descargar diseños para producción (PNG)
+- [x] Descargar diseños para producción (PNG)
 
-### Mis Pedidos (Cliente - Opcional)
-- [ ] Página `MyOrdersPage` - Ver mis pedidos por email
-- [ ] Ver estado actual y timeline
+### Mis Pedidos (Cliente)
+- [x] Página `MyOrdersPage` - Ver mis pedidos por email
+- [x] Ver estado actual y timeline
+
+### Módulo de Pagos (Admin)
+- [x] Página `PaymentsPage` - Panel de gestión de pagos
+- [x] Estadísticas de pagos (total, pendientes, confirmados, cancelados)
+- [x] Resumen por método de pago
+- [x] Tabla de transacciones con filtros
+- [x] Filtros por método, estado y rango de fechas
 
 ### Entregables Fase 3
-- [x] Checkout simple (sin pasarela de pago)
+- [x] Checkout con múltiples métodos de pago
+- [x] Integración Wompi (pasarela de pagos Colombia)
+- [x] Pago en punto físico (pickup)
 - [x] Sistema de pedidos con cambio de estados
 - [x] Timeline/historial de cada pedido
 - [x] Panel de gestión de pedidos para admin
+- [x] Panel de gestión de pagos para admin
+- [x] Mis Pedidos para clientes
 
 ---
 
-## 📍 FASE 4: PAGOS + FACTURACIÓN + DESPACHOS
+## 📍 FASE 4: FACTURACIÓN + DESPACHOS AVANZADOS
 
 **Estado:** 🔮 Futuro (No prioritario)
-**Objetivo:** Integración de pasarela de pagos, facturación y sistema de despachos
+**Objetivo:** Facturación electrónica y sistema de despachos avanzado
 
-> ⚠️ **Nota:** Esta fase se implementará cuando el negocio lo requiera.
-> Por ahora el sistema funciona con confirmación manual de pagos.
+> ⚠️ **Nota:** Pagos ya integrados en Fase 3. Esta fase es para facturación y despachos avanzados.
 
-### Integración de Pagos (Futuro)
-- [ ] Pasarela de pagos (Stripe / MercadoPago / PayU)
-- [ ] Pago con tarjeta en checkout
+### Integración de Pagos ✅ (Completado en Fase 3)
+- [x] Pasarela de pagos Wompi (Colombia)
+- [x] Pago con tarjeta en checkout
+- [x] Múltiples métodos de pago (PSE, transferencia, efectivo, punto físico)
 - [ ] Webhooks de confirmación automática
-- [ ] Pago por transferencia con comprobante
 
 ### Facturación (Futuro)
 - [ ] Generación de facturas PDF
@@ -255,14 +288,14 @@
 
 ## 📍 FASE 6: CONFIGURACIÓN GENERAL
 
-**Estado:** 🟢 85% Completado
+**Estado:** ✅ 100% Completado
 **Objetivo:** Configuración centralizada del sistema
 
 ### Configuración del Negocio
 - [x] Página `SettingsPage` en Admin (con tabs)
 - [x] Datos del negocio:
   - [x] Nombre de la tienda
-  - [ ] Logo
+  - [x] Logo
   - [x] Dirección
   - [x] Teléfono
   - [x] Email de contacto
@@ -279,22 +312,25 @@
 - [x] Configuración de paquetes por defecto
 
 ### Configuración de Pagos
-- [x] Métodos de pago (Transferencia, PSE, Efectivo, Tarjeta)
+- [x] Métodos de pago (Transferencia, PSE, Efectivo, Tarjeta, Wompi, Punto Físico)
+- [x] Configuración de Wompi (llaves de integración)
+- [x] Configuración de punto físico (dirección, horarios, teléfono)
 - [x] Información bancaria para transferencias
 - [x] Impuestos (IVA %)
 - [x] Moneda configurable
 
 ### Términos y Políticas
-- [ ] Página de Términos y Condiciones
-- [ ] Página de Política de Privacidad
-- [ ] Página de Política de Devoluciones
-- [ ] Editor de contenido para cada página
+- [x] Página de Términos y Condiciones
+- [x] Página de Política de Privacidad
+- [x] Página de Política de Devoluciones
+- [x] Editor de contenido para cada página
+- [x] Links en Footer
 
 ### Entregables Fase 6
 - [x] Configuración centralizada del negocio
 - [x] Configuración de envíos y transportadoras
 - [x] Configuración de métodos de pago
-- [ ] Páginas legales editables
+- [x] Páginas legales editables
 
 ---
 
@@ -350,11 +386,11 @@
 | Fase | Nombre | Estado | Progreso |
 |------|--------|--------|----------|
 | 1 | MVP: Catálogo + Personalizador + Admin | 🟢 | 95% |
-| 2 | Usuarios + Autenticación + Roles | 🟢 | 90% |
-| 3 | Pedidos + Historial de Estados | 🟢 | 98% |
-| 4 | Pagos + Facturación + Despachos | 🔮 | Futuro |
+| 2 | Usuarios + Autenticación + Roles | ✅ | 100% |
+| 3 | Pedidos + Pagos + Historial | ✅ | 100% |
+| 4 | Facturación + Despachos Avanzados | 🔮 | Futuro |
 | 5 | Notificaciones + Emails | ⚪ | 0% |
-| 6 | Configuración General | 🟢 | 85% |
+| 6 | Configuración General | ✅ | 100% |
 | 7 | Backend + Base de Datos | ⚪ | 0% |
 | 8 | App Móvil | 🔮 | Futuro |
 
@@ -363,14 +399,34 @@
 ## 🎯 PRÓXIMOS PASOS RECOMENDADOS
 
 ### Pendientes prioritarios:
-1. **Mis Pedidos** - Vista de pedidos para clientes
-2. **Notificaciones** - Emails transaccionales básicos
-3. **Descargar diseños** - Descargar diseños para producción (PNG)
+1. **Notificaciones** - Emails transaccionales básicos
+2. **Testing y refinamiento** - Optimización de rendimiento
 
 ### Nota sobre localStorage vs Backend:
 Por ahora todo funciona con localStorage. Cuando el volumen de datos lo requiera, se implementará la Fase 7 (Backend + Base de datos).
 
 ---
 
-**Última actualización:** 2025-11-26
-**Versión:** 3.0
+## 📝 CHANGELOG RECIENTE
+
+### v4.2 (2025-11-29)
+- ✅ Sistema de recuperación de contraseña completo
+- ✅ ForgotPasswordModal para solicitar reset
+- ✅ ResetPasswordPage para establecer nueva contraseña
+- ✅ Tokens de reset con expiración (1 hora)
+- ✅ Validación de contraseña (mínimo 6 caracteres)
+- ✅ Enlace de recuperación en consola (modo desarrollo)
+
+### v4.1 (2025-11-29)
+- ✅ Sistema de roles y permisos completo
+- ✅ Página independiente para crear/editar roles
+- ✅ 27 permisos en 8 módulos
+- ✅ Asignación de rol a administradores
+- ✅ Unificación de UsersContext y AuthContext
+- ✅ Credenciales de prueba visibles en login
+- ✅ Contraseñas genéricas (admin123/cliente123)
+
+---
+
+**Última actualización:** 2025-11-29
+**Versión:** 4.2

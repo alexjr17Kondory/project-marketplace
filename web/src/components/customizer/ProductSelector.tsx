@@ -8,21 +8,67 @@ interface ProductSelectorProps {
 }
 
 const productIcons: Record<ProductType, any> = {
+  // Ropa
   tshirt: Shirt,
   hoodie: Wind,
+  sweatshirt: Wind,
+  polo: Shirt,
+  tanktop: Shirt,
+  longsleeve: Shirt,
+  // Accesorios
   cap: Shirt,
-  bottle: Shirt,
+  totebag: Shirt,
+  keychain: Shirt,
+  mousepad: Shirt,
+  phonecase: Shirt,
+  lanyard: Shirt,
+  // Drinkware
   mug: Shirt,
+  magicmug: Shirt,
+  bottle: Shirt,
+  tumbler: Shirt,
+  // Hogar
+  aluminumframe: Shirt,
+  coaster: Shirt,
   pillow: Shirt,
+  blanket: Shirt,
+  clock: Shirt,
+  puzzle: Shirt,
+  // Oficina
+  notebook: Shirt,
+  calendar: Shirt,
 };
 
 const productLabels: Record<ProductType, string> = {
+  // Ropa
   tshirt: 'Camiseta',
-  hoodie: 'Hoodie',
+  hoodie: 'Buzo con Capucha',
+  sweatshirt: 'Suéter/Buzo',
+  polo: 'Polo',
+  tanktop: 'Camisilla',
+  longsleeve: 'Manga Larga',
+  // Accesorios
   cap: 'Gorra',
-  bottle: 'Botella',
-  mug: 'Taza',
-  pillow: 'Almohada',
+  totebag: 'Bolsa de Tela',
+  keychain: 'Llavero',
+  mousepad: 'Mouse Pad',
+  phonecase: 'Funda Celular',
+  lanyard: 'Cordón/Lanyard',
+  // Drinkware
+  mug: 'Taza Cerámica',
+  magicmug: 'Taza Mágica',
+  bottle: 'Botella/Termo',
+  tumbler: 'Vaso Térmico',
+  // Hogar
+  aluminumframe: 'Cuadro Aluminio',
+  coaster: 'Posa Vasos',
+  pillow: 'Cojín',
+  blanket: 'Manta/Cobija',
+  clock: 'Reloj de Pared',
+  puzzle: 'Rompecabezas',
+  // Oficina
+  notebook: 'Libreta',
+  calendar: 'Calendario',
 };
 
 export const ProductSelector = ({

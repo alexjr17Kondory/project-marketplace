@@ -11,6 +11,7 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { useUsers } from '../../context/UsersContext';
+import { useRoles } from '../../context/RolesContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
@@ -36,11 +37,15 @@ const columnHelper = createColumnHelper<User>();
 export const AdminUsersPage = () => {
   const navigate = useNavigate();
   const { admins, addAdmin } = useUsers();
+  const { roles } = useRoles();
   const toast = useToast();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Roles disponibles para asignar (excluyendo Usuario normal - id: 1)
+  const assignableRoles = roles.filter(r => r.id !== 1 && r.isActive);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -48,7 +53,7 @@ export const AdminUsersPage = () => {
     password: '',
     name: '',
     phone: '',
-    role: 'admin' as 'admin' | 'superadmin',
+    roleId: 2, // Por defecto, primer rol personalizado o admin básico
   });
 
   // Filtrar por estado
@@ -88,29 +93,38 @@ export const AdminUsersPage = () => {
           </div>
         ),
       }),
-      columnHelper.accessor('role', {
+      columnHelper.display({
+        id: 'role',
         header: 'Rol',
-        cell: (info) => (
-          <span
-            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-              info.getValue() === 'superadmin'
-                ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-blue-100 text-blue-800'
-            }`}
-          >
-            {info.getValue() === 'superadmin' ? (
-              <>
-                <Crown className="w-3 h-3 mr-1" />
-                Super Admin
-              </>
-            ) : (
-              <>
-                <Shield className="w-3 h-3 mr-1" />
-                Admin
-              </>
-            )}
-          </span>
-        ),
+        cell: (info) => {
+          const admin = info.row.original;
+          const isSuperAdmin = admin.role === 'superadmin';
+          // Obtener el nombre del rol desde RolesContext usando el id almacenado en el admin
+          // Por ahora usamos el campo role que tiene 'admin' o 'superadmin'
+          const roleName = isSuperAdmin ? 'Super Administrador' : 'Administrador';
+
+          return (
+            <span
+              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                isSuperAdmin
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-blue-100 text-blue-800'
+              }`}
+            >
+              {isSuperAdmin ? (
+                <>
+                  <Crown className="w-3 h-3 mr-1" />
+                  {roleName}
+                </>
+              ) : (
+                <>
+                  <Shield className="w-3 h-3 mr-1" />
+                  {roleName}
+                </>
+              )}
+            </span>
+          );
+        },
       }),
       columnHelper.accessor('phone', {
         header: 'Teléfono',
@@ -199,12 +213,14 @@ export const AdminUsersPage = () => {
   };
 
   const handleOpenForm = () => {
+    // Usar el primer rol disponible que no sea superadmin ni usuario
+    const defaultRoleId = assignableRoles.find(r => r.id !== 0)?.id || 2;
     setFormData({
       email: '',
       password: '',
       name: '',
       phone: '',
-      role: 'admin',
+      roleId: defaultRoleId,
     });
     setIsFormOpen(true);
   };
@@ -217,13 +233,17 @@ export const AdminUsersPage = () => {
       return;
     }
 
+    // Determinar el role string basado en el roleId
+    const role = formData.roleId === 0 ? 'superadmin' : 'admin';
+
     addAdmin({
       email: formData.email,
       password: formData.password,
       name: formData.name,
       phone: formData.phone || undefined,
-      role: formData.role,
+      role,
       status: 'active',
+      roleId: formData.roleId,
     });
 
     toast.success('Administrador creado correctamente');
@@ -499,16 +519,24 @@ export const AdminUsersPage = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Rol
+              Rol *
             </label>
             <select
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'superadmin' })}
+              value={formData.roleId}
+              onChange={(e) => setFormData({ ...formData, roleId: Number(e.target.value) })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              required
             >
-              <option value="admin">Administrador</option>
-              <option value="superadmin">Super Administrador</option>
+              {assignableRoles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                  {role.id === 0 && ' (Acceso total)'}
+                </option>
+              ))}
             </select>
+            <p className="text-xs text-gray-500 mt-1">
+              El rol determina los permisos del administrador
+            </p>
           </div>
 
           <div className="flex gap-3 pt-4">

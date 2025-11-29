@@ -21,11 +21,22 @@ interface ProductsContextType {
 const ProductsContext = createContext<ProductsContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'marketplace_products';
+const PRODUCTS_VERSION_KEY = 'marketplace_products_version';
+const CURRENT_PRODUCTS_VERSION = '2.0'; // Increment this when mockProducts changes significantly
 
 export const ProductsProvider = ({ children }: { children: ReactNode }) => {
   // Initialize products from localStorage or use mockProducts
   const [products, setProducts] = useState<Product[]>(() => {
+    const storedVersion = localStorage.getItem(PRODUCTS_VERSION_KEY);
     const stored = localStorage.getItem(STORAGE_KEY);
+
+    // If version mismatch or no version, use fresh mockProducts
+    if (storedVersion !== CURRENT_PRODUCTS_VERSION) {
+      localStorage.setItem(PRODUCTS_VERSION_KEY, CURRENT_PRODUCTS_VERSION);
+      localStorage.removeItem(STORAGE_KEY);
+      return mockProducts;
+    }
+
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -80,6 +91,22 @@ export const ProductsProvider = ({ children }: { children: ReactNode }) => {
 
     if (filters.featured) {
       result = result.filter((p) => p.featured);
+    }
+
+    // Bestsellers: productos con más de X reseñas (simula más vendidos)
+    if (filters.bestsellers) {
+      result = result.filter((p) => (p.reviewsCount || 0) >= 10);
+      // Ordenar por más reseñas
+      result.sort((a, b) => (b.reviewsCount || 0) - (a.reviewsCount || 0));
+    }
+
+    // New Arrivals: productos creados en los últimos 30 días
+    if (filters.newArrivals) {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      result = result.filter((p) => p.createdAt >= thirtyDaysAgo);
+      // Ordenar por más recientes
+      result.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     }
 
     // Apply sorting

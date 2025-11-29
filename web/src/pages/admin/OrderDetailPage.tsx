@@ -29,6 +29,8 @@ import {
   ArrowRight,
   AlertTriangle,
   History,
+  Download,
+  Printer,
 } from 'lucide-react';
 
 type TabType = 'details' | 'items' | 'shipping' | 'status';
@@ -92,6 +94,89 @@ export const OrderDetailPage = () => {
   const handleCopyOrderNumber = () => {
     navigator.clipboard.writeText(order.orderNumber);
     toast.success('Número de pedido copiado');
+  };
+
+  // Descargar diseño como PNG
+  const handleDownloadDesign = (designUrl: string, itemName: string, side: 'front' | 'back') => {
+    try {
+      const link = document.createElement('a');
+      link.href = designUrl;
+      const fileName = `${order.orderNumber}_${itemName.replace(/\s+/g, '-')}_${side === 'front' ? 'frente' : 'espalda'}.png`;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Diseño descargado: ${fileName}`);
+    } catch {
+      toast.error('Error al descargar el diseño');
+    }
+  };
+
+  // Obtener la mejor imagen disponible (original si existe, sino preview)
+  const getBestImage = (item: typeof order.items[0], side: 'front' | 'back'): string | undefined => {
+    if (!item.customization) return undefined;
+
+    if (side === 'front') {
+      // Preferir imagen original si existe
+      return item.customization.originalFront || item.customization.designFront;
+    } else {
+      return item.customization.originalBack || item.customization.designBack;
+    }
+  };
+
+  // Verificar si tiene imagen original (alta calidad)
+  const hasOriginalImage = (item: typeof order.items[0], side: 'front' | 'back'): boolean => {
+    if (!item.customization) return false;
+    return side === 'front'
+      ? !!item.customization.originalFront
+      : !!item.customization.originalBack;
+  };
+
+  // Descargar todos los diseños de un item
+  const handleDownloadAllDesigns = (item: typeof order.items[0]) => {
+    if (!item.customization) return;
+
+    const frontImage = getBestImage(item, 'front');
+    const backImage = getBestImage(item, 'back');
+
+    if (frontImage) {
+      handleDownloadDesign(frontImage, item.productName, 'front');
+    }
+    if (backImage) {
+      setTimeout(() => {
+        handleDownloadDesign(backImage!, item.productName, 'back');
+      }, 500);
+    }
+  };
+
+  // Descargar todos los diseños del pedido
+  const handleDownloadAllOrderDesigns = () => {
+    const itemsWithDesigns = order.items.filter(item => item.customization);
+    if (itemsWithDesigns.length === 0) {
+      toast.info('Este pedido no tiene productos personalizados');
+      return;
+    }
+
+    let delay = 0;
+    itemsWithDesigns.forEach((item) => {
+      const frontImage = getBestImage(item, 'front');
+      const backImage = getBestImage(item, 'back');
+
+      if (frontImage) {
+        setTimeout(() => {
+          handleDownloadDesign(frontImage, item.productName, 'front');
+        }, delay);
+        delay += 500;
+      }
+      if (backImage) {
+        setTimeout(() => {
+          handleDownloadDesign(backImage, item.productName, 'back');
+        }, delay);
+        delay += 500;
+      }
+    });
+
+    toast.success(`Descargando ${itemsWithDesigns.length} diseño(s) en calidad original...`);
   };
 
   const handleOpenChangeStatus = () => {
@@ -382,45 +467,135 @@ export const OrderDetailPage = () => {
         {/* Items Tab */}
         {activeTab === 'items' && (
           <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900">Productos del Pedido</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900">Productos del Pedido</h3>
+              {order.items.some(item => item.customization) && (
+                <Button
+                  variant="admin-secondary"
+                  onClick={handleDownloadAllOrderDesigns}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Descargar Todos los Diseños
+                </Button>
+              )}
+            </div>
 
             <div className="space-y-4">
               {order.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex gap-4 p-4 bg-gray-50 rounded-lg"
+                  className="p-4 bg-gray-50 rounded-lg"
                 >
-                  <img
-                    src={item.productImage}
-                    alt={item.productName}
-                    className="w-20 h-20 object-cover rounded-lg"
-                  />
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{item.productName}</h4>
-                    <div className="flex gap-4 mt-1 text-sm text-gray-500">
-                      <span>Talla: {item.size}</span>
-                      <span>Color: {item.color}</span>
+                  <div className="flex gap-4">
+                    <img
+                      src={item.productImage}
+                      alt={item.productName}
+                      className="w-20 h-20 object-cover rounded-lg"
+                    />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{item.productName}</h4>
+                      <div className="flex gap-4 mt-1 text-sm text-gray-500">
+                        <span>Talla: {item.size}</span>
+                        <span>Color: {item.color}</span>
+                      </div>
+                      {item.customization && (
+                        <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded">
+                          <Printer className="w-3 h-3" />
+                          Personalizado
+                        </span>
+                      )}
                     </div>
-                    {item.customization && (
-                      <div className="mt-2 text-sm">
-                        <span className="text-purple-600 font-medium">Personalizado:</span>
+                    <div className="text-right">
+                      <p className="font-medium text-gray-900">
+                        ${(item.unitPrice * item.quantity).toLocaleString()}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {item.quantity} x ${item.unitPrice.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Diseños personalizados */}
+                  {item.customization && (item.customization.designFront || item.customization.designBack) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Printer className="w-4 h-4 text-purple-600" />
+                          Diseños para Producción
+                          {(hasOriginalImage(item, 'front') || hasOriginalImage(item, 'back')) && (
+                            <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                              HD
+                            </span>
+                          )}
+                        </h5>
+                        <button
+                          onClick={() => handleDownloadAllDesigns(item)}
+                          className="flex items-center gap-1 text-sm text-orange-600 hover:text-orange-700 font-medium"
+                        >
+                          <Download className="w-4 h-4" />
+                          Descargar todos
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Diseño Frente */}
                         {item.customization.designFront && (
-                          <span className="ml-2 text-gray-600">Frente: {item.customization.designFront}</span>
+                          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <div className="bg-gray-100 px-3 py-2 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700">Frente</span>
+                                {hasOriginalImage(item, 'front') && (
+                                  <span className="px-1 py-0.5 bg-green-100 text-green-600 text-xs rounded">Original</span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleDownloadDesign(getBestImage(item, 'front')!, item.productName, 'front')}
+                                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                title={hasOriginalImage(item, 'front') ? 'Descargar en calidad original' : 'Descargar diseño frontal'}
+                              >
+                                <Download className="w-4 h-4 text-gray-600" />
+                              </button>
+                            </div>
+                            <div className="p-2">
+                              <img
+                                src={item.customization.designFront}
+                                alt={`${item.productName} - Frente`}
+                                className="w-full h-40 object-contain bg-white rounded"
+                              />
+                            </div>
+                          </div>
                         )}
+
+                        {/* Diseño Espalda */}
                         {item.customization.designBack && (
-                          <span className="ml-2 text-gray-600">Espalda: {item.customization.designBack}</span>
+                          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <div className="bg-gray-100 px-3 py-2 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700">Espalda</span>
+                                {hasOriginalImage(item, 'back') && (
+                                  <span className="px-1 py-0.5 bg-green-100 text-green-600 text-xs rounded">Original</span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleDownloadDesign(getBestImage(item, 'back')!, item.productName, 'back')}
+                                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                title={hasOriginalImage(item, 'back') ? 'Descargar en calidad original' : 'Descargar diseño trasero'}
+                              >
+                                <Download className="w-4 h-4 text-gray-600" />
+                              </button>
+                            </div>
+                            <div className="p-2">
+                              <img
+                                src={item.customization.designBack}
+                                alt={`${item.productName} - Espalda`}
+                                className="w-full h-40 object-contain bg-white rounded"
+                              />
+                            </div>
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">
-                      ${(item.unitPrice * item.quantity).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {item.quantity} x ${item.unitPrice.toLocaleString()}
-                    </p>
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

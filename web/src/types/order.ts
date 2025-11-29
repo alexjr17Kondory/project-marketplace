@@ -6,7 +6,7 @@ export type OrderStatus =
   | 'delivered'    // Entregado
   | 'cancelled';   // Cancelado
 
-export type PaymentMethod = 'credit_card' | 'debit_card' | 'pse' | 'cash' | 'transfer' | 'wompi';
+export type PaymentMethod = 'credit_card' | 'debit_card' | 'pse' | 'cash' | 'transfer' | 'wompi' | 'pickup';
 
 export interface OrderItem {
   id: string;
@@ -18,8 +18,11 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   customization?: {
-    designFront?: string;
+    designFront?: string; // Preview comprimido
     designBack?: string;
+    // Imágenes originales para producción (sin compresión)
+    originalFront?: string;
+    originalBack?: string;
   };
 }
 
@@ -133,4 +136,5 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Efectivo',
   transfer: 'Transferencia',
   wompi: 'Wompi',
+  pickup: 'Punto Físico',
 };
