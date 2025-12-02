@@ -13,6 +13,12 @@ function normalizeProduct(product: any): Product {
     typeSlug: product.typeSlug,
     categoryId: product.categoryId,
     typeId: product.typeId,
+    // Normalizar colores: hexCode -> hex para compatibilidad con el frontend
+    colors: product.colors?.map((c: any) => ({
+      ...c,
+      hex: c.hexCode || c.hex, // Mantener compatibilidad con código existente
+    })) || [],
+    // Sizes ya vienen en el formato correcto del backend
   };
 }
 

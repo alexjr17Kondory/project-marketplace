@@ -96,7 +96,7 @@ export interface Product {
     side?: string;
   };
   colors: ProductColor[];
-  sizes: string[];
+  sizes: ProductSize[] | string[]; // Puede ser array de objetos (BD) o strings (legacy)
   featured: boolean;
   stock: number;
   rating?: number;
@@ -106,11 +106,20 @@ export interface Product {
   updatedAt: Date;
 }
 
-// Color disponible para un producto
+// Color disponible para un producto (estructura de la BD)
 export interface ProductColor {
+  id: number;
   name: string;
-  hex: string;
-  image?: string; // URL de imagen del producto en este color
+  slug: string;
+  hexCode: string;
+  image?: string; // URL de imagen del producto en este color (opcional)
+}
+
+// Talla disponible para un producto (estructura de la BD)
+export interface ProductSize {
+  id: number;
+  name: string;
+  abbreviation: string;
 }
 
 // Filtros para productos

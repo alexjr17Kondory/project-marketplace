@@ -8,6 +8,45 @@ import type {
   UpdateStockInput,
 } from '../validators/products.validator';
 
+// Include común para productos con todas sus relaciones
+const productInclude = {
+  category: {
+    select: {
+      slug: true,
+      name: true,
+    },
+  },
+  productType: {
+    select: {
+      slug: true,
+      name: true,
+    },
+  },
+  productColors: {
+    include: {
+      color: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          hexCode: true,
+        },
+      },
+    },
+  },
+  productSizes: {
+    include: {
+      size: {
+        select: {
+          id: true,
+          name: true,
+          abbreviation: true,
+        },
+      },
+    },
+  },
+};
+
 export interface ProductResponse {
   id: number;
   sku: string;
@@ -25,8 +64,8 @@ export interface ProductResponse {
   featured: boolean;
   isActive: boolean;
   images: string[];
-  colors: string[];
-  sizes: string[];
+  colors: Array<{ id: number; name: string; slug: string; hexCode: string }>;
+  sizes: Array<{ id: number; name: string; abbreviation: string }>;
   tags: string[];
   rating: number | null;
   reviewsCount: number | null;
@@ -62,8 +101,17 @@ function formatProductResponse(product: any): ProductResponse {
     featured: product.featured,
     isActive: product.isActive,
     images: Array.isArray(product.images) ? product.images : [],
-    colors: Array.isArray(product.colors) ? product.colors : [],
-    sizes: Array.isArray(product.sizes) ? product.sizes : [],
+    colors: product.productColors?.map((pc: any) => ({
+      id: pc.color.id,
+      name: pc.color.name,
+      slug: pc.color.slug,
+      hexCode: pc.color.hexCode,
+    })) || [],
+    sizes: product.productSizes?.map((ps: any) => ({
+      id: ps.size.id,
+      name: ps.size.name,
+      abbreviation: ps.size.abbreviation,
+    })) || [],
     tags: Array.isArray(product.tags) ? product.tags : [],
     rating: product.rating ? Number(product.rating) : null,
     reviewsCount: product.reviewsCount,
@@ -162,20 +210,7 @@ export async function listProducts(query: ListProductsQuery): Promise<PaginatedP
       skip,
       take: limit,
       orderBy: { [sortBy]: sortOrder },
-      include: {
-        category: {
-          select: {
-            slug: true,
-            name: true,
-          },
-        },
-        productType: {
-          select: {
-            slug: true,
-            name: true,
-          },
-        },
-      },
+      include: productInclude,
     }),
     prisma.product.count({ where }),
   ]);
@@ -195,20 +230,7 @@ export async function listProducts(query: ListProductsQuery): Promise<PaginatedP
 export async function getProductById(id: number): Promise<ProductResponse> {
   const product = await prisma.product.findUnique({
     where: { id },
-    include: {
-      category: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-      productType: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-    },
+    include: productInclude,
   });
 
   if (!product) {
@@ -274,20 +296,7 @@ export async function createProduct(data: CreateProductInput): Promise<ProductRe
       sizes: data.sizes,
       tags: data.tags,
     },
-    include: {
-      category: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-      productType: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-    },
+    include: productInclude,
   });
 
   return formatProductResponse(product);
@@ -319,20 +328,7 @@ export async function updateProduct(id: number, data: UpdateProductInput): Promi
       sizes: data.sizes,
       tags: data.tags,
     },
-    include: {
-      category: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-      productType: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-    },
+    include: productInclude,
   });
 
   return formatProductResponse(product);
@@ -397,20 +393,7 @@ export async function updateStock(id: number, data: UpdateStockInput): Promise<P
   const updated = await prisma.product.update({
     where: { id },
     data: { stock: newStock },
-    include: {
-      category: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-      productType: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-    },
+    include: productInclude,
   });
 
   return formatProductResponse(updated);
@@ -425,20 +408,7 @@ export async function getFeaturedProducts(limit: number = 8): Promise<ProductRes
     },
     take: limit,
     orderBy: { createdAt: 'desc' },
-    include: {
-      category: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-      productType: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-    },
+    include: productInclude,
   });
 
   return products.map(formatProductResponse);
@@ -463,20 +433,7 @@ export async function getProductsByCategory(categorySlug: string, limit: number 
     },
     take: limit,
     orderBy: { createdAt: 'desc' },
-    include: {
-      category: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-      productType: {
-        select: {
-          slug: true,
-          name: true,
-        },
-      },
-    },
+    include: productInclude,
   });
 
   return products.map(formatProductResponse);
