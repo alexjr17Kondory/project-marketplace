@@ -122,6 +122,17 @@ export const catalogsService = {
   async deleteProductType(id: number): Promise<void> {
     await api.delete(`/catalogs/product-types/${id}`);
   },
+
+  // ==================== TALLAS POR TIPO DE PRODUCTO ====================
+  async getSizesByProductType(productTypeId: number): Promise<Size[]> {
+    const response = await api.get<Size[]>(`/catalogs/product-types/${productTypeId}/sizes`);
+    return response.data || [];
+  },
+
+  async assignSizesToProductType(productTypeId: number, sizeIds: number[]): Promise<Size[]> {
+    const response = await api.put<Size[]>(`/catalogs/product-types/${productTypeId}/sizes`, { sizeIds });
+    return response.data || [];
+  },
 };
 
 export default catalogsService;

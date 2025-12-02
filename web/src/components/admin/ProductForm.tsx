@@ -4,7 +4,7 @@ import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';
 import { X } from 'lucide-react';
 import { catalogsService } from '../../services/catalogs.service';
-import type { Color, Size } from '../../services/catalogs.service';
+import type { Color, Size, Category, ProductType as CatalogProductType } from '../../services/catalogs.service';
 
 interface ProductFormProps {
   product?: Product;
@@ -12,27 +12,12 @@ interface ProductFormProps {
   onDelete?: () => void;
 }
 
-const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
-  { value: 'tshirt', label: 'Camiseta' },
-  { value: 'hoodie', label: 'Hoodie' },
-  { value: 'cap', label: 'Gorra' },
-  { value: 'bottle', label: 'Botella' },
-  { value: 'mug', label: 'Taza' },
-  { value: 'pillow', label: 'Almohada' },
-];
-
-const CATEGORIES: { value: ProductCategory; label: string }[] = [
-  { value: 'clothing', label: 'Ropa' },
-  { value: 'accessories', label: 'Accesorios' },
-  { value: 'home', label: 'Hogar' },
-];
-
 export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) => {
   const [formData, setFormData] = useState({
     name: product?.name || '',
     description: product?.description || '',
-    type: product?.type || 'tshirt' as ProductType,
-    category: product?.category || 'clothing' as ProductCategory,
+    typeId: product?.typeId || null as number | null,
+    categoryId: product?.categoryId || null as number | null,
     basePrice: product?.basePrice || 0,
     stock: product?.stock || 0,
     featured: product?.featured || false,
@@ -47,6 +32,8 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
   // Catálogos disponibles
   const [availableColors, setAvailableColors] = useState<Color[]>([]);
   const [availableSizes, setAvailableSizes] = useState<Size[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
+  const [availableProductTypes, setAvailableProductTypes] = useState<CatalogProductType[]>([]);
 
   // IDs seleccionados
   const [selectedColorIds, setSelectedColorIds] = useState<number[]>(
@@ -62,18 +49,46 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
   useEffect(() => {
     const loadCatalogs = async () => {
       try {
-        const [colors, sizes] = await Promise.all([
+        const [colors, categories, productTypes] = await Promise.all([
           catalogsService.getColors(),
-          catalogsService.getSizes(),
+          catalogsService.getCategories(),
+          catalogsService.getProductTypes(),
         ]);
         setAvailableColors(colors);
-        setAvailableSizes(sizes);
+        setAvailableCategories(categories);
+        setAvailableProductTypes(productTypes);
       } catch (error) {
         console.error('Error cargando catálogos:', error);
       }
     };
     loadCatalogs();
   }, []);
+
+  // Cargar tallas cuando cambia el tipo de producto
+  useEffect(() => {
+    const loadSizes = async () => {
+      if (formData.typeId) {
+        try {
+          const sizes = await catalogsService.getSizesByProductType(formData.typeId);
+          setAvailableSizes(sizes);
+          // Limpiar tallas seleccionadas que no estén disponibles para este tipo
+          setSelectedSizeIds(prev => prev.filter(id => sizes.some(s => s.id === id)));
+        } catch (error) {
+          console.error('Error cargando tallas:', error);
+          setAvailableSizes([]);
+        }
+      } else {
+        // Si no hay tipo seleccionado, mostrar todas las tallas
+        try {
+          const sizes = await catalogsService.getSizes();
+          setAvailableSizes(sizes);
+        } catch (error) {
+          console.error('Error cargando tallas:', error);
+        }
+      }
+    };
+    loadSizes();
+  }, [formData.typeId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,8 +100,8 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
     const productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
       name: formData.name,
       description: formData.description,
-      type: formData.type,
-      category: formData.category,
+      typeId: formData.typeId,
+      categoryId: formData.categoryId,
       basePrice: Number(formData.basePrice),
       stock: Number(formData.stock),
       featured: formData.featured,
@@ -160,20 +175,21 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
           />
         </div>
 
-        {/* Tercera fila: Tipo, Categoría, Precio, Stock */}
+        {/* Tercera fila: Categoría, Tipo, Precio, Stock */}
         <div className="col-span-12 md:col-span-3">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tipo *
+            Categoría *
           </label>
           <select
-            value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value as ProductType })}
+            value={formData.categoryId || ''}
+            onChange={(e) => setFormData({ ...formData, categoryId: e.target.value ? Number(e.target.value) : null })}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             required
           >
-            {PRODUCT_TYPES.map(type => (
-              <option key={type.value} value={type.value}>
-                {type.label}
+            <option value="">Selecciona una categoría</option>
+            {availableCategories.map(cat => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
               </option>
             ))}
           </select>
@@ -181,19 +197,22 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
 
         <div className="col-span-12 md:col-span-3">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Categoría *
+            Tipo de Producto *
           </label>
           <select
-            value={formData.category}
-            onChange={(e) => setFormData({ ...formData, category: e.target.value as ProductCategory })}
+            value={formData.typeId || ''}
+            onChange={(e) => setFormData({ ...formData, typeId: e.target.value ? Number(e.target.value) : null })}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             required
           >
-            {CATEGORIES.map(cat => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
-            ))}
+            <option value="">Selecciona un tipo</option>
+            {availableProductTypes
+              .filter(type => !formData.categoryId || type.categoryId === formData.categoryId)
+              .map(type => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
           </select>
         </div>
 
@@ -364,8 +383,10 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
             Tallas * (selecciona al menos una)
           </label>
           <div className="border border-gray-300 rounded-lg p-3 bg-gray-50 max-h-64 overflow-y-auto">
-            {availableSizes.length === 0 ? (
-              <p className="text-sm text-gray-500">Cargando tallas...</p>
+            {!formData.typeId ? (
+              <p className="text-sm text-gray-500">Selecciona un tipo de producto primero para ver las tallas disponibles</p>
+            ) : availableSizes.length === 0 ? (
+              <p className="text-sm text-gray-500">No hay tallas asignadas a este tipo de producto</p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {availableSizes.map(size => (
