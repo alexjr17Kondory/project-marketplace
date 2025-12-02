@@ -43,11 +43,19 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
   });
 
   const [colors, setColors] = useState<ProductColor[]>(
-    product?.colors || [{ name: '', hex: '#000000' }]
+    product?.colors?.map(c => ({
+      id: c.id || 0,
+      name: c.name,
+      slug: c.slug || '',
+      hexCode: c.hexCode || c.hex || '#000000',
+      hex: c.hex || c.hexCode || '#000000',
+    })) || [{ id: 0, name: '', slug: '', hexCode: '#000000', hex: '#000000' }]
   );
 
   const [sizes, setSizes] = useState<string[]>(
-    product?.sizes || []
+    Array.isArray(product?.sizes)
+      ? product.sizes.map(s => typeof s === 'string' ? s : s.abbreviation)
+      : []
   );
 
   const [newSize, setNewSize] = useState('');
@@ -79,7 +87,7 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
   };
 
   const addColor = () => {
-    setColors([...colors, { name: '', hex: '#000000' }]);
+    setColors([...colors, { id: 0, name: '', slug: '', hexCode: '#000000', hex: '#000000' }]);
   };
 
   const updateColor = (index: number, field: 'name' | 'hex', value: string) => {
@@ -297,7 +305,7 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
           </label>
           <div className="space-y-2">
             {colors.map((color, index) => (
-              <div key={index} className="flex items-center gap-2">
+              <div key={`color-${color.id || index}-${color.name}`} className="flex items-center gap-2">
                 <Input
                   type="text"
                   placeholder="Nombre"
