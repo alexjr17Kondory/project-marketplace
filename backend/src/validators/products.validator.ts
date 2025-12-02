@@ -19,7 +19,11 @@ export const createProductSchema = z.object({
   stock: z.coerce.number().int().min(0, 'El stock no puede ser negativo').default(0),
   featured: z.boolean().default(false),
   isActive: z.boolean().default(true),
-  images: z.array(z.string().url('URL de imagen inválida')).min(1, 'Se requiere al menos una imagen'),
+  images: z.object({
+    front: z.string().url('URL de imagen frontal inválida'),
+    back: z.string().url('URL de imagen trasera inválida').optional(),
+    side: z.string().url('URL de imagen lateral inválida').optional(),
+  }),
   colors: z.array(z.object({
     id: z.number(),
     name: z.string(),
@@ -53,7 +57,11 @@ export const updateProductSchema = z.object({
   stock: z.coerce.number().int().min(0, 'El stock no puede ser negativo').optional(),
   featured: z.boolean().optional(),
   isActive: z.boolean().optional(),
-  images: z.array(z.string().url('URL de imagen inválida')).optional(),
+  images: z.object({
+    front: z.string().url('URL de imagen frontal inválida'),
+    back: z.string().url('URL de imagen trasera inválida').optional(),
+    side: z.string().url('URL de imagen lateral inválida').optional(),
+  }).optional(),
   colors: z.array(z.object({
     id: z.number(),
     name: z.string(),

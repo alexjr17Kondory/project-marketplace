@@ -63,7 +63,7 @@ export interface ProductResponse {
   stock: number;
   featured: boolean;
   isActive: boolean;
-  images: string[];
+  images: { front: string; back?: string; side?: string };
   colors: Array<{ id: number; name: string; slug: string; hexCode: string }>;
   sizes: Array<{ id: number; name: string; abbreviation: string }>;
   tags: string[];
@@ -100,7 +100,9 @@ function formatProductResponse(product: any): ProductResponse {
     stock: product.stock,
     featured: product.featured,
     isActive: product.isActive,
-    images: Array.isArray(product.images) ? product.images : [],
+    images: typeof product.images === 'object' && product.images !== null
+      ? product.images
+      : { front: '' },
     colors: product.productColors?.map((pc: any) => ({
       id: pc.color.id,
       name: pc.color.name,
