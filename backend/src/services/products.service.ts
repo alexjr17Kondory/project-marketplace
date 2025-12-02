@@ -14,8 +14,12 @@ export interface ProductResponse {
   slug: string;
   name: string;
   description: string;
-  type: string;
-  category: string;
+  categoryId: number | null;
+  categorySlug: string | null;
+  categoryName: string | null;
+  typeId: number | null;
+  typeSlug: string | null;
+  typeName: string | null;
   basePrice: number;
   stock: number;
   featured: boolean;
@@ -47,8 +51,12 @@ function formatProductResponse(product: any): ProductResponse {
     slug: product.slug,
     name: product.name,
     description: product.description,
-    type: product.type,
-    category: product.category,
+    categoryId: product.categoryId,
+    categorySlug: product.category?.slug || null,
+    categoryName: product.category?.name || null,
+    typeId: product.typeId,
+    typeSlug: product.productType?.slug || null,
+    typeName: product.productType?.name || null,
     basePrice: Number(product.basePrice),
     stock: product.stock,
     featured: product.featured,
@@ -94,13 +102,26 @@ export async function listProducts(query: ListProductsQuery): Promise<PaginatedP
     ];
   }
 
-  // Filtros
+  // Filtros por slug de categoría (buscar el ID primero)
   if (category) {
-    where.category = category;
+    const cat = await prisma.category.findUnique({
+      where: { slug: category },
+      select: { id: true },
+    });
+    if (cat) {
+      where.categoryId = cat.id;
+    }
   }
 
+  // Filtros por slug de tipo (buscar el ID primero)
   if (type) {
-    where.type = type;
+    const productType = await prisma.productType.findUnique({
+      where: { slug: type },
+      select: { id: true },
+    });
+    if (productType) {
+      where.typeId = productType.id;
+    }
   }
 
   if (minPrice !== undefined || maxPrice !== undefined) {
@@ -141,6 +162,20 @@ export async function listProducts(query: ListProductsQuery): Promise<PaginatedP
       skip,
       take: limit,
       orderBy: { [sortBy]: sortOrder },
+      include: {
+        category: {
+          select: {
+            slug: true,
+            name: true,
+          },
+        },
+        productType: {
+          select: {
+            slug: true,
+            name: true,
+          },
+        },
+      },
     }),
     prisma.product.count({ where }),
   ]);
@@ -160,6 +195,20 @@ export async function listProducts(query: ListProductsQuery): Promise<PaginatedP
 export async function getProductById(id: number): Promise<ProductResponse> {
   const product = await prisma.product.findUnique({
     where: { id },
+    include: {
+      category: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+      productType: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
   });
 
   if (!product) {
@@ -180,8 +229,17 @@ function generateSlug(name: string): string {
 }
 
 // Generar SKU único
-async function generateSku(type: string): Promise<string> {
-  const prefix = type.substring(0, 3).toUpperCase();
+async function generateSku(typeId: number | undefined): Promise<string> {
+  let prefix = 'PRD';
+  if (typeId) {
+    const productType = await prisma.productType.findUnique({
+      where: { id: typeId },
+      select: { slug: true },
+    });
+    if (productType) {
+      prefix = productType.slug.substring(0, 3).toUpperCase();
+    }
+  }
   const count = await prisma.product.count();
   const timestamp = Date.now().toString(36).toUpperCase();
   return `${prefix}-${String(count + 1).padStart(4, '0')}-${timestamp}`;
@@ -190,7 +248,7 @@ async function generateSku(type: string): Promise<string> {
 // Crear producto
 export async function createProduct(data: CreateProductInput): Promise<ProductResponse> {
   // Generar SKU y slug si no se proporcionan
-  const sku = data.sku || await generateSku(data.type);
+  const sku = data.sku || await generateSku(data.typeId);
   let slug = data.slug || generateSlug(data.name);
 
   // Verificar si el slug ya existe y hacerlo único
@@ -205,8 +263,8 @@ export async function createProduct(data: CreateProductInput): Promise<ProductRe
       slug,
       name: data.name,
       description: data.description,
-      type: data.type,
-      category: data.category,
+      categoryId: data.categoryId,
+      typeId: data.typeId,
       basePrice: data.basePrice,
       stock: data.stock,
       featured: data.featured,
@@ -215,6 +273,20 @@ export async function createProduct(data: CreateProductInput): Promise<ProductRe
       colors: data.colors,
       sizes: data.sizes,
       tags: data.tags,
+    },
+    include: {
+      category: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+      productType: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
     },
   });
 
@@ -236,8 +308,8 @@ export async function updateProduct(id: number, data: UpdateProductInput): Promi
     data: {
       name: data.name,
       description: data.description,
-      type: data.type,
-      category: data.category,
+      categoryId: data.categoryId,
+      typeId: data.typeId,
       basePrice: data.basePrice,
       stock: data.stock,
       featured: data.featured,
@@ -246,6 +318,20 @@ export async function updateProduct(id: number, data: UpdateProductInput): Promi
       colors: data.colors,
       sizes: data.sizes,
       tags: data.tags,
+    },
+    include: {
+      category: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+      productType: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
     },
   });
 
@@ -325,20 +411,58 @@ export async function getFeaturedProducts(limit: number = 8): Promise<ProductRes
     },
     take: limit,
     orderBy: { createdAt: 'desc' },
+    include: {
+      category: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+      productType: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
   });
 
   return products.map(formatProductResponse);
 }
 
-// Obtener productos por categoría
-export async function getProductsByCategory(category: string, limit: number = 12): Promise<ProductResponse[]> {
+// Obtener productos por categoría (recibe slug)
+export async function getProductsByCategory(categorySlug: string, limit: number = 12): Promise<ProductResponse[]> {
+  // Buscar el ID de la categoría por su slug
+  const cat = await prisma.category.findUnique({
+    where: { slug: categorySlug },
+    select: { id: true },
+  });
+
+  if (!cat) {
+    return [];
+  }
+
   const products = await prisma.product.findMany({
     where: {
-      category,
+      categoryId: cat.id,
       isActive: true,
     },
     take: limit,
     orderBy: { createdAt: 'desc' },
+    include: {
+      category: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+      productType: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
   });
 
   return products.map(formatProductResponse);

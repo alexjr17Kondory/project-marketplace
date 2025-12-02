@@ -13,8 +13,8 @@ export const createProductSchema = z.object({
     .string()
     .min(10, 'La descripción debe tener al menos 10 caracteres')
     .max(5000, 'La descripción no puede exceder 5000 caracteres'),
-  type: z.string().min(1, 'El tipo es requerido'),
-  category: z.string().min(1, 'La categoría es requerida'),
+  typeId: z.coerce.number().int().positive('El tipo es requerido').optional().nullable(),
+  categoryId: z.coerce.number().int().positive('La categoría es requerida').optional().nullable(),
   basePrice: z.coerce.number().positive('El precio debe ser mayor a 0'),
   stock: z.coerce.number().int().min(0, 'El stock no puede ser negativo').default(0),
   featured: z.boolean().default(false),
@@ -38,8 +38,8 @@ export const updateProductSchema = z.object({
     .min(10, 'La descripción debe tener al menos 10 caracteres')
     .max(5000, 'La descripción no puede exceder 5000 caracteres')
     .optional(),
-  type: z.string().min(1).optional(),
-  category: z.string().min(1).optional(),
+  typeId: z.coerce.number().int().positive().optional().nullable(),
+  categoryId: z.coerce.number().int().positive().optional().nullable(),
   basePrice: z.coerce.number().positive('El precio debe ser mayor a 0').optional(),
   stock: z.coerce.number().int().min(0, 'El stock no puede ser negativo').optional(),
   featured: z.boolean().optional(),

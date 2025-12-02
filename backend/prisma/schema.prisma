@@ -86,8 +86,14 @@ model Product {
   slug        String  @unique
   name        String
   description String  @db.Text
-  type        String
-  category    String
+
+  // Relaciones con categoría y tipo de producto
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  typeId      Int?
+  productType ProductType? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+
   basePrice   Decimal @db.Decimal(10, 2)
   stock       Int     @default(0)
   featured    Boolean @default(false)
@@ -143,6 +149,7 @@ model Category {
   isActive    Boolean @default(true)
 
   productTypes ProductType[]
+  products     Product[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -159,6 +166,8 @@ model ProductType {
 
   categoryId Int?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  products Product[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
