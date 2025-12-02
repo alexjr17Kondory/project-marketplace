@@ -229,7 +229,7 @@ function generateSlug(name: string): string {
 }
 
 // Generar SKU único
-async function generateSku(typeId: number | undefined): Promise<string> {
+async function generateSku(typeId: number | null | undefined): Promise<string> {
   let prefix = 'PRD';
   if (typeId) {
     const productType = await prisma.productType.findUnique({
@@ -397,6 +397,20 @@ export async function updateStock(id: number, data: UpdateStockInput): Promise<P
   const updated = await prisma.product.update({
     where: { id },
     data: { stock: newStock },
+    include: {
+      category: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+      productType: {
+        select: {
+          slug: true,
+          name: true,
+        },
+      },
+    },
   });
 
   return formatProductResponse(updated);

@@ -230,7 +230,7 @@ export async function deleteCategory(id: number) {
 
   // Verificar que no hay productos con esta categoría
   const productsCount = await prisma.product.count({
-    where: { category: category.name },
+    where: { categoryId: id },
   });
 
   if (productsCount > 0) {
@@ -331,7 +331,7 @@ export async function deleteProductType(id: number) {
 
   // Verificar que no hay productos con este tipo
   const productsCount = await prisma.product.count({
-    where: { type: productType.name },
+    where: { typeId: id },
   });
 
   if (productsCount > 0) {
