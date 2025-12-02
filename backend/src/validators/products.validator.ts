@@ -20,8 +20,17 @@ export const createProductSchema = z.object({
   featured: z.boolean().default(false),
   isActive: z.boolean().default(true),
   images: z.array(z.string().url('URL de imagen inválida')).min(1, 'Se requiere al menos una imagen'),
-  colors: z.array(z.string()).default([]),
-  sizes: z.array(z.string()).default([]),
+  colors: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    slug: z.string(),
+    hexCode: z.string(),
+  })).min(1, 'Se requiere al menos un color'),
+  sizes: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    abbreviation: z.string(),
+  })).min(1, 'Se requiere al menos una talla'),
   tags: z.array(z.string()).default([]),
 });
 
@@ -45,8 +54,17 @@ export const updateProductSchema = z.object({
   featured: z.boolean().optional(),
   isActive: z.boolean().optional(),
   images: z.array(z.string().url('URL de imagen inválida')).optional(),
-  colors: z.array(z.string()).optional(),
-  sizes: z.array(z.string()).optional(),
+  colors: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    slug: z.string(),
+    hexCode: z.string(),
+  })).optional(),
+  sizes: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    abbreviation: z.string(),
+  })).optional(),
   tags: z.array(z.string()).optional(),
 });
 

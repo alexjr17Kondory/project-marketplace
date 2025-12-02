@@ -190,17 +190,25 @@ export async function listProducts(query: ListProductsQuery): Promise<PaginatedP
     where.isActive = isActive;
   }
 
-  // Filtro por color (buscar en JSON array)
+  // Filtro por color (buscar en relación)
   if (color) {
-    where.colors = {
-      array_contains: color,
+    where.productColors = {
+      some: {
+        color: {
+          slug: color,
+        },
+      },
     };
   }
 
-  // Filtro por talla (buscar en JSON array)
+  // Filtro por talla (buscar en relación)
   if (size) {
-    where.sizes = {
-      array_contains: size,
+    where.productSizes = {
+      some: {
+        size: {
+          abbreviation: size,
+        },
+      },
     };
   }
 
@@ -292,9 +300,19 @@ export async function createProduct(data: CreateProductInput): Promise<ProductRe
       featured: data.featured,
       isActive: data.isActive,
       images: data.images,
-      colors: data.colors,
-      sizes: data.sizes,
       tags: data.tags,
+      // Crear relaciones con colores
+      productColors: {
+        create: data.colors.map(color => ({
+          colorId: color.id,
+        })),
+      },
+      // Crear relaciones con tallas
+      productSizes: {
+        create: data.sizes.map(size => ({
+          sizeId: size.id,
+        })),
+      },
     },
     include: productInclude,
   });
@@ -312,22 +330,43 @@ export async function updateProduct(id: number, data: UpdateProductInput): Promi
     throw new NotFoundError('Producto no encontrado');
   }
 
+  // Preparar los datos de actualización
+  const updateData: any = {
+    name: data.name,
+    description: data.description,
+    categoryId: data.categoryId,
+    typeId: data.typeId,
+    basePrice: data.basePrice,
+    stock: data.stock,
+    featured: data.featured,
+    isActive: data.isActive,
+    images: data.images,
+    tags: data.tags,
+  };
+
+  // Si se proporcionan colores, actualizar relaciones
+  if (data.colors && data.colors.length > 0) {
+    updateData.productColors = {
+      deleteMany: {}, // Eliminar todas las relaciones existentes
+      create: data.colors.map(color => ({
+        colorId: color.id,
+      })),
+    };
+  }
+
+  // Si se proporcionan tallas, actualizar relaciones
+  if (data.sizes && data.sizes.length > 0) {
+    updateData.productSizes = {
+      deleteMany: {}, // Eliminar todas las relaciones existentes
+      create: data.sizes.map(size => ({
+        sizeId: size.id,
+      })),
+    };
+  }
+
   const product = await prisma.product.update({
     where: { id },
-    data: {
-      name: data.name,
-      description: data.description,
-      categoryId: data.categoryId,
-      typeId: data.typeId,
-      basePrice: data.basePrice,
-      stock: data.stock,
-      featured: data.featured,
-      isActive: data.isActive,
-      images: data.images,
-      colors: data.colors,
-      sizes: data.sizes,
-      tags: data.tags,
-    },
+    data: updateData,
     include: productInclude,
   });
 

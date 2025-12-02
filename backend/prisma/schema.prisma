@@ -100,8 +100,6 @@ model Product {
   isActive    Boolean @default(true)
 
   images Json
-  colors Json  // Temporal - eliminar después de verificar migración
-  sizes  Json  // Temporal - eliminar después de verificar migración
   tags   Json
 
   // Relaciones many-to-many con colores y tallas
