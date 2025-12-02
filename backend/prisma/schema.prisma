@@ -124,7 +124,8 @@ model Size {
   sortOrder    Int
   isActive     Boolean @default(true)
 
-  productSizes ProductSize[]
+  productSizes     ProductSize[]
+  productTypeSizes ProductTypeSize[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -175,6 +176,20 @@ model ProductSize {
   @@map("product_sizes")
 }
 
+// Tabla intermedia para tipos de producto y tallas
+model ProductTypeSize {
+  id            Int         @id @default(autoincrement())
+  productTypeId Int
+  productType   ProductType @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+  sizeId        Int
+  size          Size        @relation(fields: [sizeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([productTypeId, sizeId])
+  @@map("product_type_sizes")
+}
+
 model Category {
   id          Int     @id @default(autoincrement())
   name        String
@@ -201,7 +216,8 @@ model ProductType {
   categoryId Int?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
-  products Product[]
+  products         Product[]
+  productTypeSizes ProductTypeSize[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

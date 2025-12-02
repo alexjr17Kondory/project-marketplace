@@ -594,4 +594,68 @@ router.delete(
   catalogsController.deleteProductType
 );
 
+// ==================== TALLAS POR TIPO DE PRODUCTO ====================
+
+/**
+ * @swagger
+ * /catalogs/product-types/{productTypeId}/sizes:
+ *   get:
+ *     summary: Obtener tallas disponibles para un tipo de producto
+ *     tags: [Catalogs]
+ *     parameters:
+ *       - in: path
+ *         name: productTypeId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de tallas del tipo de producto
+ */
+router.get(
+  '/product-types/:productTypeId/sizes',
+  validateParams(catalogIdSchema.extend({ productTypeId: catalogIdSchema.shape.id })),
+  catalogsController.getSizesByProductType
+);
+
+/**
+ * @swagger
+ * /catalogs/product-types/{productTypeId}/sizes:
+ *   put:
+ *     summary: Asignar tallas a un tipo de producto (Admin)
+ *     tags: [Catalogs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productTypeId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sizeIds
+ *             properties:
+ *               sizeIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 example: [1, 2, 3, 4]
+ *     responses:
+ *       200:
+ *         description: Tallas asignadas exitosamente
+ */
+router.put(
+  '/product-types/:productTypeId/sizes',
+  authenticate,
+  requireAdmin,
+  validateParams(catalogIdSchema.extend({ productTypeId: catalogIdSchema.shape.id })),
+  catalogsController.assignSizesToProductType
+);
+
 export default router;

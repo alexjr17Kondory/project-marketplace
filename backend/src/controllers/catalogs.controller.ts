@@ -292,3 +292,35 @@ export async function deleteProductType(req: Request, res: Response, next: NextF
     next(error);
   }
 }
+
+// ==================== TALLAS POR TIPO DE PRODUCTO ====================
+
+export async function getSizesByProductType(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productTypeId = Number(req.params.productTypeId);
+    const sizes = await catalogsService.getSizesByProductType(productTypeId);
+
+    res.json({
+      success: true,
+      data: sizes,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function assignSizesToProductType(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productTypeId = Number(req.params.productTypeId);
+    const { sizeIds } = req.body;
+    const sizes = await catalogsService.assignSizesToProductType(productTypeId, sizeIds);
+
+    res.json({
+      success: true,
+      data: sizes,
+      message: 'Tallas asignadas exitosamente',
+    });
+  } catch (error) {
+    next(error);
+  }
+}

@@ -342,3 +342,59 @@ export async function deleteProductType(id: number) {
 
   await prisma.productType.delete({ where: { id } });
 }
+
+// ==================== TALLAS POR TIPO DE PRODUCTO ====================
+
+// Obtener tallas disponibles para un tipo de producto
+export async function getSizesByProductType(productTypeId: number) {
+  const productType = await prisma.productType.findUnique({
+    where: { id: productTypeId },
+    include: {
+      productTypeSizes: {
+        include: {
+          size: true,
+        },
+        orderBy: {
+          size: {
+            sortOrder: 'asc',
+          },
+        },
+      },
+    },
+  });
+
+  if (!productType) {
+    throw new NotFoundError('Tipo de producto no encontrado');
+  }
+
+  return productType.productTypeSizes.map(pts => pts.size);
+}
+
+// Asignar tallas a un tipo de producto
+export async function assignSizesToProductType(productTypeId: number, sizeIds: number[]) {
+  const productType = await prisma.productType.findUnique({
+    where: { id: productTypeId },
+  });
+
+  if (!productType) {
+    throw new NotFoundError('Tipo de producto no encontrado');
+  }
+
+  // Eliminar asignaciones existentes
+  await prisma.productTypeSize.deleteMany({
+    where: { productTypeId },
+  });
+
+  // Crear nuevas asignaciones
+  if (sizeIds.length > 0) {
+    await prisma.productTypeSize.createMany({
+      data: sizeIds.map(sizeId => ({
+        productTypeId,
+        sizeId,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  return getSizesByProductType(productTypeId);
+}
