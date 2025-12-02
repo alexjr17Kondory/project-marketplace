@@ -1,6 +1,21 @@
 import api from './api.service';
 import type { Product } from '../types/product';
 
+// Helper para normalizar productos del backend
+function normalizeProduct(product: any): Product {
+  return {
+    ...product,
+    // Mapear los campos del backend a los del frontend
+    category: product.categorySlug || product.category,
+    type: product.typeSlug || product.type,
+    // Mantener también los campos nuevos
+    categorySlug: product.categorySlug,
+    typeSlug: product.typeSlug,
+    categoryId: product.categoryId,
+    typeId: product.typeId,
+  };
+}
+
 export interface ProductFilters {
   page?: number;
   limit?: number;
@@ -28,9 +43,9 @@ export interface ProductsResponse {
 export const productsService = {
   // Obtener todos los productos con filtros
   async getAll(filters?: ProductFilters): Promise<ProductsResponse> {
-    const response = await api.get<Product[]>('/products', filters);
+    const response = await api.get<any[]>('/products', filters);
     return {
-      data: response.data || [],
+      data: (response.data || []).map(normalizeProduct),
       pagination: response.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 },
     };
   },
@@ -38,8 +53,8 @@ export const productsService = {
   // Obtener producto por ID
   async getById(id: number): Promise<Product | null> {
     try {
-      const response = await api.get<Product>(`/products/${id}`);
-      return response.data || null;
+      const response = await api.get<any>(`/products/${id}`);
+      return response.data ? normalizeProduct(response.data) : null;
     } catch {
       return null;
     }
@@ -47,28 +62,28 @@ export const productsService = {
 
   // Obtener productos destacados
   async getFeatured(limit = 8): Promise<Product[]> {
-    const response = await api.get<Product[]>('/products/featured', { limit });
-    return response.data || [];
+    const response = await api.get<any[]>('/products/featured', { limit });
+    return (response.data || []).map(normalizeProduct);
   },
 
   // Buscar productos
   async search(query: string, limit = 20): Promise<Product[]> {
-    const response = await api.get<Product[]>('/products', { search: query, limit });
-    return response.data || [];
+    const response = await api.get<any[]>('/products', { search: query, limit });
+    return (response.data || []).map(normalizeProduct);
   },
 
   // Crear producto (admin)
   async create(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> {
-    const response = await api.post<Product>('/products', product);
+    const response = await api.post<any>('/products', product);
     if (!response.data) throw new Error('Error creando producto');
-    return response.data;
+    return normalizeProduct(response.data);
   },
 
   // Actualizar producto (admin)
   async update(id: number, updates: Partial<Product>): Promise<Product> {
-    const response = await api.put<Product>(`/products/${id}`, updates);
+    const response = await api.put<any>(`/products/${id}`, updates);
     if (!response.data) throw new Error('Error actualizando producto');
-    return response.data;
+    return normalizeProduct(response.data);
   },
 
   // Eliminar producto (admin)
@@ -78,9 +93,9 @@ export const productsService = {
 
   // Actualizar stock (admin)
   async updateStock(id: number, quantity: number, operation: 'add' | 'subtract' | 'set'): Promise<Product> {
-    const response = await api.patch<Product>(`/products/${id}/stock`, { quantity, operation });
+    const response = await api.patch<any>(`/products/${id}/stock`, { quantity, operation });
     if (!response.data) throw new Error('Error actualizando stock');
-    return response.data;
+    return normalizeProduct(response.data);
   },
 
   // Obtener categorías desde la tabla categories
