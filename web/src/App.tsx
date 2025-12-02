@@ -48,10 +48,23 @@ import {
 import { NotFoundPage } from './pages/NotFoundPage';
 import type { Permission } from './types/roles';
 
-// Protected route for admin access (checks canAccessAdmin)
+// Protected route for admin access
+// Cliente (roleId 2) NUNCA puede acceder al panel admin, sin importar permisos
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { canAccessAdmin } = useAuth();
-  return canAccessAdmin() ? <>{children}</> : <Navigate to="/" replace />;
+  const { user, isAuthenticated } = useAuth();
+
+  // Si no está autenticado, redirigir al inicio
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Cliente (roleId 2) NUNCA tiene acceso al panel admin
+  if (user.roleId === 2) {
+    return <Navigate to="/" replace />;
+  }
+
+  // SuperAdmin (roleId 1) y roles administrativos (roleId 3+) tienen acceso
+  return <>{children}</>;
 };
 
 // Protected route for specific permission

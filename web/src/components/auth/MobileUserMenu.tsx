@@ -11,7 +11,10 @@ interface MobileUserMenuProps {
 }
 
 export const MobileUserMenu = ({ isOpen, onClose, onLoginClick, onRegisterClick }: MobileUserMenuProps) => {
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
+
+  // Cliente (roleId 2) NUNCA es admin, sin importar permisos
+  const isAdminUser = user && user.roleId !== 2;
 
   useEffect(() => {
     if (isOpen) {
@@ -76,7 +79,7 @@ export const MobileUserMenu = ({ isOpen, onClose, onLoginClick, onRegisterClick 
                     <p className="text-sm text-gray-600">{user.email}</p>
                   </div>
                 </div>
-                {isAdmin && (
+                {isAdminUser && (
                   <span className="inline-block px-3 py-1.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
                     Administrador
                   </span>
@@ -103,7 +106,7 @@ export const MobileUserMenu = ({ isOpen, onClose, onLoginClick, onRegisterClick 
                   <span>Mis Pedidos</span>
                 </Link>
 
-                {isAdmin && (
+                {isAdminUser && (
                   <>
                     <div className="my-3 border-t border-gray-200"></div>
                     <Link

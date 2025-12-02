@@ -32,10 +32,12 @@ const columnHelper = createColumnHelper<Order>();
 
 export const OrdersPage = () => {
   const navigate = useNavigate();
-  const { orders } = useOrders();
+  const { orders, isLoading, error, refreshOrders } = useOrders();
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+
+  console.log('[OrdersPage] Rendering with orders:', orders, 'isLoading:', isLoading, 'error:', error);
 
   // Filtrar por estado
   const filteredOrders = useMemo(() => {
@@ -194,6 +196,35 @@ export const OrdersPage = () => {
     { value: 'cancelled', label: 'Cancelados', color: 'bg-red-500' },
   ];
 
+  // Mostrar loading spinner mientras carga
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-8">
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
+          <p className="text-gray-600">Cargando pedidos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si hay
+  if (error) {
+    return (
+      <div className="p-4 md:p-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={refreshOrders}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-8">
       {/* Header */}
@@ -202,6 +233,15 @@ export const OrdersPage = () => {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Pedidos</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona todos los pedidos de la tienda</p>
         </div>
+        <button
+          onClick={refreshOrders}
+          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Actualizar
+        </button>
       </div>
 
       {/* Stats Cards */}

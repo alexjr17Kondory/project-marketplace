@@ -1,0 +1,247 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USUARIOS ====================
+
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  passwordHash String
+  name         String
+  phone        String?
+  cedula       String?
+  avatar       String?
+
+  roleId Int
+  role   Role @relation(fields: [roleId], references: [id])
+
+  status UserStatus @default(ACTIVE)
+
+  resetToken    String?
+  resetTokenExp DateTime?
+
+  addresses Address[]
+  orders    Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Address {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label      String
+  address    String
+  city       String
+  department String?
+  postalCode String?
+  country    String  @default("Colombia")
+  isDefault  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("addresses")
+}
+
+model Role {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String
+  permissions Json
+  isSystem    Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("roles")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// ==================== PRODUCTOS ====================
+
+model Product {
+  id          Int     @id @default(autoincrement())
+  sku         String  @unique
+  slug        String  @unique
+  name        String
+  description String  @db.Text
+  type        String
+  category    String
+  basePrice   Decimal @db.Decimal(10, 2)
+  stock       Int     @default(0)
+  featured    Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  images Json
+  colors Json
+  sizes  Json
+  tags   Json
+
+  rating       Decimal? @db.Decimal(2, 1)
+  reviewsCount Int?
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("products")
+}
+
+model Size {
+  id           Int     @id @default(autoincrement())
+  name         String
+  abbreviation String  @unique
+  sortOrder    Int
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sizes")
+}
+
+model Color {
+  id       Int     @id @default(autoincrement())
+  name     String
+  slug     String  @unique
+  hexCode  String
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("colors")
+}
+
+model Category {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  productTypes ProductType[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model ProductType {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("product_types")
+}
+
+// ==================== PEDIDOS ====================
+
+model Order {
+  id          Int    @id @default(autoincrement())
+  orderNumber String @unique
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  items OrderItem[]
+
+  subtotal     Decimal @db.Decimal(10, 2)
+  shippingCost Decimal @db.Decimal(10, 2)
+  discount     Decimal @default(0) @db.Decimal(10, 2)
+  tax          Decimal @db.Decimal(10, 2)
+  total        Decimal @db.Decimal(10, 2)
+
+  status        OrderStatus @default(PENDING)
+  paymentMethod String
+  paymentRef    String?
+
+  shipping       Json
+  trackingNumber String?
+  trackingUrl    String?
+  notes          String? @db.Text
+
+  statusHistory Json
+
+  paidAt      DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id      Int   @id @default(autoincrement())
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId    Int
+  product      Product @relation(fields: [productId], references: [id])
+  productName  String
+  productImage String
+
+  size      String
+  color     String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+
+  customization Json?
+
+  createdAt DateTime @default(now())
+
+  @@map("order_items")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+// ==================== CONFIGURACION ====================
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}

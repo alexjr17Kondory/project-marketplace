@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUsers } from '../../context/UsersContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
+import type { User } from '../../types/user';
 import {
   ArrowLeft,
-  User,
+  User as UserIcon,
   Mail,
   Phone,
   MapPin,
@@ -20,6 +21,7 @@ import {
   Save,
   Package,
   Building2,
+  Loader2,
 } from 'lucide-react';
 
 type TabType = 'profile' | 'addresses' | 'orders' | 'activity';
@@ -30,15 +32,47 @@ export const UserDetailPage = () => {
   const { getUserById, updateUser, toggleUserStatus } = useUsers();
   const toast = useToast();
 
-  const user = id ? getUserById(id) : undefined;
+  const [user, setUser] = useState<User | undefined>(undefined);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  // Cargar usuario al montar
+  useEffect(() => {
+    const loadUser = async () => {
+      if (!id) {
+        setIsLoadingUser(false);
+        return;
+      }
+      setIsLoadingUser(true);
+      try {
+        const data = await getUserById(id);
+        setUser(data);
+      } catch (error) {
+        console.error('Error loading user:', error);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+    loadUser();
+  }, [id, getUserById]);
 
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    phone: user?.phone || '',
-    cedula: user?.cedula || '',
+    name: '',
+    phone: '',
+    cedula: '',
   });
+
+  // Actualizar formData cuando user cambie
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        phone: user.phone || '',
+        cedula: user.cedula || '',
+      });
+    }
+  }, [user]);
 
   // Direcciones mock para demostración
   const [addresses] = useState([
@@ -87,11 +121,23 @@ export const UserDetailPage = () => {
     { id: '5', action: 'Registro de cuenta', date: new Date('2024-11-10T11:00:00'), ip: '192.168.1.1' },
   ]);
 
+  // Estado de carga
+  if (isLoadingUser) {
+    return (
+      <div className="p-4 md:p-8">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+          <span className="ml-2 text-gray-600">Cargando usuario...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="p-4 md:p-8">
         <div className="text-center py-12">
-          <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <UserIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">Usuario no encontrado</h2>
           <p className="text-gray-600 mb-4">El usuario que buscas no existe o fue eliminado</p>
           <Button onClick={() => navigate('/admin-panel/users')}>
@@ -123,7 +169,7 @@ export const UserDetailPage = () => {
   };
 
   const tabs = [
-    { id: 'profile' as TabType, label: 'Perfil', icon: User },
+    { id: 'profile' as TabType, label: 'Perfil', icon: UserIcon },
     { id: 'addresses' as TabType, label: 'Direcciones', icon: MapPin },
     { id: 'orders' as TabType, label: 'Pedidos', icon: ShoppingBag },
     { id: 'activity' as TabType, label: 'Actividad', icon: Clock },
@@ -283,7 +329,7 @@ export const UserDetailPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <User className="w-4 h-4" />
+                  <UserIcon className="w-4 h-4" />
                   Nombre Completo
                 </label>
                 {isEditing ? (

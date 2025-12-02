@@ -1,252 +1,234 @@
 import type { ReactNode } from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Size, Color, ProductType, Category } from '../types/catalog';
+import { catalogsService } from '../services';
 
 interface CatalogsContextType {
   sizes: Size[];
   colors: Color[];
   productTypes: ProductType[];
   categories: Category[];
+  isLoading: boolean;
+  error: string | null;
 
   // Sizes
-  addSize: (size: Omit<Size, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateSize: (id: string, updates: Partial<Omit<Size, 'id' | 'createdAt'>>) => void;
-  deleteSize: (id: string) => void;
+  addSize: (size: Omit<Size, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateSize: (id: string, updates: Partial<Omit<Size, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteSize: (id: string) => Promise<void>;
 
   // Colors
-  addColor: (color: Omit<Color, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateColor: (id: string, updates: Partial<Omit<Color, 'id' | 'createdAt'>>) => void;
-  deleteColor: (id: string) => void;
+  addColor: (color: Omit<Color, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateColor: (id: string, updates: Partial<Omit<Color, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteColor: (id: string) => Promise<void>;
 
   // Product Types
-  addProductType: (type: Omit<ProductType, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateProductType: (id: string, updates: Partial<Omit<ProductType, 'id' | 'createdAt'>>) => void;
-  deleteProductType: (id: string) => void;
+  addProductType: (type: Omit<ProductType, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateProductType: (id: string, updates: Partial<Omit<ProductType, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteProductType: (id: string) => Promise<void>;
 
   // Categories
-  addCategory: (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateCategory: (id: string, updates: Partial<Omit<Category, 'id' | 'createdAt'>>) => void;
-  deleteCategory: (id: string) => void;
+  addCategory: (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateCategory: (id: string, updates: Partial<Omit<Category, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
+
+  // Refresh
+  refreshCatalogs: () => Promise<void>;
 }
 
 const CatalogsContext = createContext<CatalogsContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
-  sizes: 'marketplace_sizes',
-  colors: 'marketplace_colors',
-  productTypes: 'marketplace_product_types',
-  categories: 'marketplace_categories',
-};
+// Mapear datos de API a tipos locales
+const mapApiSize = (s: any): Size => ({
+  id: s.id,
+  name: s.name,
+  abbreviation: s.abbreviation,
+  order: s.sortOrder || 0,
+  active: s.isActive,
+  createdAt: new Date(s.createdAt || Date.now()),
+  updatedAt: new Date(s.updatedAt || Date.now()),
+});
 
-// Mock initial data
-const initialSizes: Size[] = [
-  { id: '1', name: 'Extra Small', abbreviation: 'XS', order: 1, active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '2', name: 'Small', abbreviation: 'S', order: 2, active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '3', name: 'Medium', abbreviation: 'M', order: 3, active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '4', name: 'Large', abbreviation: 'L', order: 4, active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '5', name: 'Extra Large', abbreviation: 'XL', order: 5, active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '6', name: 'Double XL', abbreviation: 'XXL', order: 6, active: true, createdAt: new Date(), updatedAt: new Date() },
-];
+const mapApiColor = (c: any): Color => ({
+  id: c.id,
+  name: c.name,
+  slug: c.slug,
+  hexCode: c.hexCode,
+  isActive: c.isActive,
+  createdAt: new Date(c.createdAt || Date.now()),
+  updatedAt: new Date(c.updatedAt || Date.now()),
+});
 
-const initialColors: Color[] = [
-  { id: '1', name: 'Blanco', hexCode: '#FFFFFF', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '2', name: 'Negro', hexCode: '#000000', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '3', name: 'Rojo', hexCode: '#EF4444', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '4', name: 'Azul', hexCode: '#3B82F6', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '5', name: 'Verde', hexCode: '#10B981', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '6', name: 'Amarillo', hexCode: '#F59E0B', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '7', name: 'Rosa', hexCode: '#EC4899', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '8', name: 'Morado', hexCode: '#8B5CF6', active: true, createdAt: new Date(), updatedAt: new Date() },
-];
+const mapApiProductType = (t: any): ProductType => ({
+  id: t.id,
+  name: t.name,
+  slug: t.slug,
+  description: t.description,
+  categoryId: t.categoryId || null,
+  categorySlug: t.categorySlug || null,
+  isActive: t.isActive,
+  createdAt: new Date(t.createdAt || Date.now()),
+  updatedAt: new Date(t.updatedAt || Date.now()),
+});
 
-const initialProductTypes: ProductType[] = [
-  { id: '1', name: 'Camiseta', description: 'Camisetas de diferentes estilos', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '2', name: 'Sudadera', description: 'Sudaderas con y sin capucha', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '3', name: 'Gorra', description: 'Gorras y sombreros personalizables', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '4', name: 'Taza', description: 'Tazas cerámicas personalizables', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '5', name: 'Bolsa', description: 'Bolsas de tela y totebags', active: true, createdAt: new Date(), updatedAt: new Date() },
-];
-
-const initialCategories: Category[] = [
-  { id: '1', name: 'Ropa', description: 'Prendas de vestir personalizables', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '2', name: 'Accesorios', description: 'Accesorios personalizados', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '3', name: 'Hogar', description: 'Artículos para el hogar', active: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '4', name: 'Oficina', description: 'Artículos de oficina y papelería', active: true, createdAt: new Date(), updatedAt: new Date() },
-];
+const mapApiCategory = (c: any): Category => ({
+  id: c.id,
+  name: c.name,
+  slug: c.slug,
+  description: c.description,
+  isActive: c.isActive,
+  createdAt: new Date(c.createdAt || Date.now()),
+  updatedAt: new Date(c.updatedAt || Date.now()),
+});
 
 export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
-  // Initialize from localStorage or use defaults
-  const [sizes, setSizes] = useState<Size[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.sizes);
-    if (stored) {
-      try {
-        return JSON.parse(stored).map((s: any) => ({
-          ...s,
-          createdAt: new Date(s.createdAt),
-          updatedAt: new Date(s.updatedAt),
-        }));
-      } catch (e) {
-        console.error('Error loading sizes:', e);
-      }
+  const [sizes, setSizes] = useState<Size[]>([]);
+  const [colors, setColors] = useState<Color[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Cargar todos los catálogos
+  const loadCatalogs = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const [sizesData, colorsData, typesData, categoriesData] = await Promise.all([
+        catalogsService.getSizes(),
+        catalogsService.getColors(),
+        catalogsService.getProductTypes(),
+        catalogsService.getCategories(),
+      ]);
+
+      setSizes(sizesData.map(mapApiSize));
+      setColors(colorsData.map(mapApiColor));
+      setProductTypes(typesData.map(mapApiProductType));
+      setCategories(categoriesData.map(mapApiCategory));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error cargando catálogos';
+      setError(message);
+      console.error('Error loading catalogs:', err);
+    } finally {
+      setIsLoading(false);
     }
-    return initialSizes;
-  });
+  }, []);
 
-  const [colors, setColors] = useState<Color[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.colors);
-    if (stored) {
-      try {
-        return JSON.parse(stored).map((c: any) => ({
-          ...c,
-          createdAt: new Date(c.createdAt),
-          updatedAt: new Date(c.updatedAt),
-        }));
-      } catch (e) {
-        console.error('Error loading colors:', e);
-      }
-    }
-    return initialColors;
-  });
-
-  const [productTypes, setProductTypes] = useState<ProductType[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.productTypes);
-    if (stored) {
-      try {
-        return JSON.parse(stored).map((t: any) => ({
-          ...t,
-          createdAt: new Date(t.createdAt),
-          updatedAt: new Date(t.updatedAt),
-        }));
-      } catch (e) {
-        console.error('Error loading product types:', e);
-      }
-    }
-    return initialProductTypes;
-  });
-
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.categories);
-    if (stored) {
-      try {
-        return JSON.parse(stored).map((c: any) => ({
-          ...c,
-          createdAt: new Date(c.createdAt),
-          updatedAt: new Date(c.updatedAt),
-        }));
-      } catch (e) {
-        console.error('Error loading categories:', e);
-      }
-    }
-    return initialCategories;
-  });
-
-  // Save to localStorage
+  // Cargar al montar
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.sizes, JSON.stringify(sizes));
-  }, [sizes]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.colors, JSON.stringify(colors));
-  }, [colors]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.productTypes, JSON.stringify(productTypes));
-  }, [productTypes]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(categories));
-  }, [categories]);
+    loadCatalogs();
+  }, [loadCatalogs]);
 
   // Size methods
-  const addSize = (sizeData: Omit<Size, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newSize: Size = {
-      ...sizeData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setSizes((prev) => [...prev, newSize]);
+  const addSize = async (sizeData: Omit<Size, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newSize = await catalogsService.createSize({
+      name: sizeData.name,
+      abbreviation: sizeData.abbreviation,
+      sortOrder: sizeData.order,
+      isActive: sizeData.active,
+    });
+    setSizes((prev) => [...prev, mapApiSize(newSize)]);
   };
 
-  const updateSize = (id: string, updates: Partial<Omit<Size, 'id' | 'createdAt'>>) => {
-    setSizes((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, ...updates, updatedAt: new Date() } : s
-      )
-    );
+  const updateSize = async (id: string, updates: Partial<Omit<Size, 'id' | 'createdAt'>>) => {
+    const apiUpdates: any = {};
+    if (updates.name !== undefined) apiUpdates.name = updates.name;
+    if (updates.abbreviation !== undefined) apiUpdates.abbreviation = updates.abbreviation;
+    if (updates.order !== undefined) apiUpdates.sortOrder = updates.order;
+    if (updates.active !== undefined) apiUpdates.isActive = updates.active;
+
+    const updated = await catalogsService.updateSize(id, apiUpdates);
+    setSizes((prev) => prev.map((s) => (s.id === id ? mapApiSize(updated) : s)));
   };
 
-  const deleteSize = (id: string) => {
+  const deleteSize = async (id: string) => {
+    await catalogsService.deleteSize(id);
     setSizes((prev) => prev.filter((s) => s.id !== id));
   };
 
   // Color methods
-  const addColor = (colorData: Omit<Color, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newColor: Color = {
-      ...colorData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setColors((prev) => [...prev, newColor]);
+  const addColor = async (colorData: Omit<Color, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newColor = await catalogsService.createColor({
+      name: colorData.name,
+      hexCode: colorData.hexCode,
+      isActive: colorData.active,
+    });
+    setColors((prev) => [...prev, mapApiColor(newColor)]);
   };
 
-  const updateColor = (id: string, updates: Partial<Omit<Color, 'id' | 'createdAt'>>) => {
-    setColors((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, ...updates, updatedAt: new Date() } : c
-      )
-    );
+  const updateColor = async (id: string, updates: Partial<Omit<Color, 'id' | 'createdAt'>>) => {
+    const apiUpdates: any = {};
+    if (updates.name !== undefined) apiUpdates.name = updates.name;
+    if (updates.hexCode !== undefined) apiUpdates.hexCode = updates.hexCode;
+    if (updates.active !== undefined) apiUpdates.isActive = updates.active;
+
+    const updated = await catalogsService.updateColor(id, apiUpdates);
+    setColors((prev) => prev.map((c) => (c.id === id ? mapApiColor(updated) : c)));
   };
 
-  const deleteColor = (id: string) => {
+  const deleteColor = async (id: string) => {
+    await catalogsService.deleteColor(id);
     setColors((prev) => prev.filter((c) => c.id !== id));
   };
 
   // ProductType methods
-  const addProductType = (typeData: Omit<ProductType, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newType: ProductType = {
-      ...typeData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setProductTypes((prev) => [...prev, newType]);
+  const addProductType = async (typeData: Omit<ProductType, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newType = await catalogsService.createProductType({
+      name: typeData.name,
+      description: typeData.description,
+      isActive: typeData.active,
+    });
+    setProductTypes((prev) => [...prev, mapApiProductType(newType)]);
   };
 
-  const updateProductType = (id: string, updates: Partial<Omit<ProductType, 'id' | 'createdAt'>>) => {
-    setProductTypes((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, ...updates, updatedAt: new Date() } : t
-      )
-    );
+  const updateProductType = async (
+    id: string,
+    updates: Partial<Omit<ProductType, 'id' | 'createdAt'>>
+  ) => {
+    const apiUpdates: any = {};
+    if (updates.name !== undefined) apiUpdates.name = updates.name;
+    if (updates.description !== undefined) apiUpdates.description = updates.description;
+    if (updates.active !== undefined) apiUpdates.isActive = updates.active;
+
+    const updated = await catalogsService.updateProductType(id, apiUpdates);
+    setProductTypes((prev) => prev.map((t) => (t.id === id ? mapApiProductType(updated) : t)));
   };
 
-  const deleteProductType = (id: string) => {
+  const deleteProductType = async (id: string) => {
+    await catalogsService.deleteProductType(id);
     setProductTypes((prev) => prev.filter((t) => t.id !== id));
   };
 
   // Category methods
-  const addCategory = (categoryData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newCategory: Category = {
-      ...categoryData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setCategories((prev) => [...prev, newCategory]);
+  const addCategory = async (categoryData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newCategory = await catalogsService.createCategory({
+      name: categoryData.name,
+      description: categoryData.description,
+      isActive: categoryData.active,
+    });
+    setCategories((prev) => [...prev, mapApiCategory(newCategory)]);
   };
 
-  const updateCategory = (id: string, updates: Partial<Omit<Category, 'id' | 'createdAt'>>) => {
-    setCategories((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, ...updates, updatedAt: new Date() } : c
-      )
-    );
+  const updateCategory = async (
+    id: string,
+    updates: Partial<Omit<Category, 'id' | 'createdAt'>>
+  ) => {
+    const apiUpdates: any = {};
+    if (updates.name !== undefined) apiUpdates.name = updates.name;
+    if (updates.description !== undefined) apiUpdates.description = updates.description;
+    if (updates.active !== undefined) apiUpdates.isActive = updates.active;
+
+    const updated = await catalogsService.updateCategory(id, apiUpdates);
+    setCategories((prev) => prev.map((c) => (c.id === id ? mapApiCategory(updated) : c)));
   };
 
-  const deleteCategory = (id: string) => {
+  const deleteCategory = async (id: string) => {
+    await catalogsService.deleteCategory(id);
     setCategories((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const refreshCatalogs = async () => {
+    await loadCatalogs();
   };
 
   return (
@@ -256,6 +238,8 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
         colors,
         productTypes,
         categories,
+        isLoading,
+        error,
         addSize,
         updateSize,
         deleteSize,
@@ -268,6 +252,7 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
         addCategory,
         updateCategory,
         deleteCategory,
+        refreshCatalogs,
       }}
     >
       {children}

@@ -214,12 +214,13 @@ export const LoginModal = ({ isOpen, onClose, initialMode = 'login' }: LoginModa
             <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
               <p className="font-medium mb-2">Credenciales de prueba:</p>
               <div className="space-y-1 text-xs">
-                <p><span className="font-medium">Administrador:</span> admin@marketplace.com</p>
-                <p className="text-blue-600">Clave admins: <code className="bg-blue-100 px-1 rounded">admin123</code></p>
+                <p><span className="font-medium">Admin:</span> admin@marketplace.com / <code className="bg-blue-100 px-1 rounded">admin123</code></p>
               </div>
-              <div className="mt-2 pt-2 border-t border-blue-200 space-y-1 text-xs">
-                <p><span className="font-medium">Cliente:</span> user@marketplace.com</p>
-                <p className="text-blue-600">Clave clientes: <code className="bg-blue-100 px-1 rounded">cliente123</code></p>
+              <div className="mt-1 space-y-1 text-xs">
+                <p><span className="font-medium">Vendedor:</span> vendedor@marketplace.com / <code className="bg-blue-100 px-1 rounded">vendedor123</code></p>
+              </div>
+              <div className="mt-1 space-y-1 text-xs">
+                <p><span className="font-medium">Cliente:</span> cliente@marketplace.com / <code className="bg-blue-100 px-1 rounded">cliente123</code></p>
               </div>
             </div>
           )}

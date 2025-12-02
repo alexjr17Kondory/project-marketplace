@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Filter, X } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import { PRODUCT_CATEGORIES, PRODUCT_TYPES } from '../../types/settings';
+import { productsService } from '../../services/products.service';
 import type { ProductCategory, ProductType } from '../../types/product';
 
 export interface FilterValues {
@@ -23,29 +24,59 @@ interface ProductFiltersProps {
 export const ProductFilters = ({ onFilterChange, initialFilters = {} }: ProductFiltersProps) => {
   const { settings } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
-  const [filters, setFilters] = useState<FilterValues>(initialFilters);
+  const [filters, setFilters] = useState<FilterValues>({});
+  const [dbCategories, setDbCategories] = useState<Array<{ id: number; name: string; slug: string }>>([]);
+  const [dbTypes, setDbTypes] = useState<Array<{ id: number; name: string; slug: string; categoryId: number | null; categorySlug: string | null }>>([]);
 
   const catalogConfig = settings.catalog?.filters;
 
-  // Filtrar categorías habilitadas
+  // Cargar categorías y tipos desde la base de datos
+  useEffect(() => {
+    const loadFiltersData = async () => {
+      try {
+        const [categories, types] = await Promise.all([
+          productsService.getCategories(),
+          productsService.getTypes(),
+        ]);
+        setDbCategories(categories);
+        setDbTypes(types);
+      } catch (error) {
+        console.error('Error loading filter data:', error);
+      }
+    };
+
+    loadFiltersData();
+  }, []);
+
+  // Filtrar categorías habilitadas (usar las de la BD)
   const enabledCategories = useMemo(() => {
     if (!catalogConfig?.showCategoryFilter) return [];
-    return PRODUCT_CATEGORIES.filter(cat =>
-      catalogConfig.enabledCategories?.includes(cat.id) ?? true
-    );
-  }, [catalogConfig]);
+    if (dbCategories.length === 0) return [];
 
-  // Filtrar tipos habilitados
+    // Mostrar todas las categorías activas de la BD
+    return dbCategories.map(cat => ({
+      id: cat.slug, // Usar el slug como id para filtrar
+      label: cat.name, // Usar el nombre de la BD
+    }));
+  }, [catalogConfig, dbCategories]);
+
+  // Filtrar tipos habilitados (usar los de la BD)
   const enabledTypes = useMemo(() => {
     if (!catalogConfig?.showTypeFilter) return [];
-    return PRODUCT_TYPES.filter(type =>
-      catalogConfig.enabledProductTypes?.includes(type.id) ?? true
-    );
-  }, [catalogConfig]);
+    if (dbTypes.length === 0) return [];
+
+    // Mostrar todos los tipos activos de la BD
+    return dbTypes.map(type => ({
+      id: type.slug, // Usar el slug como id para filtrar
+      label: type.name, // Usar el nombre de la BD
+    }));
+  }, [catalogConfig, dbTypes]);
 
   // Actualizar filtros cuando cambien los initialFilters (desde URL)
   useEffect(() => {
-    if (Object.keys(initialFilters).length > 0) {
+    // Solo actualizar si los filtros realmente cambiaron
+    const filtersChanged = JSON.stringify(filters) !== JSON.stringify(initialFilters);
+    if (filtersChanged) {
       setFilters(initialFilters);
     }
   }, [initialFilters]);

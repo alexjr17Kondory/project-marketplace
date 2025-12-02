@@ -56,11 +56,15 @@ export const CatalogPage = () => {
       }
     }
 
-    if (Object.keys(urlFilters).length > 0) {
+    // Solo actualizar si hay filtros y son diferentes
+    const hasFilters = Object.keys(urlFilters).length > 0;
+    const filtersChanged = JSON.stringify(initialFilters) !== JSON.stringify(urlFilters);
+
+    if (hasFilters && filtersChanged) {
       setInitialFilters(urlFilters);
       setFilters(urlFilters);
     }
-  }, [searchParams, setFilters, setSortOption]);
+  }, [searchParams]);
 
   // Colores de marca dinámicos
   const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {

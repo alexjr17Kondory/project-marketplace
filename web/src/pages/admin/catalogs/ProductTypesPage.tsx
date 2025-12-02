@@ -19,7 +19,7 @@ import { Plus, Settings, Trash2, Check, X, ChevronLeft, ChevronRight, ArrowUpDow
 const columnHelper = createColumnHelper<ProductType>();
 
 export const ProductTypesPage = () => {
-  const { productTypes, addProductType, updateProductType, deleteProductType } = useCatalogs();
+  const { productTypes, categories, addProductType, updateProductType, deleteProductType } = useCatalogs();
   const toast = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingType, setEditingType] = useState<ProductType | null>(null);
@@ -29,7 +29,8 @@ export const ProductTypesPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    active: true,
+    categoryId: null as number | null,
+    isActive: true,
   });
 
   const columns = useMemo(
@@ -50,7 +51,7 @@ export const ProductTypesPage = () => {
         header: 'Descripción',
         cell: (info) => <span className="text-gray-500">{info.getValue() || '-'}</span>,
       }),
-      columnHelper.accessor('active', {
+      columnHelper.accessor('isActive', {
         header: 'Estado',
         cell: (info) => {
           const active = info.getValue();
@@ -105,7 +106,7 @@ export const ProductTypesPage = () => {
 
   const openAddModal = () => {
     setEditingType(null);
-    setFormData({ name: '', description: '', active: true });
+    setFormData({ name: '', description: '', categoryId: null, isActive: true });
     setIsModalOpen(true);
   };
 
@@ -114,7 +115,8 @@ export const ProductTypesPage = () => {
     setFormData({
       name: type.name,
       description: type.description || '',
-      active: type.active,
+      categoryId: type.categoryId || null,
+      isActive: type.isActive,
     });
     setIsModalOpen(true);
   };
@@ -129,7 +131,7 @@ export const ProductTypesPage = () => {
       toast.success('Tipo de producto creado correctamente');
     }
     setIsModalOpen(false);
-    setFormData({ name: '', description: '', active: true });
+    setFormData({ name: '', description: '', categoryId: null, isActive: true });
   };
 
   const handleDelete = (id: string) => {
@@ -275,15 +277,33 @@ export const ProductTypesPage = () => {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Categoría
+            </label>
+            <select
+              value={formData.categoryId || ''}
+              onChange={(e) => setFormData({ ...formData, categoryId: e.target.value ? Number(e.target.value) : null })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Sin categoría</option>
+              {categories.filter(cat => cat.isActive).map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex items-center">
             <input
               type="checkbox"
-              id="active"
-              checked={formData.active}
-              onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+              id="isActive"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <label htmlFor="active" className="ml-2 text-sm font-medium text-gray-700">
+            <label htmlFor="isActive" className="ml-2 text-sm font-medium text-gray-700">
               Activo
             </label>
           </div>

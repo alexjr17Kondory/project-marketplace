@@ -10,7 +10,10 @@ interface UserMenuProps {
 }
 
 export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
+
+  // Cliente (roleId 2) NUNCA es admin, sin importar permisos
+  const isAdminUser = user && user.roleId !== 2;
   const { settings } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -120,7 +123,7 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
           <div className="px-4 py-3 border-b border-gray-100">
             <p className="text-sm font-medium text-gray-900">{user.name}</p>
             <p className="text-xs text-gray-500 mt-1">{user.email}</p>
-            {isAdmin && (
+            {isAdminUser && (
               <span className="inline-block mt-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded">
                 Administrador
               </span>
@@ -145,7 +148,7 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
             Mis Pedidos
           </Link>
 
-          {isAdmin && (
+          {isAdminUser && (
             <>
               <div className="my-2 border-t border-gray-100"></div>
               <Link

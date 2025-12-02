@@ -7,6 +7,15 @@ export default defineConfig({
   server: {
     host: true, // Permite acceso desde la red local
     port: 5174,
+    watch: {
+      // Usar polling para Docker en Windows (detecta cambios de archivos)
+      usePolling: true,
+      interval: 1000,
+    },
+    hmr: {
+      // Hot Module Replacement
+      overlay: true,
+    },
   },
   build: {
     outDir: 'dist',

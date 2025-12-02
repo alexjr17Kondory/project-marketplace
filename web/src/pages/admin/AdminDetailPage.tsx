@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUsers } from '../../context/UsersContext';
 import { useRoles } from '../../context/RolesContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
+import type { User } from '../../types/user';
 import {
   ArrowLeft,
-  User,
+  User as UserIcon,
   Mail,
   Phone,
   MapPin,
@@ -23,6 +24,7 @@ import {
   Building2,
   Crown,
   Shield,
+  Loader2,
 } from 'lucide-react';
 
 type TabType = 'profile' | 'addresses' | 'orders' | 'activity';
@@ -34,19 +36,52 @@ export const AdminDetailPage = () => {
   const { roles, getRoleById } = useRoles();
   const toast = useToast();
 
-  const admin = id ? getAdminById(id) : undefined;
+  const [admin, setAdmin] = useState<User | undefined>(undefined);
+  const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
 
-  // Roles disponibles para asignar (excluyendo Usuario normal - id: 1)
-  const assignableRoles = roles.filter(r => r.id !== 1 && r.isActive);
+  // Cargar admin al montar
+  useEffect(() => {
+    const loadAdmin = async () => {
+      if (!id) {
+        setIsLoadingAdmin(false);
+        return;
+      }
+      setIsLoadingAdmin(true);
+      try {
+        const data = await getAdminById(id);
+        setAdmin(data);
+      } catch (error) {
+        console.error('Error loading admin:', error);
+      } finally {
+        setIsLoadingAdmin(false);
+      }
+    };
+    loadAdmin();
+  }, [id, getAdminById]);
+
+  // Roles disponibles para asignar (excluyendo SuperAdmin y Cliente)
+  const assignableRoles = roles.filter(r => r.id !== 1 && r.id !== 2 && r.isActive);
 
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: admin?.name || '',
-    phone: admin?.phone || '',
-    cedula: admin?.cedula || '',
-    roleId: admin?.role === 'superadmin' ? 0 : 2, // Asignar roleId basado en el role actual
+    name: '',
+    phone: '',
+    cedula: '',
+    roleId: 3,
   });
+
+  // Actualizar formData cuando admin cambie
+  useEffect(() => {
+    if (admin) {
+      setFormData({
+        name: admin.name || '',
+        phone: admin.phone || '',
+        cedula: admin.cedula || '',
+        roleId: admin.role === 'superadmin' ? 1 : 3,
+      });
+    }
+  }, [admin]);
 
   // Direcciones mock para demostración
   const [addresses] = useState([
@@ -87,6 +122,18 @@ export const AdminDetailPage = () => {
     { id: '4', action: 'Cambió estado de pedido ORD-045', date: new Date('2024-11-18T09:15:00'), ip: '192.168.1.1' },
     { id: '5', action: 'Registro como administrador', date: new Date('2024-02-15T11:00:00'), ip: '192.168.1.1' },
   ]);
+
+  // Estado de carga
+  if (isLoadingAdmin) {
+    return (
+      <div className="p-4 md:p-8">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+          <span className="ml-2 text-gray-600">Cargando administrador...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!admin) {
     return (
@@ -140,7 +187,7 @@ export const AdminDetailPage = () => {
   };
 
   const tabs = [
-    { id: 'profile' as TabType, label: 'Perfil', icon: User },
+    { id: 'profile' as TabType, label: 'Perfil', icon: UserIcon },
     { id: 'addresses' as TabType, label: 'Direcciones', icon: MapPin },
     { id: 'orders' as TabType, label: 'Pedidos', icon: ShoppingBag },
     { id: 'activity' as TabType, label: 'Actividad', icon: Clock },
@@ -324,7 +371,7 @@ export const AdminDetailPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <User className="w-4 h-4" />
+                  <UserIcon className="w-4 h-4" />
                   Nombre Completo
                 </label>
                 {isEditing ? (

@@ -1,0 +1,98 @@
+services:
+  # Base de datos MariaDB
+  db:
+    image: mariadb:10.11
+    container_name: marketplace-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: marketplace
+      MYSQL_USER: marketplace
+      MYSQL_PASSWORD: marketplace123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - marketplace-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: marketplace-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://marketplace:marketplace123@db:3306/marketplace
+      JWT_SECRET: marketplace-docker-secret-key
+      JWT_EXPIRES_IN: 7d
+      PORT: 3001
+      NODE_ENV: development
+      FRONTEND_URL: http://localhost:5173
+      # Cloudinary (configurar con tus credenciales)
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      # Email SMTP (opcional - se simula si no se configura)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Marketplace <noreply@marketplace.com>}
+      # Wompi (configurar con tus credenciales)
+      WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-}
+      WOMPI_PRIVATE_KEY: ${WOMPI_PRIVATE_KEY:-}
+      WOMPI_EVENTS_SECRET: ${WOMPI_EVENTS_SECRET:-}
+      # Polling para hot reload en Windows/Docker
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+      - ./backend/nodemon.json:/app/nodemon.json
+      - backend_node_modules:/app/node_modules
+    command: sh -c "npx prisma generate && npx prisma db push --skip-generate && npm run dev"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - marketplace-network
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: marketplace-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:3001/api
+      # Polling para hot reload en Windows/Docker
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "5173:5174"
+    volumes:
+      - ./web/src:/app/src
+      - ./web/public:/app/public
+      - ./web/vite.config.ts:/app/vite.config.ts
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - marketplace-network
+
+volumes:
+  mariadb_data:
+  backend_node_modules:
+
+networks:
+  marketplace-network:
+    driver: bridge

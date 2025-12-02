@@ -263,9 +263,12 @@ export interface SectionFilters {
   featured?: boolean;        // Solo productos destacados
   bestsellers?: boolean;     // Solo más vendidos
   newArrivals?: boolean;     // Solo nuevos
-  // Filtros de categoría/tipo
-  categoryId?: string;       // Filtrar por categoría (clothing, accessories, home, etc)
-  productTypeId?: string;    // Filtrar por tipo (tshirt, mug, etc)
+  // Filtros de categoría/tipo (usando slugs de la BD)
+  category?: string;         // Filtrar por categoría slug (ropa, accesorios, bebidas, hogar, oficina)
+  type?: string;             // Filtrar por tipo slug (camiseta, taza, etc)
+  // Filtros legacy (mantener para compatibilidad)
+  categoryId?: string;       // DEPRECATED: usar 'category' en su lugar
+  productTypeId?: string;    // DEPRECATED: usar 'type' en su lugar
   // Filtros de ordenamiento (coincide con mockProducts)
   sortBy?: 'rating' | 'price' | 'newest' | 'reviewsCount';
   // Filtros de precio

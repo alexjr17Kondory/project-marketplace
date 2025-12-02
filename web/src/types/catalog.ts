@@ -1,36 +1,41 @@
 export interface Size {
-  id: string;
+  id: number;
   name: string;
   abbreviation: string;
-  order: number;
-  active: boolean;
+  sortOrder: number;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface Color {
-  id: string;
+  id: number;
   name: string;
+  slug: string;
   hexCode: string;
-  active: boolean;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface ProductType {
-  id: string;
+  id: number;
   name: string;
+  slug: string;
   description?: string;
-  active: boolean;
+  categoryId?: number | null;
+  categorySlug?: string | null;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface Category {
-  id: string;
+  id: number;
   name: string;
+  slug: string;
   description?: string;
-  active: boolean;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../context/ToastContext';
 import { Button } from '../../../components/shared/Button';
 import { Input } from '../../../components/shared/Input';
 import { Modal } from '../../../components/shared/Modal';
 import type { FeatureCard, ProductSection, HeroSettings, CTASettings, WhatsAppButtonSettings, SectionFilters } from '../../../types/settings';
-import { FEATURE_ICONS, PRODUCT_CATEGORIES, PRODUCT_TYPES } from '../../../types/settings';
+import { FEATURE_ICONS } from '../../../types/settings';
+import { productsService } from '../../../services/products.service';
 import {
   Home,
   Save,
@@ -60,6 +61,10 @@ export const SettingsHomePage = () => {
   } = useSettings();
   const toast = useToast();
 
+  // Database catalogs state
+  const [dbCategories, setDbCategories] = useState<Array<{ id: number; name: string; slug: string }>>([]);
+  const [dbTypes, setDbTypes] = useState<Array<{ id: number; name: string; slug: string; categoryId: number | null; categorySlug: string | null }>>([]);
+
   // Local form states
   const [heroForm, setHeroForm] = useState<HeroSettings>(settings.home.hero);
   const [ctaForm, setCtaForm] = useState<CTASettings>(settings.home.cta);
@@ -89,6 +94,23 @@ export const SettingsHomePage = () => {
     isActive: true,
     order: 0,
   });
+
+  // Load categories and types from database
+  useEffect(() => {
+    const loadCatalogsData = async () => {
+      try {
+        const [categories, types] = await Promise.all([
+          productsService.getCategories(),
+          productsService.getTypes(),
+        ]);
+        setDbCategories(categories);
+        setDbTypes(types);
+      } catch (error) {
+        console.error('Error loading catalogs data:', error);
+      }
+    };
+    loadCatalogsData();
+  }, []);
 
   const handleSaveHero = () => {
     updateHomeSettings({ hero: heroForm });
@@ -187,14 +209,31 @@ export const SettingsHomePage = () => {
     setIsSectionModalOpen(true);
   };
 
-  // Helper para actualizar filtros
+  // Helper para actualizar filtros y regenerar viewAllLink
   const updateSectionFilter = (key: keyof SectionFilters, value: any) => {
+    const newFilters = {
+      ...sectionForm.filters,
+      [key]: value === '' || value === false ? undefined : value,
+    };
+
+    // Construir el viewAllLink basado en los filtros actualizados
+    let link = '/catalog';
+    const params: string[] = [];
+
+    if (newFilters.category) params.push(`category=${newFilters.category}`);
+    if (newFilters.type) params.push(`type=${newFilters.type}`);
+    if (newFilters.featured) params.push('featured=true');
+    if (newFilters.bestsellers) params.push('bestsellers=true');
+    if (newFilters.newArrivals) params.push('newArrivals=true');
+    if (newFilters.inStock) params.push('inStock=true');
+    if (newFilters.sortBy) params.push(`sort=${newFilters.sortBy}`);
+
+    if (params.length > 0) link += '?' + params.join('&');
+
     setSectionForm({
       ...sectionForm,
-      filters: {
-        ...sectionForm.filters,
-        [key]: value === '' || value === false ? undefined : value,
-      },
+      filters: newFilters,
+      viewAllLink: link,
     });
   };
 
@@ -204,13 +243,13 @@ export const SettingsHomePage = () => {
     if (filters.featured) parts.push('Destacados');
     if (filters.bestsellers) parts.push('Más vendidos');
     if (filters.newArrivals) parts.push('Nuevos');
-    if (filters.categoryId) {
-      const cat = PRODUCT_CATEGORIES.find(c => c.id === filters.categoryId);
-      parts.push(cat?.label || filters.categoryId);
+    if (filters.category) {
+      const cat = dbCategories.find(c => c.slug === filters.category);
+      parts.push(cat?.name || filters.category);
     }
-    if (filters.productTypeId) {
-      const type = PRODUCT_TYPES.find(t => t.id === filters.productTypeId);
-      parts.push(type?.label || filters.productTypeId);
+    if (filters.type) {
+      const type = dbTypes.find(t => t.slug === filters.type);
+      parts.push(type?.name || filters.type);
     }
     if (filters.sortBy) {
       const sortLabels: Record<string, string> = {
@@ -1018,23 +1057,38 @@ export const SettingsHomePage = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
             <select
-              value={sectionForm.filters?.categoryId || ''}
+              value={sectionForm.filters?.category || ''}
               onChange={(e) => {
-                // Al cambiar categoría, limpiar el tipo de producto seleccionado
+                const categorySlug = e.target.value;
+                // Construir el viewAllLink basado en los filtros
+                let link = '/catalog';
+                const params: string[] = [];
+
+                if (categorySlug) params.push(`category=${categorySlug}`);
+                if (sectionForm.filters?.featured) params.push('featured=true');
+                if (sectionForm.filters?.bestsellers) params.push('bestsellers=true');
+                if (sectionForm.filters?.newArrivals) params.push('newArrivals=true');
+                if (sectionForm.filters?.inStock) params.push('inStock=true');
+                if (sectionForm.filters?.sortBy) params.push(`sort=${sectionForm.filters.sortBy}`);
+
+                if (params.length > 0) link += '?' + params.join('&');
+
+                // Al cambiar categoría, limpiar el tipo de producto y actualizar link
                 setSectionForm({
                   ...sectionForm,
                   filters: {
                     ...sectionForm.filters,
-                    categoryId: e.target.value || undefined,
-                    productTypeId: undefined, // Reset tipo cuando cambia categoría
+                    category: categorySlug || undefined,
+                    type: undefined, // Reset tipo cuando cambia categoría
                   },
+                  viewAllLink: link,
                 });
               }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
             >
               <option value="">Todas las categorías</option>
-              {PRODUCT_CATEGORIES.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.label}</option>
+              {dbCategories.map((cat) => (
+                <option key={cat.id} value={cat.slug}>{cat.name}</option>
               ))}
             </select>
           </div>
@@ -1043,25 +1097,49 @@ export const SettingsHomePage = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Producto</label>
             <select
-              value={sectionForm.filters?.productTypeId || ''}
-              onChange={(e) => updateSectionFilter('productTypeId', e.target.value)}
-              disabled={!sectionForm.filters?.categoryId}
+              value={sectionForm.filters?.type || ''}
+              onChange={(e) => {
+                const typeSlug = e.target.value;
+                // Construir el viewAllLink basado en los filtros
+                let link = '/catalog';
+                const params: string[] = [];
+
+                if (sectionForm.filters?.category) params.push(`category=${sectionForm.filters.category}`);
+                if (typeSlug) params.push(`type=${typeSlug}`);
+                if (sectionForm.filters?.featured) params.push('featured=true');
+                if (sectionForm.filters?.bestsellers) params.push('bestsellers=true');
+                if (sectionForm.filters?.newArrivals) params.push('newArrivals=true');
+                if (sectionForm.filters?.inStock) params.push('inStock=true');
+                if (sectionForm.filters?.sortBy) params.push(`sort=${sectionForm.filters.sortBy}`);
+
+                if (params.length > 0) link += '?' + params.join('&');
+
+                setSectionForm({
+                  ...sectionForm,
+                  filters: {
+                    ...sectionForm.filters,
+                    type: typeSlug || undefined,
+                  },
+                  viewAllLink: link,
+                });
+              }}
+              disabled={!sectionForm.filters?.category}
               className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 ${
-                !sectionForm.filters?.categoryId ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                !sectionForm.filters?.category ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
               }`}
             >
               <option value="">
-                {sectionForm.filters?.categoryId ? 'Todos los tipos' : 'Selecciona una categoría primero'}
+                {sectionForm.filters?.category ? 'Todos los tipos' : 'Selecciona una categoría primero'}
               </option>
-              {sectionForm.filters?.categoryId &&
-                PRODUCT_TYPES
-                  .filter(t => t.category === sectionForm.filters?.categoryId)
+              {sectionForm.filters?.category &&
+                dbTypes
+                  .filter(t => t.categorySlug === sectionForm.filters?.category)
                   .map((type) => (
-                    <option key={type.id} value={type.id}>{type.label}</option>
+                    <option key={type.id} value={type.slug}>{type.name}</option>
                   ))
               }
             </select>
-            {!sectionForm.filters?.categoryId && (
+            {!sectionForm.filters?.category && (
               <p className="text-xs text-gray-500 mt-1">Selecciona una categoría para ver los tipos disponibles</p>
             )}
           </div>

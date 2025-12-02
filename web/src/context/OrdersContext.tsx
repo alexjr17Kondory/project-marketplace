@@ -1,5 +1,14 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
-import type { Order, OrderStatus, StatusHistoryEntry, PaymentEvidence, PaymentMethod } from '../types/order';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import type {
+  Order,
+  OrderStatus,
+  StatusHistoryEntry,
+  PaymentEvidence,
+  PaymentMethod,
+} from '../types/order';
+import { ordersService } from '../services/orders.service';
+import type { ApiOrder, CreateOrderInput, ChangeStatusInput } from '../services/orders.service';
+import { useAuth } from './AuthContext';
 
 interface ChangeStatusParams {
   orderId: string;
@@ -21,7 +30,7 @@ interface CreateOrderData {
   shippingNotes?: string;
   paymentMethod: PaymentMethod;
   items: {
-    productId: string;
+    productId: string | number;
     productName: string;
     productImage: string;
     size: string;
@@ -31,6 +40,8 @@ interface CreateOrderData {
     customization?: {
       designFront?: string;
       designBack?: string;
+      originalFront?: string;
+      originalBack?: string;
     };
   }[];
   subtotal: number;
@@ -41,463 +52,207 @@ interface CreateOrderData {
 
 interface OrdersContextType {
   orders: Order[];
-  getOrderById: (id: string) => Order | undefined;
-  getOrderByNumber: (orderNumber: string) => Order | undefined;
-  changeOrderStatus: (params: ChangeStatusParams) => void;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  updateTrackingInfo: (orderId: string, trackingNumber: string, trackingUrl?: string) => void;
-  addEvidenceToStatus: (orderId: string, historyEntryId: string, evidence: Omit<PaymentEvidence, 'id' | 'uploadedAt'>) => void;
+  isLoading: boolean;
+  error: string | null;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  getOrderById: (id: string) => Promise<Order | undefined>;
+  getOrderByNumber: (orderNumber: string) => Promise<Order | undefined>;
+  changeOrderStatus: (params: ChangeStatusParams) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  updateTrackingInfo: (orderId: string, trackingNumber: string, trackingUrl?: string) => Promise<void>;
+  addEvidenceToStatus: (
+    orderId: string,
+    historyEntryId: string,
+    evidence: Omit<PaymentEvidence, 'id' | 'uploadedAt'>
+  ) => void;
   getOrdersByStatus: (status: OrderStatus) => Order[];
   getOrdersReadyToShip: () => Order[];
-  createOrder: (data: CreateOrderData) => Order;
-  getOrdersByUserEmail: (email: string) => Order[];
+  createOrder: (data: CreateOrderData) => Promise<Order>;
+  getOrdersByUserEmail: (email: string) => Promise<Order[]>;
+  getMyOrders: () => Promise<Order[]>;
+  refreshOrders: () => Promise<void>;
+  setPage: (page: number) => void;
+  setFilters: (filters: { status?: OrderStatus; search?: string }) => void;
 }
 
 const OrdersContext = createContext<OrdersContextType | undefined>(undefined);
 
-// Datos mock para demostración
-const mockOrders: Order[] = [
-  {
-    id: '1',
-    orderNumber: 'ORD-2024-001',
-    userId: '1',
-    userName: 'María García',
-    userEmail: 'maria@example.com',
-    items: [
-      {
-        id: '1',
-        productId: 'prod-1',
-        productName: 'Camiseta Básica Blanca',
-        productImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100',
-        size: 'M',
-        color: 'Blanco',
-        quantity: 2,
-        unitPrice: 35000,
-        customization: {
-          designFront: 'Logo empresa',
-        },
-      },
-      {
-        id: '2',
-        productId: 'prod-2',
-        productName: 'Camiseta Polo Negra',
-        productImage: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=100',
-        size: 'L',
-        color: 'Negro',
-        quantity: 1,
-        unitPrice: 55000,
-      },
-    ],
-    subtotal: 125000,
-    shippingCost: 12000,
-    discount: 0,
-    total: 137000,
-    status: 'processing',
-    paymentMethod: 'credit_card',
-    paymentReference: 'PAY-123456',
-    shipping: {
-      recipientName: 'María García',
-      phone: '+57 300 123 4567',
-      address: 'Calle 123 #45-67, Apto 301',
-      city: 'Bogotá',
-      postalCode: '110111',
-      country: 'Colombia',
-      notes: 'Edificio Torre Norte, portería 24h',
-    },
-    statusHistory: [
-      {
-        id: 'sh-1-1',
-        fromStatus: null,
-        toStatus: 'pending',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-25T10:30:00'),
-        note: 'Pedido creado',
-      },
-      {
-        id: 'sh-1-2',
-        fromStatus: 'pending',
-        toStatus: 'paid',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-25T10:35:00'),
-        note: 'Pago confirmado automáticamente',
-        evidences: [
-          {
-            id: 'ev-1-1',
-            type: 'receipt',
-            url: 'https://example.com/receipts/pay-123456.pdf',
-            description: 'Recibo de pago TC',
-            uploadedAt: new Date('2024-11-25T10:35:00'),
-            uploadedBy: 'Sistema',
-          },
-        ],
-      },
-      {
-        id: 'sh-1-3',
-        fromStatus: 'paid',
-        toStatus: 'processing',
-        changedBy: 'Admin',
-        changedAt: new Date('2024-11-25T14:00:00'),
-        note: 'Iniciando preparación del pedido',
-      },
-    ],
-    createdAt: new Date('2024-11-25T10:30:00'),
-    updatedAt: new Date('2024-11-25T14:00:00'),
-    paidAt: new Date('2024-11-25T10:35:00'),
-  },
-  {
-    id: '2',
-    orderNumber: 'ORD-2024-002',
-    userId: '2',
-    userName: 'Carlos López',
-    userEmail: 'carlos@example.com',
-    items: [
-      {
-        id: '3',
-        productId: 'prod-3',
-        productName: 'Hoodie Gris',
-        productImage: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=100',
-        size: 'XL',
-        color: 'Gris',
-        quantity: 1,
-        unitPrice: 89000,
-        customization: {
-          designFront: 'Diseño personalizado',
-          designBack: 'Texto custom',
-        },
-      },
-    ],
-    subtotal: 89000,
-    shippingCost: 15000,
-    discount: 10000,
-    total: 94000,
-    status: 'paid',
-    paymentMethod: 'pse',
-    paymentReference: 'PSE-789012',
-    shipping: {
-      recipientName: 'Carlos López',
-      phone: '+57 310 987 6543',
-      address: 'Carrera 50 #30-20',
-      city: 'Medellín',
-      postalCode: '050001',
-      country: 'Colombia',
-    },
-    statusHistory: [
-      {
-        id: 'sh-2-1',
-        fromStatus: null,
-        toStatus: 'pending',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-24T16:45:00'),
-        note: 'Pedido creado',
-      },
-      {
-        id: 'sh-2-2',
-        fromStatus: 'pending',
-        toStatus: 'paid',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-24T16:50:00'),
-        note: 'Pago PSE confirmado',
-        evidences: [
-          {
-            id: 'ev-2-1',
-            type: 'transfer',
-            url: 'https://example.com/pse/pse-789012.pdf',
-            description: 'Comprobante PSE',
-            uploadedAt: new Date('2024-11-24T16:50:00'),
-            uploadedBy: 'Sistema',
-          },
-        ],
-      },
-    ],
-    createdAt: new Date('2024-11-24T16:45:00'),
-    updatedAt: new Date('2024-11-24T16:50:00'),
-    paidAt: new Date('2024-11-24T16:50:00'),
-  },
-  {
-    id: '3',
-    orderNumber: 'ORD-2024-003',
-    userId: '3',
-    userName: 'Ana Martínez',
-    userEmail: 'ana@example.com',
-    items: [
-      {
-        id: '4',
-        productId: 'prod-1',
-        productName: 'Camiseta Básica Blanca',
-        productImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100',
-        size: 'S',
-        color: 'Blanco',
-        quantity: 5,
-        unitPrice: 35000,
-      },
-    ],
-    subtotal: 175000,
-    shippingCost: 0,
-    discount: 17500,
-    total: 157500,
-    status: 'shipped',
-    paymentMethod: 'credit_card',
-    paymentReference: 'PAY-345678',
-    shipping: {
-      recipientName: 'Ana Martínez',
-      phone: '+57 320 555 1234',
-      address: 'Av. Principal #100-50',
-      city: 'Cali',
-      postalCode: '760001',
-      country: 'Colombia',
-    },
-    trackingNumber: 'COL123456789',
-    trackingUrl: 'https://tracking.example.com/COL123456789',
-    statusHistory: [
-      {
-        id: 'sh-3-1',
-        fromStatus: null,
-        toStatus: 'pending',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-20T09:00:00'),
-        note: 'Pedido creado',
-      },
-      {
-        id: 'sh-3-2',
-        fromStatus: 'pending',
-        toStatus: 'paid',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-20T09:05:00'),
-        note: 'Pago confirmado',
-      },
-      {
-        id: 'sh-3-3',
-        fromStatus: 'paid',
-        toStatus: 'processing',
-        changedBy: 'Admin',
-        changedAt: new Date('2024-11-21T10:00:00'),
-        note: 'En preparación',
-      },
-      {
-        id: 'sh-3-4',
-        fromStatus: 'processing',
-        toStatus: 'shipped',
-        changedBy: 'Admin',
-        changedAt: new Date('2024-11-22T11:30:00'),
-        note: 'Enviado con Servientrega',
-        trackingNumber: 'COL123456789',
-        trackingUrl: 'https://tracking.example.com/COL123456789',
-      },
-    ],
-    createdAt: new Date('2024-11-20T09:00:00'),
-    updatedAt: new Date('2024-11-22T11:30:00'),
-    paidAt: new Date('2024-11-20T09:05:00'),
-    shippedAt: new Date('2024-11-22T11:30:00'),
-  },
-  {
-    id: '4',
-    orderNumber: 'ORD-2024-004',
-    userId: '4',
-    userName: 'Pedro Sánchez',
-    userEmail: 'pedro@example.com',
-    items: [
-      {
-        id: '5',
-        productId: 'prod-2',
-        productName: 'Camiseta Polo Negra',
-        productImage: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=100',
-        size: 'M',
-        color: 'Negro',
-        quantity: 3,
-        unitPrice: 55000,
-      },
-    ],
-    subtotal: 165000,
-    shippingCost: 12000,
-    discount: 0,
-    total: 177000,
-    status: 'delivered',
-    paymentMethod: 'transfer',
-    paymentReference: 'TRF-901234',
-    shipping: {
-      recipientName: 'Pedro Sánchez',
-      phone: '+57 315 444 7890',
-      address: 'Calle 80 #20-30',
-      city: 'Barranquilla',
-      postalCode: '080001',
-      country: 'Colombia',
-    },
-    trackingNumber: 'COL987654321',
-    trackingUrl: 'https://tracking.example.com/COL987654321',
-    statusHistory: [
-      {
-        id: 'sh-4-1',
-        fromStatus: null,
-        toStatus: 'pending',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-15T14:20:00'),
-        note: 'Pedido creado',
-      },
-      {
-        id: 'sh-4-2',
-        fromStatus: 'pending',
-        toStatus: 'paid',
-        changedBy: 'Admin',
-        changedAt: new Date('2024-11-15T15:00:00'),
-        note: 'Pago por transferencia verificado',
-        evidences: [
-          {
-            id: 'ev-4-1',
-            type: 'transfer',
-            url: 'https://example.com/transfers/trf-901234.jpg',
-            description: 'Comprobante de transferencia bancaria',
-            uploadedAt: new Date('2024-11-15T15:00:00'),
-            uploadedBy: 'Admin',
-          },
-        ],
-      },
-      {
-        id: 'sh-4-3',
-        fromStatus: 'paid',
-        toStatus: 'processing',
-        changedBy: 'Admin',
-        changedAt: new Date('2024-11-15T16:00:00'),
-        note: 'Iniciando preparación',
-      },
-      {
-        id: 'sh-4-4',
-        fromStatus: 'processing',
-        toStatus: 'shipped',
-        changedBy: 'Admin',
-        changedAt: new Date('2024-11-16T10:00:00'),
-        note: 'Enviado con Coordinadora',
-        trackingNumber: 'COL987654321',
-        trackingUrl: 'https://tracking.example.com/COL987654321',
-      },
-      {
-        id: 'sh-4-5',
-        fromStatus: 'shipped',
-        toStatus: 'delivered',
-        changedBy: 'Admin',
-        changedAt: new Date('2024-11-18T16:00:00'),
-        note: 'Entregado - Confirmado por cliente',
-      },
-    ],
-    createdAt: new Date('2024-11-15T14:20:00'),
-    updatedAt: new Date('2024-11-18T16:00:00'),
-    paidAt: new Date('2024-11-15T15:00:00'),
-    shippedAt: new Date('2024-11-16T10:00:00'),
-    deliveredAt: new Date('2024-11-18T16:00:00'),
-  },
-  {
-    id: '5',
-    orderNumber: 'ORD-2024-005',
-    userId: '5',
-    userName: 'Laura Rodríguez',
-    userEmail: 'laura@example.com',
-    items: [
-      {
-        id: '6',
-        productId: 'prod-4',
-        productName: 'Tank Top Rosa',
-        productImage: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=100',
-        size: 'S',
-        color: 'Rosa',
-        quantity: 2,
-        unitPrice: 28000,
-      },
-    ],
-    subtotal: 56000,
-    shippingCost: 12000,
-    discount: 0,
-    total: 68000,
-    status: 'pending',
-    paymentMethod: 'pse',
-    shipping: {
-      recipientName: 'Laura Rodríguez',
-      phone: '+57 318 222 3333',
-      address: 'Carrera 15 #90-50',
-      city: 'Bogotá',
-      postalCode: '110221',
-      country: 'Colombia',
-    },
-    statusHistory: [
-      {
-        id: 'sh-5-1',
-        fromStatus: null,
-        toStatus: 'pending',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-26T08:00:00'),
-        note: 'Pedido creado - Esperando pago',
-      },
-    ],
-    createdAt: new Date('2024-11-26T08:00:00'),
-    updatedAt: new Date('2024-11-26T08:00:00'),
-  },
-  {
-    id: '6',
-    orderNumber: 'ORD-2024-006',
-    userId: '1',
-    userName: 'María García',
-    userEmail: 'maria@example.com',
-    items: [
-      {
-        id: '7',
-        productId: 'prod-5',
-        productName: 'Sudadera Oversize',
-        productImage: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=100',
-        size: 'L',
-        color: 'Beige',
-        quantity: 1,
-        unitPrice: 75000,
-      },
-    ],
-    subtotal: 75000,
-    shippingCost: 12000,
-    discount: 0,
-    total: 87000,
-    status: 'cancelled',
-    paymentMethod: 'credit_card',
-    shipping: {
-      recipientName: 'María García',
-      phone: '+57 300 123 4567',
-      address: 'Calle 123 #45-67, Apto 301',
-      city: 'Bogotá',
-      postalCode: '110111',
-      country: 'Colombia',
-    },
-    notes: 'Cancelado por cliente - cambio de opinión',
-    statusHistory: [
-      {
-        id: 'sh-6-1',
-        fromStatus: null,
-        toStatus: 'pending',
-        changedBy: 'Sistema',
-        changedAt: new Date('2024-11-10T12:00:00'),
-        note: 'Pedido creado',
-      },
-      {
-        id: 'sh-6-2',
-        fromStatus: 'pending',
-        toStatus: 'cancelled',
-        changedBy: 'Admin',
-        changedAt: new Date('2024-11-11T09:00:00'),
-        note: 'Cancelado a solicitud del cliente',
-        cancellationReason: 'Cambio de opinión - Cliente solicitó cancelación antes del pago',
-      },
-    ],
-    createdAt: new Date('2024-11-10T12:00:00'),
-    updatedAt: new Date('2024-11-11T09:00:00'),
-  },
-];
+// Convertir status de backend (MAYÚSCULAS) a frontend (minúsculas)
+const normalizeStatus = (status: string | undefined | null): OrderStatus => {
+  if (!status) return 'pending';
+  return status.toLowerCase() as OrderStatus;
+};
+
+// Mapear API Order a tipo local Order
+const mapApiOrderToOrder = (apiOrder: ApiOrder): Order => {
+  // El backend devuelve statusHistory con { status, timestamp, note }
+  // El frontend espera { toStatus, changedAt, note, fromStatus, ... }
+  const mappedStatusHistory = (apiOrder.statusHistory || []).map((entry: any, index: number, arr: any[]) => {
+    // El backend usa 'status' y 'timestamp', el frontend usa 'toStatus' y 'changedAt'
+    const toStatus = entry.toStatus || entry.status;
+    const changedAt = entry.changedAt || entry.timestamp;
+    const fromStatus = entry.fromStatus || (index > 0 ? arr[index - 1]?.status || arr[index - 1]?.toStatus : null);
+
+    return {
+      id: entry.id || `history-${index}`,
+      fromStatus: fromStatus ? normalizeStatus(fromStatus) : null,
+      toStatus: normalizeStatus(toStatus),
+      changedBy: entry.changedBy || 'Sistema',
+      changedAt: new Date(changedAt),
+      note: entry.note,
+      trackingNumber: entry.trackingNumber,
+      trackingUrl: entry.trackingUrl,
+      cancellationReason: entry.cancellationReason,
+      evidences: entry.evidences?.map((ev: any) => ({
+        ...ev,
+        type: ev.type as 'receipt' | 'transfer' | 'voucher' | 'other',
+        uploadedAt: new Date(ev.uploadedAt),
+        uploadedBy: ev.uploadedBy || 'Sistema',
+      })),
+    };
+  });
+
+  return {
+    id: apiOrder.id,
+    orderNumber: apiOrder.orderNumber,
+    userId: apiOrder.userId,
+    userName: apiOrder.userName || apiOrder.user?.name || apiOrder.shipping?.name || '',
+    userEmail: apiOrder.userEmail || apiOrder.user?.email || apiOrder.shipping?.email || '',
+    items: apiOrder.items.map((item) => ({
+      ...item,
+      customization: item.customization,
+    })),
+    subtotal: apiOrder.subtotal,
+    shippingCost: apiOrder.shippingCost,
+    discount: apiOrder.discount,
+    total: apiOrder.total,
+    status: normalizeStatus(apiOrder.status),
+    paymentMethod: apiOrder.paymentMethod as PaymentMethod,
+    paymentReference: apiOrder.paymentRef,
+    shipping: apiOrder.shipping,
+    trackingNumber: apiOrder.trackingNumber,
+    trackingUrl: apiOrder.trackingUrl,
+    notes: apiOrder.notes,
+    statusHistory: mappedStatusHistory,
+    createdAt: new Date(apiOrder.createdAt),
+    updatedAt: new Date(apiOrder.updatedAt),
+    paidAt: apiOrder.paidAt ? new Date(apiOrder.paidAt) : undefined,
+    shippedAt: apiOrder.shippedAt ? new Date(apiOrder.shippedAt) : undefined,
+    deliveredAt: apiOrder.deliveredAt ? new Date(apiOrder.deliveredAt) : undefined,
+  };
+};
 
 export const OrdersProvider = ({ children }: { children: ReactNode }) => {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const { isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  // Empezar en true para mostrar loading mientras auth carga
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
+  const [filters, setFiltersState] = useState<{ status?: OrderStatus; search?: string }>({});
 
-  const getOrderById = (id: string) => {
-    return orders.find((order) => order.id === id);
+  // Cargar pedidos desde la API (solo para admins)
+  const loadOrders = useCallback(async () => {
+    // Solo cargar si está autenticado y es admin
+    if (!isAuthenticated || !isAdmin) {
+      setOrders([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('[OrdersContext] Cargando pedidos...');
+      const response = await ordersService.getAll({
+        page: pagination.page,
+        limit: pagination.limit,
+        status: filters.status,
+        search: filters.search,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      });
+
+      console.log('[OrdersContext] Respuesta recibida:', response);
+      const mappedOrders = response.data.map(mapApiOrderToOrder);
+      console.log('[OrdersContext] Pedidos mapeados:', mappedOrders);
+
+      setOrders(mappedOrders);
+      setPagination(response.pagination);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error cargando pedidos';
+      setError(message);
+      console.error('[OrdersContext] Error loading orders:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, isAdmin, pagination.page, pagination.limit, filters.status, filters.search]);
+
+  // Cargar al montar (solo si es admin y auth ha terminado de cargar)
+  useEffect(() => {
+    // Esperar a que auth termine de cargar
+    if (authLoading) {
+      return;
+    }
+
+    console.log('[OrdersContext] Auth cargado. isAdmin:', isAdmin, 'isAuthenticated:', isAuthenticated);
+
+    if (isAuthenticated && isAdmin) {
+      loadOrders();
+    } else {
+      // Si no es admin, marcar como cargado sin pedidos
+      setIsLoading(false);
+      setOrders([]);
+    }
+  }, [authLoading, isAuthenticated, isAdmin, loadOrders]);
+
+  const getOrderById = async (id: string): Promise<Order | undefined> => {
+    const numericId = Number(id);
+    // Primero buscar en cache local
+    const cached = orders.find((order) => order.id === numericId);
+    if (cached) return cached;
+
+    // Si no está en cache, buscar en API
+    try {
+      const apiOrder = await ordersService.getById(numericId);
+      if (apiOrder) {
+        return mapApiOrderToOrder(apiOrder);
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
   };
 
-  const getOrderByNumber = (orderNumber: string) => {
-    return orders.find((order) => order.orderNumber === orderNumber);
+  const getOrderByNumber = async (orderNumber: string): Promise<Order | undefined> => {
+    // Primero buscar en cache local
+    const cached = orders.find((order) => order.orderNumber === orderNumber);
+    if (cached) return cached;
+
+    // Si no está en cache, buscar en API
+    try {
+      const apiOrder = await ordersService.getByNumber(orderNumber);
+      if (apiOrder) {
+        return mapApiOrderToOrder(apiOrder);
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
   };
 
-  const changeOrderStatus = ({
+  const changeOrderStatus = async ({
     orderId,
     newStatus,
     note,
@@ -505,63 +260,27 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     trackingNumber,
     trackingUrl,
     cancellationReason,
-  }: ChangeStatusParams) => {
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id === orderId) {
-          const now = new Date();
+  }: ChangeStatusParams): Promise<void> => {
+    // Convertir status a mayúsculas para el backend
+    const backendStatus = newStatus.toUpperCase() as OrderStatus;
 
-          // Crear entrada en historial
-          const historyEntry: StatusHistoryEntry = {
-            id: `sh-${orderId}-${Date.now()}`,
-            fromStatus: order.status,
-            toStatus: newStatus,
-            changedBy: 'Admin', // En producción vendría del usuario autenticado
-            changedAt: now,
-            note,
-            trackingNumber,
-            trackingUrl,
-            cancellationReason,
-          };
+    const input: ChangeStatusInput = {
+      status: backendStatus,
+      note,
+      trackingNumber,
+      trackingUrl,
+      cancellationReason,
+      evidences: evidences?.map((ev) => ({
+        type: ev.type as 'receipt' | 'transfer' | 'screenshot' | 'other',
+        url: ev.url,
+        description: ev.description,
+      })),
+    };
 
-          // Agregar evidencias si las hay
-          if (evidences && evidences.length > 0) {
-            historyEntry.evidences = evidences.map((ev, idx) => ({
-              ...ev,
-              id: `ev-${orderId}-${Date.now()}-${idx}`,
-              uploadedAt: now,
-            }));
-          }
+    const updated = await ordersService.changeStatus(Number(orderId), input);
+    const mappedOrder = mapApiOrderToOrder(updated);
 
-          // Actualizar campos según el nuevo estado
-          const updates: Partial<Order> = {
-            status: newStatus,
-            updatedAt: now,
-            statusHistory: [...order.statusHistory, historyEntry],
-          };
-
-          if (newStatus === 'paid' && !order.paidAt) {
-            updates.paidAt = now;
-          }
-          if (newStatus === 'shipped') {
-            if (!order.shippedAt) updates.shippedAt = now;
-            if (trackingNumber) updates.trackingNumber = trackingNumber;
-            if (trackingUrl) updates.trackingUrl = trackingUrl;
-          }
-          if (newStatus === 'delivered' && !order.deliveredAt) {
-            updates.deliveredAt = now;
-          }
-          if (newStatus === 'cancelled' && cancellationReason) {
-            updates.notes = order.notes
-              ? `${order.notes}\n[Cancelación] ${cancellationReason}`
-              : `[Cancelación] ${cancellationReason}`;
-          }
-
-          return { ...order, ...updates };
-        }
-        return order;
-      })
-    );
+    setOrders((prev) => prev.map((order) => (order.id === Number(orderId) ? mappedOrder : order)));
   };
 
   const addEvidenceToStatus = (
@@ -569,6 +288,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     historyEntryId: string,
     evidence: Omit<PaymentEvidence, 'id' | 'uploadedAt'>
   ) => {
+    // Por ahora actualizamos localmente, en el futuro podemos agregar un endpoint
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id === orderId) {
@@ -600,91 +320,119 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
-  const getOrdersByStatus = (status: OrderStatus) => {
+  const getOrdersByStatus = (status: OrderStatus): Order[] => {
     return orders.filter((order) => order.status === status);
   };
 
-  const getOrdersReadyToShip = () => {
+  const getOrdersReadyToShip = (): Order[] => {
     return orders.filter((order) => order.status === 'processing' || order.status === 'paid');
   };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    changeOrderStatus({ orderId, newStatus: status });
+  const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<void> => {
+    await changeOrderStatus({ orderId, newStatus: status });
   };
 
-  const updateTrackingInfo = (orderId: string, trackingNumber: string, trackingUrl?: string) => {
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id === orderId) {
-          return {
-            ...order,
-            trackingNumber,
-            trackingUrl,
-            updatedAt: new Date(),
-          };
-        }
-        return order;
-      })
-    );
+  const updateTrackingInfo = async (
+    orderId: string,
+    trackingNumber: string,
+    trackingUrl?: string
+  ): Promise<void> => {
+    try {
+      const updated = await ordersService.updateTracking(orderId, trackingNumber, trackingUrl);
+      const mappedOrder = mapApiOrderToOrder(updated);
+      setOrders((prev) => prev.map((order) => (order.id === orderId ? mappedOrder : order)));
+    } catch (err) {
+      // Si falla el endpoint específico, intentar con cambio de estado
+      setOrders((prev) =>
+        prev.map((order) => {
+          if (order.id === orderId) {
+            return {
+              ...order,
+              trackingNumber,
+              trackingUrl,
+              updatedAt: new Date(),
+            };
+          }
+          return order;
+        })
+      );
+    }
   };
 
-  const createOrder = (data: CreateOrderData): Order => {
-    const now = new Date();
-    const orderCount = orders.length + 1;
-    const orderNumber = `ORD-${now.getFullYear()}-${String(orderCount).padStart(3, '0')}`;
-    const orderId = `order-${Date.now()}`;
-
-    const newOrder: Order = {
-      id: orderId,
-      orderNumber,
-      userId: '', // Se asignará cuando haya autenticación
-      userName: data.customerName,
-      userEmail: data.customerEmail,
-      items: data.items.map((item, index) => ({
-        ...item,
-        id: `item-${orderId}-${index}`,
+  const createOrder = async (data: CreateOrderData): Promise<Order> => {
+    const input: CreateOrderInput = {
+      items: data.items.map((item) => ({
+        productId: typeof item.productId === 'string' ? parseInt(item.productId, 10) : item.productId,
+        size: item.size,
+        color: item.color,
+        quantity: item.quantity,
+        customization: item.customization
+          ? {
+              text: item.customization.designFront || item.customization.designBack,
+              notes: item.customization.designFront
+                ? `Front: ${item.customization.designFront}`
+                : undefined,
+            }
+          : undefined,
       })),
-      subtotal: data.subtotal,
-      shippingCost: data.shippingCost,
-      discount: data.discount,
-      total: data.total,
-      status: 'pending',
-      paymentMethod: data.paymentMethod,
       shipping: {
-        recipientName: data.customerName,
+        name: data.customerName,
+        email: data.customerEmail,
         phone: data.customerPhone,
         address: data.shippingAddress,
         city: data.shippingCity,
-        postalCode: data.shippingPostalCode || '',
+        postalCode: data.shippingPostalCode,
         country: 'Colombia',
         notes: data.shippingNotes,
       },
-      statusHistory: [
-        {
-          id: `sh-${orderId}-1`,
-          fromStatus: null,
-          toStatus: 'pending',
-          changedBy: 'Sistema',
-          changedAt: now,
-          note: 'Pedido creado - Esperando confirmación de pago',
-        },
-      ],
-      createdAt: now,
-      updatedAt: now,
+      paymentMethod: data.paymentMethod,
     };
+
+    const apiOrder = await ordersService.create(input);
+    const newOrder = mapApiOrderToOrder(apiOrder);
 
     setOrders((prev) => [newOrder, ...prev]);
     return newOrder;
   };
 
-  const getOrdersByUserEmail = (email: string): Order[] => {
-    return orders.filter((order) => order.userEmail.toLowerCase() === email.toLowerCase());
+  const getOrdersByUserEmail = async (email: string): Promise<Order[]> => {
+    try {
+      const apiOrders = await ordersService.getByEmail(email);
+      return apiOrders.map(mapApiOrderToOrder);
+    } catch {
+      return [];
+    }
+  };
+
+  const getMyOrders = async (): Promise<Order[]> => {
+    try {
+      const response = await ordersService.getMyOrders();
+      return response.data.map(mapApiOrderToOrder);
+    } catch {
+      return [];
+    }
+  };
+
+  const refreshOrders = async (): Promise<void> => {
+    await loadOrders();
+  };
+
+  const setPage = (page: number) => {
+    setPagination((prev) => ({ ...prev, page }));
+  };
+
+  const setFilters = (newFilters: { status?: OrderStatus; search?: string }) => {
+    setFiltersState(newFilters);
+    setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
   return (
     <OrdersContext.Provider
       value={{
         orders,
+        isLoading,
+        error,
+        pagination,
         getOrderById,
         getOrderByNumber,
         changeOrderStatus,
@@ -695,6 +443,10 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         getOrdersReadyToShip,
         createOrder,
         getOrdersByUserEmail,
+        getMyOrders,
+        refreshOrders,
+        setPage,
+        setFilters,
       }}
     >
       {children}

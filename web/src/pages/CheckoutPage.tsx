@@ -144,7 +144,7 @@ export const CheckoutPage = () => {
     }
   };
 
-  const createOrderFromCart = (status: 'pending' | 'paid' = 'pending', transactionId?: string) => {
+  const createOrderFromCart = async (status: 'pending' | 'paid' = 'pending', transactionId?: string) => {
     const orderItems = cart.items.map((item) => {
       if (item.type === 'customized') {
         const customized = item.customizedProduct;
@@ -179,7 +179,7 @@ export const CheckoutPage = () => {
       }
     });
 
-    const order = createOrder({
+    const order = await createOrder({
       customerName: formData.customerName,
       customerEmail: formData.customerEmail,
       customerPhone: formData.customerPhone,
@@ -197,8 +197,8 @@ export const CheckoutPage = () => {
 
     // Si el pago fue exitoso (Wompi), cambiar estado a pagado
     if (status === 'paid' && transactionId) {
-      changeOrderStatus({
-        orderId: order.id,
+      await changeOrderStatus({
+        orderId: String(order.id),
         newStatus: 'paid',
         note: `Pago confirmado via Wompi. ID: ${transactionId}`,
       });
@@ -207,12 +207,12 @@ export const CheckoutPage = () => {
     return order;
   };
 
-  const handleWompiSuccess = (transactionId: string) => {
+  const handleWompiSuccess = async (transactionId: string) => {
     setIsSubmitting(true);
 
     try {
       // Crear pedido con estado pagado
-      const order = createOrderFromCart('paid', transactionId);
+      const order = await createOrderFromCart('paid', transactionId);
 
       // Limpiar carrito
       clearCart();
@@ -246,10 +246,8 @@ export const CheckoutPage = () => {
     setIsSubmitting(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
       // Crear pedido pendiente
-      const order = createOrderFromCart('pending');
+      const order = await createOrderFromCart('pending');
 
       clearCart();
 

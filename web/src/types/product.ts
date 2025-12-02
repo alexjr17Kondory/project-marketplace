@@ -76,7 +76,9 @@ export interface ProductTypeConfig {
 
 // Producto base del catálogo
 export interface Product {
-  id: string;
+  id: number;
+  sku: string;
+  slug: string;
   name: string;
   description: string;
   type: ProductType;

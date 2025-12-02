@@ -1,5 +1,6 @@
 import { ShoppingBag, Truck, Receipt, Tag } from 'lucide-react';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useCart } from '../../context/CartContext';
 import type { Cart } from '../../types/cart';
 
 interface CartSummaryProps {
@@ -9,7 +10,21 @@ interface CartSummaryProps {
 
 export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
   const { format } = useCurrency();
+  const { orderConfig } = useCart();
   const hasItems = cart.items.length > 0;
+
+  // Obtener configuración del CartContext
+  const { freeShippingThreshold, taxRate, taxIncluded } = orderConfig;
+  const taxPercentage = Math.round(taxRate * 100);
+
+  // Calcular el valor del impuesto para mostrar
+  // Si taxIncluded=true: el IVA ya está en el precio, hay que extraerlo
+  //   Fórmula: IVA = subtotal - (subtotal / (1 + taxRate))
+  // Si taxIncluded=false: el IVA se calcula sobre el subtotal
+  //   Fórmula: IVA = subtotal * taxRate
+  const calculatedTax = taxIncluded
+    ? Math.round(cart.subtotal - (cart.subtotal / (1 + taxRate)))
+    : Math.round(cart.subtotal * taxRate);
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
@@ -45,9 +60,9 @@ export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
           )}
         </div>
 
-        {cart.subtotal > 0 && cart.subtotal < 100000 && (
+        {cart.subtotal > 0 && cart.subtotal < freeShippingThreshold && (
           <p className="text-xs text-gray-500 pl-6">
-            Agrega {format(100000 - cart.subtotal)} más para envío gratis
+            Agrega {format(freeShippingThreshold - cart.subtotal)} más para envío gratis
           </p>
         )}
 
@@ -55,11 +70,16 @@ export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
         <div className="flex items-center justify-between text-gray-600">
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4" />
-            <span>Impuestos (19%)</span>
+            <span>Impuestos ({taxPercentage}%)</span>
           </div>
-          <span className="font-semibold text-gray-900">
-            {format(cart.tax)}
-          </span>
+          <div className="text-right">
+            <span className="font-semibold text-gray-900">
+              {format(taxIncluded ? calculatedTax : cart.tax)}
+            </span>
+            {taxIncluded && (
+              <span className="text-xs text-green-600 ml-1">(incluido)</span>
+            )}
+          </div>
         </div>
 
         {/* Descuento (si aplica) */}
@@ -98,27 +118,18 @@ export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
         </p>
       )}
 
-      {/* Nota de fase 1 */}
-      {hasItems && (
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-xs text-yellow-800 text-center">
-            El proceso de pago se implementará en la Fase 3
-          </p>
-        </div>
-      )}
-
       {/* Políticas */}
       <div className="mt-6 pt-6 border-t border-gray-200 space-y-2 text-xs text-gray-500">
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
-          Envío gratis en compras mayores a {format(100000)}
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+          Envío gratis en compras mayores a {format(freeShippingThreshold)}
         </p>
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
           Devoluciones gratuitas en 30 días
         </p>
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
           Garantía de satisfacción 100%
         </p>
       </div>

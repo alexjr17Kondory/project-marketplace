@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Clock, CheckCircle2, Truck, XCircle, ChevronRight, ShoppingBag, Search, Filter, Eye, MapPin, Calendar, CreditCard } from 'lucide-react';
+import { Package, Clock, CheckCircle2, Truck, XCircle, ChevronRight, ShoppingBag, Search, Filter, Eye, MapPin, Calendar, CreditCard, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrdersContext';
 import { ORDER_STATUS_USER_LABELS, ORDER_STATUS_COLORS } from '../types/order';
@@ -17,10 +17,29 @@ const STATUS_ICONS: Record<OrderStatus, React.ReactNode> = {
 
 export const MyOrdersPage = () => {
   const { user } = useAuth();
-  const { getOrdersByUserEmail } = useOrders();
+  const { getMyOrders } = useOrders();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  // Cargar pedidos del usuario al montar
+  useEffect(() => {
+    const loadMyOrders = async () => {
+      if (!user) return;
+      setIsLoading(true);
+      try {
+        const myOrders = await getMyOrders();
+        setOrders(myOrders);
+      } catch (error) {
+        console.error('Error loading orders:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadMyOrders();
+  }, [user, getMyOrders]);
 
   if (!user) {
     return (
@@ -34,7 +53,16 @@ export const MyOrdersPage = () => {
     );
   }
 
-  const orders = getOrdersByUserEmail(user.email);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-violet-600 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-600">Cargando tus pedidos...</p>
+        </div>
+      </div>
+    );
+  }
   const filteredOrders = orders.filter((order) => {
     const matchesSearch = searchQuery === '' || order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) || order.items.some((item) => item.productName.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;

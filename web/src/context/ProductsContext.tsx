@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Product, ProductSortOption } from '../types/product';
-import { mockProducts } from '../data/mockProducts';
+import { productsService } from '../services';
 import type { FilterValues } from '../components/products/ProductFilters';
 
 interface ProductsContextType {
@@ -10,160 +10,168 @@ interface ProductsContextType {
   filters: FilterValues;
   sortOption: ProductSortOption;
   isLoading: boolean;
+  error: string | null;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
   setFilters: (filters: FilterValues) => void;
   setSortOption: (option: ProductSortOption) => void;
-  getProductById: (id: string) => Product | undefined;
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateProduct: (id: string, updates: Partial<Omit<Product, 'id' | 'createdAt'>>) => void;
-  deleteProduct: (id: string) => void;
+  setPage: (page: number) => void;
+  getProductById: (id: string) => Promise<Product | null>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Product>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<Product>;
+  deleteProduct: (id: string) => Promise<void>;
+  refreshProducts: () => Promise<void>;
 }
 
 const ProductsContext = createContext<ProductsContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'marketplace_products';
-const PRODUCTS_VERSION_KEY = 'marketplace_products_version';
-const CURRENT_PRODUCTS_VERSION = '2.0'; // Increment this when mockProducts changes significantly
-
 export const ProductsProvider = ({ children }: { children: ReactNode }) => {
-  // Initialize products from localStorage or use mockProducts
-  const [products, setProducts] = useState<Product[]>(() => {
-    const storedVersion = localStorage.getItem(PRODUCTS_VERSION_KEY);
-    const stored = localStorage.getItem(STORAGE_KEY);
-
-    // If version mismatch or no version, use fresh mockProducts
-    if (storedVersion !== CURRENT_PRODUCTS_VERSION) {
-      localStorage.setItem(PRODUCTS_VERSION_KEY, CURRENT_PRODUCTS_VERSION);
-      localStorage.removeItem(STORAGE_KEY);
-      return mockProducts;
-    }
-
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Convert date strings back to Date objects
-        return parsed.map((p: any) => ({
-          ...p,
-          createdAt: new Date(p.createdAt),
-          updatedAt: new Date(p.updatedAt),
-        }));
-      } catch (e) {
-        console.error('Error loading products from localStorage:', e);
-      }
-    }
-    return mockProducts;
-  });
+  const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [filters, setFilters] = useState<FilterValues>({});
-  const [sortOption, setSortOption] = useState<ProductSortOption>('newest');
+  const [filters, setFiltersState] = useState<FilterValues>({});
+  const [sortOption, setSortOptionState] = useState<ProductSortOption>('newest');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
 
-  // Save products to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-  }, [products]);
-
-  // Apply filters and sorting
-  useEffect(() => {
-    setIsLoading(true);
-
-    let result = [...products];
-
-    // Apply filters
-    if (filters.category) {
-      result = result.filter((p) => p.category === filters.category);
-    }
-
-    if (filters.type) {
-      result = result.filter((p) => p.type === filters.type);
-    }
-
-    if (filters.minPrice !== undefined) {
-      result = result.filter((p) => p.basePrice >= filters.minPrice!);
-    }
-
-    if (filters.maxPrice !== undefined) {
-      result = result.filter((p) => p.basePrice <= filters.maxPrice!);
-    }
-
-    if (filters.inStock) {
-      result = result.filter((p) => p.stock > 0);
-    }
-
-    if (filters.featured) {
-      result = result.filter((p) => p.featured);
-    }
-
-    // Bestsellers: productos con más de X reseñas (simula más vendidos)
-    if (filters.bestsellers) {
-      result = result.filter((p) => (p.reviewsCount || 0) >= 10);
-      // Ordenar por más reseñas
-      result.sort((a, b) => (b.reviewsCount || 0) - (a.reviewsCount || 0));
-    }
-
-    // New Arrivals: productos creados en los últimos 30 días
-    if (filters.newArrivals) {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      result = result.filter((p) => p.createdAt >= thirtyDaysAgo);
-      // Ordenar por más recientes
-      result.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    }
-
-    // Apply sorting
-    switch (sortOption) {
+  // Mapear sortOption a parámetros de API
+  const getSortParams = (option: ProductSortOption) => {
+    switch (option) {
       case 'price-asc':
-        result.sort((a, b) => a.basePrice - b.basePrice);
-        break;
+        return { sortBy: 'basePrice', sortOrder: 'asc' as const };
       case 'price-desc':
-        result.sort((a, b) => b.basePrice - a.basePrice);
-        break;
+        return { sortBy: 'basePrice', sortOrder: 'desc' as const };
       case 'name-asc':
-        result.sort((a, b) => a.name.localeCompare(b.name));
-        break;
+        return { sortBy: 'name', sortOrder: 'asc' as const };
       case 'name-desc':
-        result.sort((a, b) => b.name.localeCompare(a.name));
-        break;
+        return { sortBy: 'name', sortOrder: 'desc' as const };
       case 'rating':
-        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
+        return { sortBy: 'rating', sortOrder: 'desc' as const };
       case 'popular':
-        result.sort((a, b) => (b.reviewsCount || 0) - (a.reviewsCount || 0));
-        break;
+        return { sortBy: 'reviewsCount', sortOrder: 'desc' as const };
       case 'newest':
-        result.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        break;
+      default:
+        return { sortBy: 'createdAt', sortOrder: 'desc' as const };
     }
-
-    setFilteredProducts(result);
-    setIsLoading(false);
-  }, [products, filters, sortOption]);
-
-  const getProductById = (id: string): Product | undefined => {
-    return products.find((p) => p.id === id);
   };
 
-  const addProduct = (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newProduct: Product = {
-      ...productData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
+  // Cargar productos desde la API
+  const loadProducts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const sortParams = getSortParams(sortOption);
+
+      const response = await productsService.getAll({
+        page: pagination.page,
+        limit: pagination.limit,
+        category: filters.category,
+        type: filters.type,
+        featured: filters.featured,
+        inStock: filters.inStock,
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
+        ...sortParams,
+      });
+
+      // Convertir fechas de string a Date
+      const productsWithDates = response.data.map((p) => ({
+        ...p,
+        createdAt: new Date(p.createdAt),
+        updatedAt: new Date(p.updatedAt),
+      }));
+
+      setProducts(productsWithDates);
+      setFilteredProducts(productsWithDates);
+      setPagination(response.pagination);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error cargando productos';
+      setError(message);
+      console.error('Error loading products:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters, sortOption, pagination.page, pagination.limit]);
+
+  // Cargar productos cuando cambian filtros, orden o página
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  const setFilters = (newFilters: FilterValues) => {
+    setFiltersState(newFilters);
+    setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  const setSortOption = (option: ProductSortOption) => {
+    setSortOptionState(option);
+    setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  const setPage = (page: number) => {
+    setPagination((prev) => ({ ...prev, page }));
+  };
+
+  const getProductById = async (id: string): Promise<Product | null> => {
+    // Primero buscar en cache local
+    const cached = products.find((p) => p.id === id);
+    if (cached) return cached;
+
+    // Si no está en cache, buscar en API
+    try {
+      const product = await productsService.getById(id);
+      if (product) {
+        return {
+          ...product,
+          createdAt: new Date(product.createdAt),
+          updatedAt: new Date(product.updatedAt),
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const addProduct = async (
+    productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<Product> => {
+    const newProduct = await productsService.create(productData);
+    await loadProducts(); // Recargar lista
+    return {
+      ...newProduct,
+      createdAt: new Date(newProduct.createdAt),
+      updatedAt: new Date(newProduct.updatedAt),
     };
-    setProducts((prev) => [...prev, newProduct]);
   };
 
-  const updateProduct = (id: string, updates: Partial<Omit<Product, 'id' | 'createdAt'>>) => {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, ...updates, updatedAt: new Date() }
-          : p
-      )
-    );
+  const updateProduct = async (id: string, updates: Partial<Product>): Promise<Product> => {
+    const updated = await productsService.update(id, updates);
+    await loadProducts(); // Recargar lista
+    return {
+      ...updated,
+      createdAt: new Date(updated.createdAt),
+      updatedAt: new Date(updated.updatedAt),
+    };
   };
 
-  const deleteProduct = (id: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+  const deleteProduct = async (id: string): Promise<void> => {
+    await productsService.delete(id);
+    await loadProducts(); // Recargar lista
+  };
+
+  const refreshProducts = async () => {
+    await loadProducts();
   };
 
   return (
@@ -174,12 +182,16 @@ export const ProductsProvider = ({ children }: { children: ReactNode }) => {
         filters,
         sortOption,
         isLoading,
+        error,
+        pagination,
         setFilters,
         setSortOption,
+        setPage,
         getProductById,
         addProduct,
         updateProduct,
         deleteProduct,
+        refreshProducts,
       }}
     >
       {children}

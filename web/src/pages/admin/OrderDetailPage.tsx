@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../context/OrdersContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import { Modal } from '../../components/shared/Modal';
-import type { OrderStatus, PaymentEvidence } from '../../types/order';
+import type { Order, OrderStatus, PaymentEvidence } from '../../types/order';
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
@@ -31,6 +31,7 @@ import {
   History,
   Download,
   Printer,
+  Loader2,
 } from 'lucide-react';
 
 type TabType = 'details' | 'items' | 'shipping' | 'status';
@@ -41,7 +42,28 @@ export const OrderDetailPage = () => {
   const { getOrderById, changeOrderStatus, addEvidenceToStatus } = useOrders();
   const toast = useToast();
 
-  const order = id ? getOrderById(id) : undefined;
+  const [order, setOrder] = useState<Order | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Cargar orden al montar
+  useEffect(() => {
+    const loadOrder = async () => {
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const orderData = await getOrderById(id);
+        setOrder(orderData);
+      } catch (error) {
+        console.error('Error loading order:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadOrder();
+  }, [id, getOrderById]);
 
   const [activeTab, setActiveTab] = useState<TabType>('details');
   const [isChangeStatusOpen, setIsChangeStatusOpen] = useState(false);
@@ -74,6 +96,17 @@ export const OrderDetailPage = () => {
     url: '',
     description: '',
   });
+
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-8">
+        <div className="text-center py-12">
+          <Loader2 className="w-12 h-12 text-orange-500 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-600">Cargando pedido...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -193,7 +226,7 @@ export const OrderDetailPage = () => {
     setIsChangeStatusOpen(true);
   };
 
-  const handleChangeStatus = () => {
+  const handleChangeStatus = async () => {
     const { newStatus, note, trackingNumber, trackingUrl, cancellationReason, evidenceType, evidenceUrl, evidenceDescription } = statusFormData;
 
     if (newStatus === order.status) {
@@ -217,18 +250,27 @@ export const OrderDetailPage = () => {
       ? [{ type: evidenceType, url: evidenceUrl, description: evidenceDescription, uploadedBy: 'Admin' }]
       : undefined;
 
-    changeOrderStatus({
-      orderId: order.id,
-      newStatus,
-      note: note || undefined,
-      evidences,
-      trackingNumber: newStatus === 'shipped' ? trackingNumber : undefined,
-      trackingUrl: newStatus === 'shipped' ? trackingUrl : undefined,
-      cancellationReason: newStatus === 'cancelled' ? cancellationReason : undefined,
-    });
+    try {
+      await changeOrderStatus({
+        orderId: String(order.id),
+        newStatus,
+        note: note || undefined,
+        evidences,
+        trackingNumber: newStatus === 'shipped' ? trackingNumber : undefined,
+        trackingUrl: newStatus === 'shipped' ? trackingUrl : undefined,
+        cancellationReason: newStatus === 'cancelled' ? cancellationReason : undefined,
+      });
 
-    toast.success(`Estado cambiado a "${ORDER_STATUS_LABELS[newStatus]}"`);
-    setIsChangeStatusOpen(false);
+      // Recargar la orden para ver los cambios
+      const updatedOrder = await getOrderById(String(order.id));
+      setOrder(updatedOrder);
+
+      toast.success(`Estado cambiado a "${ORDER_STATUS_LABELS[newStatus]}"`);
+      setIsChangeStatusOpen(false);
+    } catch (error) {
+      toast.error('Error al cambiar el estado del pedido');
+      console.error('Error changing status:', error);
+    }
   };
 
   const handleOpenAddEvidence = (historyEntryId: string) => {

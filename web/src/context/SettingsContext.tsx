@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type {
   Settings,
@@ -18,6 +18,8 @@ import type {
   WhatsAppButtonSettings,
   CatalogSettings,
 } from '../types/settings';
+import { settingsService } from '../services/settings.service';
+import { useAuth } from './AuthContext';
 
 // Mock data inicial
 const mockSettings: Settings = {
@@ -331,10 +333,10 @@ const mockSettings: Settings = {
         id: 'section-3',
         title: 'Tazas y Termos',
         subtitle: 'Personaliza tu bebida favorita con diseños únicos',
-        filters: { categoryId: 'drinkware' },
+        filters: { category: 'bebidas' },
         maxProducts: 5,
         showViewAll: true,
-        viewAllLink: '/catalog?category=drinkware',
+        viewAllLink: '/catalog?category=bebidas',
         isActive: true,
         order: 3,
       },
@@ -342,10 +344,10 @@ const mockSettings: Settings = {
         id: 'section-4',
         title: 'Decoración y Hogar',
         subtitle: 'Cuadros, posa vasos y más para tu espacio',
-        filters: { categoryId: 'home' },
+        filters: { category: 'hogar' },
         maxProducts: 5,
         showViewAll: true,
-        viewAllLink: '/catalog?category=home',
+        viewAllLink: '/catalog?category=hogar',
         isActive: true,
         order: 4,
       },
@@ -486,105 +488,260 @@ const mockSettings: Settings = {
 
 interface SettingsContextType {
   settings: Settings;
-  updateGeneralSettings: (data: Partial<GeneralSettings>) => void;
-  updateAppearanceSettings: (data: Partial<AppearanceSettings>) => void;
-  updateShippingSettings: (data: Partial<ShippingSettings>) => void;
-  updatePaymentSettings: (data: Partial<PaymentSettings>) => void;
-  updateLegalPage: (pageKey: keyof LegalSettings, data: Partial<LegalPage>) => void;
+  isLoading: boolean;
+  error: string | null;
+  // Métodos de actualización
+  updateGeneralSettings: (data: Partial<GeneralSettings>) => Promise<void>;
+  updateAppearanceSettings: (data: Partial<AppearanceSettings>) => Promise<void>;
+  updateShippingSettings: (data: Partial<ShippingSettings>) => Promise<void>;
+  updatePaymentSettings: (data: Partial<PaymentSettings>) => Promise<void>;
+  updateLegalPage: (pageKey: keyof LegalSettings, data: Partial<LegalPage>) => Promise<void>;
   // Zonas de envío
-  addShippingZone: (zone: Omit<ShippingZone, 'id'>) => void;
-  updateShippingZone: (id: string, data: Partial<ShippingZone>) => void;
-  deleteShippingZone: (id: string) => void;
+  addShippingZone: (zone: Omit<ShippingZone, 'id'>) => Promise<void>;
+  updateShippingZone: (id: string, data: Partial<ShippingZone>) => Promise<void>;
+  deleteShippingZone: (id: string) => Promise<void>;
   // Transportadoras
-  addCarrier: (carrier: Omit<ShippingCarrier, 'id'>) => void;
-  updateCarrier: (id: string, data: Partial<ShippingCarrier>) => void;
-  deleteCarrier: (id: string) => void;
+  addCarrier: (carrier: Omit<ShippingCarrier, 'id'>) => Promise<void>;
+  updateCarrier: (id: string, data: Partial<ShippingCarrier>) => Promise<void>;
+  deleteCarrier: (id: string) => Promise<void>;
   // Tarifas de transportadora por zona
-  updateCarrierZoneRate: (carrierId: string, zoneId: string, data: Partial<CarrierZoneRate>) => void;
-  addCarrierZoneRate: (carrierId: string, rate: CarrierZoneRate) => void;
-  deleteCarrierZoneRate: (carrierId: string, zoneId: string) => void;
+  updateCarrierZoneRate: (carrierId: string, zoneId: string, data: Partial<CarrierZoneRate>) => Promise<void>;
+  addCarrierZoneRate: (carrierId: string, rate: CarrierZoneRate) => Promise<void>;
+  deleteCarrierZoneRate: (carrierId: string, zoneId: string) => Promise<void>;
   // Métodos de pago
-  addPaymentMethod: (method: Omit<PaymentMethodConfig, 'id'>) => void;
-  updatePaymentMethod: (id: string, data: Partial<PaymentMethodConfig>) => void;
-  deletePaymentMethod: (id: string) => void;
-  togglePaymentMethod: (id: string) => void;
+  addPaymentMethod: (method: Omit<PaymentMethodConfig, 'id'>) => Promise<void>;
+  updatePaymentMethod: (id: string, data: Partial<PaymentMethodConfig>) => Promise<void>;
+  deletePaymentMethod: (id: string) => Promise<void>;
+  togglePaymentMethod: (id: string) => Promise<void>;
   // Home settings
-  updateHomeSettings: (data: Partial<HomeSettings>) => void;
+  updateHomeSettings: (data: Partial<HomeSettings>) => Promise<void>;
   // Catalog settings
-  updateCatalogSettings: (data: Partial<CatalogSettings>) => void;
+  updateCatalogSettings: (data: Partial<CatalogSettings>) => Promise<void>;
   // Features
-  addFeature: (feature: Omit<FeatureCard, 'id'>) => void;
-  updateFeature: (id: string, data: Partial<FeatureCard>) => void;
-  deleteFeature: (id: string) => void;
+  addFeature: (feature: Omit<FeatureCard, 'id'>) => Promise<void>;
+  updateFeature: (id: string, data: Partial<FeatureCard>) => Promise<void>;
+  deleteFeature: (id: string) => Promise<void>;
   // Product sections
-  addProductSection: (section: Omit<ProductSection, 'id'>) => void;
-  updateProductSection: (id: string, data: Partial<ProductSection>) => void;
-  deleteProductSection: (id: string) => void;
+  addProductSection: (section: Omit<ProductSection, 'id'>) => Promise<void>;
+  updateProductSection: (id: string, data: Partial<ProductSection>) => Promise<void>;
+  deleteProductSection: (id: string) => Promise<void>;
   // WhatsApp button
-  updateWhatsAppButton: (data: Partial<WhatsAppButtonSettings>) => void;
+  updateWhatsAppButton: (data: Partial<WhatsAppButtonSettings>) => Promise<void>;
+  // Recargar settings
+  refreshSettings: () => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<Settings>(mockSettings);
+  const [isLoading, setIsLoading] = useState(true);
+  const [publicLoaded, setPublicLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { user, isAuthenticated } = useAuth();
 
-  const updateGeneralSettings = (data: Partial<GeneralSettings>) => {
-    setSettings((prev) => ({
-      ...prev,
-      general: { ...prev.general, ...data },
-      updatedAt: new Date(),
-    }));
+  // Cargar settings públicos al iniciar (sin autenticación) - para evitar flash de colores
+  useEffect(() => {
+    const loadPublicSettings = async () => {
+      try {
+        const publicSettings = await settingsService.getPublicSettings();
+        setSettings((prev) => ({
+          ...prev,
+          general: publicSettings.general || prev.general,
+          appearance: publicSettings.appearance || prev.appearance,
+          home: publicSettings.home || prev.home,
+          catalog: publicSettings.catalog || prev.catalog,
+        }));
+      } catch (err) {
+        console.error('Error loading public settings:', err);
+      } finally {
+        setPublicLoaded(true);
+        setIsLoading(false);
+      }
+    };
+
+    loadPublicSettings();
+  }, []);
+
+  // Cargar settings completos desde la API (solo para admin)
+  const loadSettings = useCallback(async () => {
+    // Solo cargar desde API si es admin (case-insensitive) o roleId = 1
+    const userRole = user?.roleName?.toLowerCase() || '';
+    const isAdmin = userRole === 'admin' || userRole === 'superadmin' || user?.roleId === 1;
+
+    if (!isAuthenticated || !isAdmin) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const loadedSettings = await settingsService.loadAllSettings();
+      setSettings(loadedSettings);
+    } catch (err) {
+      console.error('Error loading settings from API:', err);
+      // Si falla, usar mockSettings como fallback
+      setError('Error cargando configuración. Usando valores locales.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, user]);
+
+  // Cargar settings completos cuando el usuario admin se autentica
+  useEffect(() => {
+    if (publicLoaded && isAuthenticated) {
+      loadSettings();
+    }
+  }, [publicLoaded, isAuthenticated, loadSettings]);
+
+  const refreshSettings = async (): Promise<void> => {
+    await loadSettings();
   };
 
-  const updateAppearanceSettings = (data: Partial<AppearanceSettings>) => {
-    setSettings((prev) => ({
-      ...prev,
-      appearance: { ...prev.appearance, ...data },
-      updatedAt: new Date(),
-    }));
+  const updateGeneralSettings = async (data: Partial<GeneralSettings>): Promise<void> => {
+    const newGeneral = { ...settings.general, ...data };
+
+    try {
+      await settingsService.updateGeneralSettings(newGeneral);
+      setSettings((prev) => ({
+        ...prev,
+        general: newGeneral,
+        updatedAt: new Date(),
+      }));
+    } catch (err) {
+      console.error('Error updating general settings:', err);
+      // Actualizar localmente aunque falle la API
+      setSettings((prev) => ({
+        ...prev,
+        general: newGeneral,
+        updatedAt: new Date(),
+      }));
+    }
   };
 
-  const updateShippingSettings = (data: Partial<ShippingSettings>) => {
-    setSettings((prev) => ({
-      ...prev,
-      shipping: { ...prev.shipping, ...data },
-      updatedAt: new Date(),
-    }));
+  const updateAppearanceSettings = async (data: Partial<AppearanceSettings>): Promise<void> => {
+    const newAppearance = { ...settings.appearance, ...data };
+
+    try {
+      await settingsService.updateAppearanceSettings(newAppearance);
+      setSettings((prev) => ({
+        ...prev,
+        appearance: newAppearance,
+        updatedAt: new Date(),
+      }));
+    } catch (err) {
+      console.error('Error updating appearance settings:', err);
+      setSettings((prev) => ({
+        ...prev,
+        appearance: newAppearance,
+        updatedAt: new Date(),
+      }));
+    }
   };
 
-  const updatePaymentSettings = (data: Partial<PaymentSettings>) => {
-    setSettings((prev) => ({
-      ...prev,
-      payment: { ...prev.payment, ...data },
-      updatedAt: new Date(),
-    }));
+  const updateShippingSettings = async (data: Partial<ShippingSettings>): Promise<void> => {
+    const newShipping = { ...settings.shipping, ...data };
+
+    try {
+      await settingsService.updateShippingSettings(newShipping);
+      setSettings((prev) => ({
+        ...prev,
+        shipping: newShipping,
+        updatedAt: new Date(),
+      }));
+    } catch (err) {
+      console.error('Error updating shipping settings:', err);
+      setSettings((prev) => ({
+        ...prev,
+        shipping: newShipping,
+        updatedAt: new Date(),
+      }));
+    }
   };
 
-  const updateLegalPage = (pageKey: keyof LegalSettings, data: Partial<LegalPage>) => {
-    setSettings((prev) => ({
-      ...prev,
-      legal: {
-        ...prev.legal,
-        [pageKey]: {
-          ...prev.legal[pageKey],
-          ...data,
-          lastUpdated: new Date(),
-        },
+  const updatePaymentSettings = async (data: Partial<PaymentSettings>): Promise<void> => {
+    const newPayment = { ...settings.payment, ...data };
+
+    try {
+      await settingsService.updateFrontendPaymentSettings(newPayment);
+      setSettings((prev) => ({
+        ...prev,
+        payment: newPayment,
+        updatedAt: new Date(),
+      }));
+    } catch (err) {
+      console.error('Error updating payment settings:', err);
+      setSettings((prev) => ({
+        ...prev,
+        payment: newPayment,
+        updatedAt: new Date(),
+      }));
+    }
+  };
+
+  const updateLegalPage = async (pageKey: keyof LegalSettings, data: Partial<LegalPage>): Promise<void> => {
+    const newLegal = {
+      ...settings.legal,
+      [pageKey]: {
+        ...settings.legal[pageKey],
+        ...data,
+        lastUpdated: new Date(),
       },
-      updatedAt: new Date(),
-    }));
+    };
+
+    try {
+      await settingsService.updateLegalSettings(newLegal);
+      setSettings((prev) => ({
+        ...prev,
+        legal: newLegal,
+        updatedAt: new Date(),
+      }));
+    } catch (err) {
+      console.error('Error updating legal settings:', err);
+      setSettings((prev) => ({
+        ...prev,
+        legal: newLegal,
+        updatedAt: new Date(),
+      }));
+    }
+  };
+
+  // Helper para persistir shipping settings
+  const persistShippingSettings = async (newShipping: ShippingSettings): Promise<void> => {
+    try {
+      await settingsService.updateShippingSettings(newShipping);
+    } catch (err) {
+      console.error('Error persisting shipping settings:', err);
+    }
+  };
+
+  // Helper para persistir payment settings
+  const persistPaymentSettings = async (newPayment: PaymentSettings): Promise<void> => {
+    try {
+      await settingsService.updateFrontendPaymentSettings(newPayment);
+    } catch (err) {
+      console.error('Error persisting payment settings:', err);
+    }
+  };
+
+  // Helper para persistir home settings
+  const persistHomeSettings = async (newHome: HomeSettings): Promise<void> => {
+    try {
+      await settingsService.updateHomeSettings(newHome);
+    } catch (err) {
+      console.error('Error persisting home settings:', err);
+    }
   };
 
   // Zonas de envío
-  const addShippingZone = (zone: Omit<ShippingZone, 'id'>) => {
+  const addShippingZone = async (zone: Omit<ShippingZone, 'id'>): Promise<void> => {
     const newZoneId = `zone-${Date.now()}`;
     const newZone: ShippingZone = {
       ...zone,
       id: newZoneId,
     };
 
-    // Tarifa por defecto para la nueva zona
     const defaultRate: CarrierZoneRate = {
       zoneId: newZoneId,
       baseCost: 15000,
@@ -592,321 +749,303 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       estimatedDays: { min: 3, max: 6 },
     };
 
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        zones: [...prev.shipping.zones, newZone],
-        // Agregar tarifa por defecto a todas las transportadoras
-        carriers: prev.shipping.carriers.map((carrier) => ({
-          ...carrier,
-          zoneRates: [...carrier.zoneRates, defaultRate],
-        })),
-      },
-      updatedAt: new Date(),
-    }));
+    const newShipping = {
+      ...settings.shipping,
+      zones: [...settings.shipping.zones, newZone],
+      carriers: settings.shipping.carriers.map((carrier) => ({
+        ...carrier,
+        zoneRates: [...carrier.zoneRates, defaultRate],
+      })),
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
-  const updateShippingZone = (id: string, data: Partial<ShippingZone>) => {
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        zones: prev.shipping.zones.map((zone) =>
-          zone.id === id ? { ...zone, ...data } : zone
-        ),
-      },
-      updatedAt: new Date(),
-    }));
+  const updateShippingZone = async (id: string, data: Partial<ShippingZone>): Promise<void> => {
+    const newShipping = {
+      ...settings.shipping,
+      zones: settings.shipping.zones.map((zone) =>
+        zone.id === id ? { ...zone, ...data } : zone
+      ),
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
-  const deleteShippingZone = (id: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        zones: prev.shipping.zones.filter((zone) => zone.id !== id),
-        // Eliminar tarifas de esta zona de todas las transportadoras
-        carriers: prev.shipping.carriers.map((carrier) => ({
-          ...carrier,
-          zoneRates: carrier.zoneRates.filter((rate) => rate.zoneId !== id),
-        })),
-      },
-      updatedAt: new Date(),
-    }));
+  const deleteShippingZone = async (id: string): Promise<void> => {
+    const newShipping = {
+      ...settings.shipping,
+      zones: settings.shipping.zones.filter((zone) => zone.id !== id),
+      carriers: settings.shipping.carriers.map((carrier) => ({
+        ...carrier,
+        zoneRates: carrier.zoneRates.filter((rate) => rate.zoneId !== id),
+      })),
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
   // Transportadoras
-  const addCarrier = (carrier: Omit<ShippingCarrier, 'id'>) => {
+  const addCarrier = async (carrier: Omit<ShippingCarrier, 'id'>): Promise<void> => {
     const newCarrier: ShippingCarrier = {
       ...carrier,
       id: `carrier-${Date.now()}`,
     };
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        carriers: [...prev.shipping.carriers, newCarrier],
-      },
-      updatedAt: new Date(),
-    }));
+    const newShipping = {
+      ...settings.shipping,
+      carriers: [...settings.shipping.carriers, newCarrier],
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
-  const updateCarrier = (id: string, data: Partial<ShippingCarrier>) => {
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        carriers: prev.shipping.carriers.map((carrier) =>
-          carrier.id === id ? { ...carrier, ...data } : carrier
-        ),
-      },
-      updatedAt: new Date(),
-    }));
+  const updateCarrier = async (id: string, data: Partial<ShippingCarrier>): Promise<void> => {
+    const newShipping = {
+      ...settings.shipping,
+      carriers: settings.shipping.carriers.map((carrier) =>
+        carrier.id === id ? { ...carrier, ...data } : carrier
+      ),
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
-  const deleteCarrier = (id: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        carriers: prev.shipping.carriers.filter((carrier) => carrier.id !== id),
-        defaultCarrierId:
-          prev.shipping.defaultCarrierId === id ? undefined : prev.shipping.defaultCarrierId,
-      },
-      updatedAt: new Date(),
-    }));
+  const deleteCarrier = async (id: string): Promise<void> => {
+    const newShipping = {
+      ...settings.shipping,
+      carriers: settings.shipping.carriers.filter((carrier) => carrier.id !== id),
+      defaultCarrierId:
+        settings.shipping.defaultCarrierId === id ? undefined : settings.shipping.defaultCarrierId,
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
   // Tarifas de transportadora por zona
-  const updateCarrierZoneRate = (carrierId: string, zoneId: string, data: Partial<CarrierZoneRate>) => {
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        carriers: prev.shipping.carriers.map((carrier) => {
-          if (carrier.id !== carrierId) return carrier;
-          return {
-            ...carrier,
-            zoneRates: carrier.zoneRates.map((rate) =>
-              rate.zoneId === zoneId ? { ...rate, ...data } : rate
-            ),
-          };
-        }),
-      },
-      updatedAt: new Date(),
-    }));
+  const updateCarrierZoneRate = async (carrierId: string, zoneId: string, data: Partial<CarrierZoneRate>): Promise<void> => {
+    const newShipping = {
+      ...settings.shipping,
+      carriers: settings.shipping.carriers.map((carrier) => {
+        if (carrier.id !== carrierId) return carrier;
+        return {
+          ...carrier,
+          zoneRates: carrier.zoneRates.map((rate) =>
+            rate.zoneId === zoneId ? { ...rate, ...data } : rate
+          ),
+        };
+      }),
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
-  const addCarrierZoneRate = (carrierId: string, rate: CarrierZoneRate) => {
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        carriers: prev.shipping.carriers.map((carrier) => {
-          if (carrier.id !== carrierId) return carrier;
-          // Evitar duplicados
-          if (carrier.zoneRates.some((r) => r.zoneId === rate.zoneId)) return carrier;
-          return {
-            ...carrier,
-            zoneRates: [...carrier.zoneRates, rate],
-          };
-        }),
-      },
-      updatedAt: new Date(),
-    }));
+  const addCarrierZoneRate = async (carrierId: string, rate: CarrierZoneRate): Promise<void> => {
+    const newShipping = {
+      ...settings.shipping,
+      carriers: settings.shipping.carriers.map((carrier) => {
+        if (carrier.id !== carrierId) return carrier;
+        if (carrier.zoneRates.some((r) => r.zoneId === rate.zoneId)) return carrier;
+        return {
+          ...carrier,
+          zoneRates: [...carrier.zoneRates, rate],
+        };
+      }),
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
-  const deleteCarrierZoneRate = (carrierId: string, zoneId: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        carriers: prev.shipping.carriers.map((carrier) => {
-          if (carrier.id !== carrierId) return carrier;
-          return {
-            ...carrier,
-            zoneRates: carrier.zoneRates.filter((rate) => rate.zoneId !== zoneId),
-          };
-        }),
-      },
-      updatedAt: new Date(),
-    }));
+  const deleteCarrierZoneRate = async (carrierId: string, zoneId: string): Promise<void> => {
+    const newShipping = {
+      ...settings.shipping,
+      carriers: settings.shipping.carriers.map((carrier) => {
+        if (carrier.id !== carrierId) return carrier;
+        return {
+          ...carrier,
+          zoneRates: carrier.zoneRates.filter((rate) => rate.zoneId !== zoneId),
+        };
+      }),
+    };
+
+    setSettings((prev) => ({ ...prev, shipping: newShipping, updatedAt: new Date() }));
+    await persistShippingSettings(newShipping);
   };
 
   // Métodos de pago
-  const addPaymentMethod = (method: Omit<PaymentMethodConfig, 'id'>) => {
+  const addPaymentMethod = async (method: Omit<PaymentMethodConfig, 'id'>): Promise<void> => {
     const newMethod: PaymentMethodConfig = {
       ...method,
       id: `pm-${Date.now()}`,
     };
-    setSettings((prev) => ({
-      ...prev,
-      payment: {
-        ...prev.payment,
-        methods: [...prev.payment.methods, newMethod],
-      },
-      updatedAt: new Date(),
-    }));
+    const newPayment = {
+      ...settings.payment,
+      methods: [...settings.payment.methods, newMethod],
+    };
+
+    setSettings((prev) => ({ ...prev, payment: newPayment, updatedAt: new Date() }));
+    await persistPaymentSettings(newPayment);
   };
 
-  const updatePaymentMethod = (id: string, data: Partial<PaymentMethodConfig>) => {
-    setSettings((prev) => ({
-      ...prev,
-      payment: {
-        ...prev.payment,
-        methods: prev.payment.methods.map((method) =>
-          method.id === id ? { ...method, ...data } : method
-        ),
-      },
-      updatedAt: new Date(),
-    }));
+  const updatePaymentMethod = async (id: string, data: Partial<PaymentMethodConfig>): Promise<void> => {
+    const newPayment = {
+      ...settings.payment,
+      methods: settings.payment.methods.map((method) =>
+        method.id === id ? { ...method, ...data } : method
+      ),
+    };
+
+    setSettings((prev) => ({ ...prev, payment: newPayment, updatedAt: new Date() }));
+    await persistPaymentSettings(newPayment);
   };
 
-  const deletePaymentMethod = (id: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      payment: {
-        ...prev.payment,
-        methods: prev.payment.methods.filter((method) => method.id !== id),
-      },
-      updatedAt: new Date(),
-    }));
+  const deletePaymentMethod = async (id: string): Promise<void> => {
+    const newPayment = {
+      ...settings.payment,
+      methods: settings.payment.methods.filter((method) => method.id !== id),
+    };
+
+    setSettings((prev) => ({ ...prev, payment: newPayment, updatedAt: new Date() }));
+    await persistPaymentSettings(newPayment);
   };
 
-  const togglePaymentMethod = (id: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      payment: {
-        ...prev.payment,
-        methods: prev.payment.methods.map((method) =>
-          method.id === id ? { ...method, isActive: !method.isActive } : method
-        ),
-      },
-      updatedAt: new Date(),
-    }));
+  const togglePaymentMethod = async (id: string): Promise<void> => {
+    const newPayment = {
+      ...settings.payment,
+      methods: settings.payment.methods.map((method) =>
+        method.id === id ? { ...method, isActive: !method.isActive } : method
+      ),
+    };
+
+    setSettings((prev) => ({ ...prev, payment: newPayment, updatedAt: new Date() }));
+    await persistPaymentSettings(newPayment);
   };
 
   // Home settings
-  const updateHomeSettings = (data: Partial<HomeSettings>) => {
-    setSettings((prev) => ({
-      ...prev,
-      home: { ...prev.home, ...data },
-      updatedAt: new Date(),
-    }));
+  const updateHomeSettings = async (data: Partial<HomeSettings>): Promise<void> => {
+    const newHome = { ...settings.home, ...data };
+
+    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    await persistHomeSettings(newHome);
   };
 
   // Catalog settings
-  const updateCatalogSettings = (data: Partial<CatalogSettings>) => {
-    setSettings((prev) => ({
-      ...prev,
-      catalog: {
-        ...prev.catalog,
-        ...data,
-        filters: data.filters
-          ? { ...prev.catalog.filters, ...data.filters }
-          : prev.catalog.filters,
-      },
-      updatedAt: new Date(),
-    }));
+  const updateCatalogSettings = async (data: Partial<CatalogSettings>): Promise<void> => {
+    const newCatalog = {
+      ...settings.catalog,
+      ...data,
+      filters: data.filters
+        ? { ...settings.catalog.filters, ...data.filters }
+        : settings.catalog.filters,
+    };
+
+    try {
+      await settingsService.updateCatalogSettings(newCatalog);
+      setSettings((prev) => ({ ...prev, catalog: newCatalog, updatedAt: new Date() }));
+    } catch (err) {
+      console.error('Error updating catalog settings:', err);
+      setSettings((prev) => ({ ...prev, catalog: newCatalog, updatedAt: new Date() }));
+    }
   };
 
   // Features
-  const addFeature = (feature: Omit<FeatureCard, 'id'>) => {
+  const addFeature = async (feature: Omit<FeatureCard, 'id'>): Promise<void> => {
     const newFeature: FeatureCard = {
       ...feature,
       id: `feature-${Date.now()}`,
     };
-    setSettings((prev) => ({
-      ...prev,
-      home: {
-        ...prev.home,
-        features: [...prev.home.features, newFeature],
-      },
-      updatedAt: new Date(),
-    }));
+    const newHome = {
+      ...settings.home,
+      features: [...settings.home.features, newFeature],
+    };
+
+    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    await persistHomeSettings(newHome);
   };
 
-  const updateFeature = (id: string, data: Partial<FeatureCard>) => {
-    setSettings((prev) => ({
-      ...prev,
-      home: {
-        ...prev.home,
-        features: prev.home.features.map((f) =>
-          f.id === id ? { ...f, ...data } : f
-        ),
-      },
-      updatedAt: new Date(),
-    }));
+  const updateFeature = async (id: string, data: Partial<FeatureCard>): Promise<void> => {
+    const newHome = {
+      ...settings.home,
+      features: settings.home.features.map((f) =>
+        f.id === id ? { ...f, ...data } : f
+      ),
+    };
+
+    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    await persistHomeSettings(newHome);
   };
 
-  const deleteFeature = (id: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      home: {
-        ...prev.home,
-        features: prev.home.features.filter((f) => f.id !== id),
-      },
-      updatedAt: new Date(),
-    }));
+  const deleteFeature = async (id: string): Promise<void> => {
+    const newHome = {
+      ...settings.home,
+      features: settings.home.features.filter((f) => f.id !== id),
+    };
+
+    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    await persistHomeSettings(newHome);
   };
 
   // Product sections
-  const addProductSection = (section: Omit<ProductSection, 'id'>) => {
+  const addProductSection = async (section: Omit<ProductSection, 'id'>): Promise<void> => {
     const newSection: ProductSection = {
       ...section,
       id: `section-${Date.now()}`,
     };
-    setSettings((prev) => ({
-      ...prev,
-      home: {
-        ...prev.home,
-        productSections: [...prev.home.productSections, newSection],
-      },
-      updatedAt: new Date(),
-    }));
+    const newHome = {
+      ...settings.home,
+      productSections: [...settings.home.productSections, newSection],
+    };
+
+    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    await persistHomeSettings(newHome);
   };
 
-  const updateProductSection = (id: string, data: Partial<ProductSection>) => {
-    setSettings((prev) => ({
-      ...prev,
-      home: {
-        ...prev.home,
-        productSections: prev.home.productSections.map((s) =>
-          s.id === id ? { ...s, ...data } : s
-        ),
-      },
-      updatedAt: new Date(),
-    }));
+  const updateProductSection = async (id: string, data: Partial<ProductSection>): Promise<void> => {
+    const newHome = {
+      ...settings.home,
+      productSections: settings.home.productSections.map((s) =>
+        s.id === id ? { ...s, ...data } : s
+      ),
+    };
+
+    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    await persistHomeSettings(newHome);
   };
 
-  const deleteProductSection = (id: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      home: {
-        ...prev.home,
-        productSections: prev.home.productSections.filter((s) => s.id !== id),
-      },
-      updatedAt: new Date(),
-    }));
+  const deleteProductSection = async (id: string): Promise<void> => {
+    const newHome = {
+      ...settings.home,
+      productSections: settings.home.productSections.filter((s) => s.id !== id),
+    };
+
+    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    await persistHomeSettings(newHome);
   };
 
   // WhatsApp button
-  const updateWhatsAppButton = (data: Partial<WhatsAppButtonSettings>) => {
-    setSettings((prev) => ({
-      ...prev,
-      home: {
-        ...prev.home,
-        whatsappButton: { ...prev.home.whatsappButton, ...data },
-      },
-      updatedAt: new Date(),
-    }));
+  const updateWhatsAppButton = async (data: Partial<WhatsAppButtonSettings>): Promise<void> => {
+    const newHome = {
+      ...settings.home,
+      whatsappButton: { ...settings.home.whatsappButton, ...data },
+    };
+
+    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    await persistHomeSettings(newHome);
   };
 
   return (
     <SettingsContext.Provider
       value={{
         settings,
+        isLoading,
+        error,
         updateGeneralSettings,
         updateAppearanceSettings,
         updateShippingSettings,
@@ -934,9 +1073,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         updateProductSection,
         deleteProductSection,
         updateWhatsAppButton,
+        refreshSettings,
       }}
     >
-      {children}
+      {publicLoaded ? children : null}
     </SettingsContext.Provider>
   );
 };

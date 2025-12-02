@@ -43,8 +43,9 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
     if (filters.bestsellers) productFilters.bestsellers = true;
     if (filters.newArrivals) productFilters.newArrivals = true;
     if (filters.inStock) productFilters.inStock = true;
-    if (filters.categoryId) productFilters.category = filters.categoryId;
-    if (filters.productTypeId) productFilters.type = filters.productTypeId;
+    // Usar los campos nuevos (category, type) con fallback a los antiguos para compatibilidad
+    if (filters.category || filters.categoryId) productFilters.category = filters.category || filters.categoryId;
+    if (filters.type || filters.productTypeId) productFilters.type = filters.type || filters.productTypeId;
     if (filters.sortBy) productFilters.sortBy = filters.sortBy;
 
     return productFilters;
@@ -82,9 +83,13 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
 
   // Generar link de "Ver todo" con filtros dinámicos
   const getViewAllLink = () => {
+    // Si hay un viewAllLink personalizado, usarlo directamente
+    if (section?.viewAllLink) {
+      return section.viewAllLink;
+    }
+
     if (!section?.filters || Object.keys(section.filters).length === 0) {
-      // Si no hay filtros, usar viewAllLink personalizado o /catalog
-      return section?.viewAllLink || '/catalog';
+      return '/catalog';
     }
 
     const params = new URLSearchParams();
@@ -96,9 +101,11 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
     if (filters.newArrivals) params.set('newArrivals', 'true');
     if (filters.inStock) params.set('inStock', 'true');
 
-    // Filtros de categoría/tipo
-    if (filters.categoryId) params.set('category', filters.categoryId);
-    if (filters.productTypeId) params.set('type', filters.productTypeId);
+    // Filtros de categoría/tipo - usar campos nuevos con fallback a los antiguos
+    const category = filters.category || filters.categoryId;
+    const type = filters.type || filters.productTypeId;
+    if (category) params.set('category', category);
+    if (type) params.set('type', type);
 
     // Ordenamiento
     if (filters.sortBy) params.set('sort', filters.sortBy);

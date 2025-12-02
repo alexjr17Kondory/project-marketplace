@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Sparkles, Mail, Phone, MapPin, Clock, Heart } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
+import { useAuth } from '../../context/AuthContext';
 import { InstagramIcon, FacebookIcon, WhatsAppIcon, TwitterIcon } from '../icons/SocialIcons';
 
 export const Footer = () => {
   const { settings } = useSettings();
+  const { user } = useAuth();
+
+  // Cliente (roleId 2) NUNCA es admin
+  const isAdminUser = user && user.roleId !== 2;
 
   // Colores de marca dinámicos desde settings.appearance
   const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
@@ -81,10 +86,10 @@ export const Footer = () => {
             <p className="text-gray-400 text-xs leading-relaxed mb-4">
               {settings.general.siteDescription || 'Tu tienda de ropa personalizada. Dale vida a tu creatividad con diseños únicos.'}
             </p>
-            {/* Social Icons - Dinámicos */}
+            {/* Social Icons - Siempre visibles, deshabilitados si no tienen enlace */}
             {showSocialInFooter && (
               <div className="flex gap-2">
-                {settings.general.socialLinks.instagram && (
+                {settings.general.socialLinks?.instagram ? (
                   <a
                     href={settings.general.socialLinks.instagram}
                     target="_blank"
@@ -94,8 +99,15 @@ export const Footer = () => {
                   >
                     <InstagramIcon className="w-4 h-4 text-white" />
                   </a>
+                ) : (
+                  <span
+                    className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center cursor-not-allowed opacity-50"
+                    title="Instagram no configurado"
+                  >
+                    <InstagramIcon className="w-4 h-4 text-gray-500" />
+                  </span>
                 )}
-                {settings.general.socialLinks.facebook && (
+                {settings.general.socialLinks?.facebook ? (
                   <a
                     href={settings.general.socialLinks.facebook}
                     target="_blank"
@@ -105,8 +117,15 @@ export const Footer = () => {
                   >
                     <FacebookIcon className="w-4 h-4 text-white" />
                   </a>
+                ) : (
+                  <span
+                    className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center cursor-not-allowed opacity-50"
+                    title="Facebook no configurado"
+                  >
+                    <FacebookIcon className="w-4 h-4 text-gray-500" />
+                  </span>
                 )}
-                {settings.general.socialLinks.twitter && (
+                {settings.general.socialLinks?.twitter ? (
                   <a
                     href={settings.general.socialLinks.twitter}
                     target="_blank"
@@ -116,8 +135,15 @@ export const Footer = () => {
                   >
                     <TwitterIcon className="w-4 h-4 text-white" />
                   </a>
+                ) : (
+                  <span
+                    className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center cursor-not-allowed opacity-50"
+                    title="X (Twitter) no configurado"
+                  >
+                    <TwitterIcon className="w-4 h-4 text-gray-500" />
+                  </span>
                 )}
-                {settings.general.socialLinks.whatsapp && (
+                {settings.general.socialLinks?.whatsapp ? (
                   <a
                     href={`https://wa.me/${settings.general.socialLinks.whatsapp.replace(/\D/g, '')}`}
                     target="_blank"
@@ -127,6 +153,13 @@ export const Footer = () => {
                   >
                     <WhatsAppIcon className="w-4 h-4 text-white" />
                   </a>
+                ) : (
+                  <span
+                    className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center cursor-not-allowed opacity-50"
+                    title="WhatsApp no configurado"
+                  >
+                    <WhatsAppIcon className="w-4 h-4 text-gray-500" />
+                  </span>
                 )}
               </div>
             )}
@@ -253,10 +286,12 @@ export const Footer = () => {
             </p>
           </div>
 
-          {/* Enlace oculto para admin (Fase 1) */}
-          <Link to="/admin-panel" className="text-xs text-gray-900 hover:text-gray-800 mt-2 inline-block transition">
-            •
-          </Link>
+          {/* Enlace oculto para admin (solo para administradores) */}
+          {isAdminUser && (
+            <Link to="/admin-panel" className="text-xs text-gray-900 hover:text-gray-800 mt-2 inline-block transition">
+              •
+            </Link>
+          )}
         </div>
       </div>
     </footer>

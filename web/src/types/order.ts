@@ -9,8 +9,8 @@ export type OrderStatus =
 export type PaymentMethod = 'credit_card' | 'debit_card' | 'pse' | 'cash' | 'transfer' | 'wompi' | 'pickup';
 
 export interface OrderItem {
-  id: string;
-  productId: string;
+  id: number;
+  productId: number;
   productName: string;
   productImage: string;
   size: string;
@@ -68,9 +68,9 @@ export interface StatusHistoryEntry {
 }
 
 export interface Order {
-  id: string;
+  id: number;
   orderNumber: string;
-  userId: string;
+  userId: number;
   userName: string;
   userEmail: string;
   items: OrderItem[];
