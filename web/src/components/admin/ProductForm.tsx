@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import type { Product, ProductType, ProductCategory, ProductColor } from '../../types/product';
+import { useState, useEffect } from 'react';
+import type { Product, ProductType, ProductCategory } from '../../types/product';
 import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';
-import { X, Plus } from 'lucide-react';
+import { X } from 'lucide-react';
+import { catalogsService } from '../../services/catalogs.service';
+import type { Color, Size } from '../../services/catalogs.service';
 
 interface ProductFormProps {
   product?: Product;
@@ -42,26 +44,43 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
     sideImage: product?.images.side || '',
   });
 
-  const [colors, setColors] = useState<ProductColor[]>(
-    product?.colors?.map(c => ({
-      id: c.id || 0,
-      name: c.name,
-      slug: c.slug || '',
-      hexCode: c.hexCode || c.hex || '#000000',
-      hex: c.hex || c.hexCode || '#000000',
-    })) || [{ id: 0, name: '', slug: '', hexCode: '#000000', hex: '#000000' }]
-  );
+  // Catálogos disponibles
+  const [availableColors, setAvailableColors] = useState<Color[]>([]);
+  const [availableSizes, setAvailableSizes] = useState<Size[]>([]);
 
-  const [sizes, setSizes] = useState<string[]>(
+  // IDs seleccionados
+  const [selectedColorIds, setSelectedColorIds] = useState<number[]>(
+    product?.colors?.map(c => c.id) || []
+  );
+  const [selectedSizeIds, setSelectedSizeIds] = useState<number[]>(
     Array.isArray(product?.sizes)
-      ? product.sizes.map(s => typeof s === 'string' ? s : s.abbreviation)
+      ? product.sizes.map(s => typeof s === 'string' ? 0 : s.id).filter(id => id > 0)
       : []
   );
 
-  const [newSize, setNewSize] = useState('');
+  // Cargar catálogos al montar
+  useEffect(() => {
+    const loadCatalogs = async () => {
+      try {
+        const [colors, sizes] = await Promise.all([
+          catalogsService.getColors(),
+          catalogsService.getSizes(),
+        ]);
+        setAvailableColors(colors);
+        setAvailableSizes(sizes);
+      } catch (error) {
+        console.error('Error cargando catálogos:', error);
+      }
+    };
+    loadCatalogs();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Convertir IDs a objetos completos para el backend
+    const selectedColors = availableColors.filter(c => selectedColorIds.includes(c.id));
+    const selectedSizes = availableSizes.filter(s => selectedSizeIds.includes(s.id));
 
     const productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
       name: formData.name,
@@ -79,36 +98,36 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
         back: formData.backImage || undefined,
         side: formData.sideImage || undefined,
       },
-      colors,
-      sizes,
+      colors: selectedColors.map(c => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        hexCode: c.hexCode,
+      })),
+      sizes: selectedSizes.map(s => ({
+        id: s.id,
+        name: s.name,
+        abbreviation: s.abbreviation,
+      })),
     };
 
     onSubmit(productData);
   };
 
-  const addColor = () => {
-    setColors([...colors, { id: 0, name: '', slug: '', hexCode: '#000000', hex: '#000000' }]);
+  const toggleColor = (colorId: number) => {
+    setSelectedColorIds(prev =>
+      prev.includes(colorId)
+        ? prev.filter(id => id !== colorId)
+        : [...prev, colorId]
+    );
   };
 
-  const updateColor = (index: number, field: 'name' | 'hex', value: string) => {
-    const updated = [...colors];
-    updated[index] = { ...updated[index], [field]: value };
-    setColors(updated);
-  };
-
-  const removeColor = (index: number) => {
-    setColors(colors.filter((_, i) => i !== index));
-  };
-
-  const addSize = () => {
-    if (newSize && !sizes.includes(newSize)) {
-      setSizes([...sizes, newSize]);
-      setNewSize('');
-    }
-  };
-
-  const removeSize = (size: string) => {
-    setSizes(sizes.filter(s => s !== size));
+  const toggleSize = (sizeId: number) => {
+    setSelectedSizeIds(prev =>
+      prev.includes(sizeId)
+        ? prev.filter(id => id !== sizeId)
+        : [...prev, sizeId]
+    );
   };
 
   return (
@@ -298,94 +317,81 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
           </label>
         </div>
 
-        {/* Séptima fila: Colores y Tallas */}
+        {/* Séptima fila: Colores (selector con checkboxes) */}
         <div className="col-span-12 md:col-span-6">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Colores *
+            Colores * (selecciona al menos uno)
           </label>
-          <div className="space-y-2">
-            {colors.map((color, index) => (
-              <div key={`color-${color.id || index}-${color.name}`} className="flex items-center gap-2">
-                <Input
-                  type="text"
-                  placeholder="Nombre"
-                  value={color.name}
-                  onChange={(e) => updateColor(index, 'name', e.target.value)}
-                  className="flex-1"
-                  required
-                />
-                <input
-                  type="color"
-                  value={color.hex}
-                  onChange={(e) => updateColor(index, 'hex', e.target.value)}
-                  className="w-14 h-9 border border-gray-300 rounded cursor-pointer"
-                />
-                {colors.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeColor(index)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+          <div className="border border-gray-300 rounded-lg p-3 bg-gray-50 max-h-64 overflow-y-auto">
+            {availableColors.length === 0 ? (
+              <p className="text-sm text-gray-500">Cargando colores...</p>
+            ) : (
+              <div className="space-y-2">
+                {availableColors.map(color => (
+                  <label
+                    key={color.id}
+                    className="flex items-center gap-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors"
                   >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+                    <input
+                      type="checkbox"
+                      checked={selectedColorIds.includes(color.id)}
+                      onChange={() => toggleColor(color.id)}
+                      className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <div
+                      className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                      style={{ backgroundColor: color.hexCode }}
+                      title={color.hexCode}
+                    />
+                    <span className="text-sm font-medium text-gray-700 flex-1">
+                      {color.name}
+                    </span>
+                  </label>
+                ))}
               </div>
-            ))}
-            <Button
-              type="button"
-              variant="admin-secondary"
-              size="sm"
-              onClick={addColor}
-              className="w-full"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Agregar
-            </Button>
+            )}
           </div>
+          {selectedColorIds.length > 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              {selectedColorIds.length} color{selectedColorIds.length !== 1 ? 'es' : ''} seleccionado{selectedColorIds.length !== 1 ? 's' : ''}
+            </p>
+          )}
         </div>
 
+        {/* Tallas (selector con checkboxes) */}
         <div className="col-span-12 md:col-span-6">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Tallas *
+            Tallas * (selecciona al menos una)
           </label>
-          <div className="flex flex-wrap gap-2 mb-2 min-h-[36px] p-2 bg-gray-50 rounded-lg">
-            {sizes.map((size) => (
-              <span
-                key={size}
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-gray-200 text-gray-700 rounded-full text-sm"
-              >
-                {size}
-                <button
-                  type="button"
-                  onClick={() => removeSize(size)}
-                  className="text-gray-500 hover:text-red-600 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </span>
-            ))}
+          <div className="border border-gray-300 rounded-lg p-3 bg-gray-50 max-h-64 overflow-y-auto">
+            {availableSizes.length === 0 ? (
+              <p className="text-sm text-gray-500">Cargando tallas...</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {availableSizes.map(size => (
+                  <label
+                    key={size.id}
+                    className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedSizeIds.includes(size.id)}
+                      onChange={() => toggleSize(size.id)}
+                      className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      {size.abbreviation} <span className="text-xs text-gray-500">({size.name})</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              placeholder="Nueva talla"
-              value={newSize}
-              onChange={(e) => setNewSize(e.target.value.toUpperCase())}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addSize();
-                }
-              }}
-            />
-            <Button
-              type="button"
-              variant="admin-secondary"
-              onClick={addSize}
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
+          {selectedSizeIds.length > 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              {selectedSizeIds.length} talla{selectedSizeIds.length !== 1 ? 's' : ''} seleccionada{selectedSizeIds.length !== 1 ? 's' : ''}
+            </p>
+          )}
         </div>
       </div>
 
@@ -408,6 +414,7 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
                 type="submit"
                 variant="admin-primary"
                 className="w-full"
+                disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0}
               >
                 Actualizar Producto
               </Button>
@@ -419,6 +426,7 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
               type="submit"
               variant="admin-primary"
               className="w-full"
+              disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0}
             >
               Crear Producto
             </Button>
