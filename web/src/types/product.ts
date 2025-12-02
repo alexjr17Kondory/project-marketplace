@@ -76,13 +76,19 @@ export interface ProductTypeConfig {
 
 // Producto base del catálogo
 export interface Product {
-  id: number;
-  sku: string;
-  slug: string;
+  id: number | string; // Puede ser número (DB) o string (mock)
+  sku?: string;
+  slug?: string;
   name: string;
   description: string;
-  type: ProductType;
-  category: ProductCategory;
+  // Campos de relación con la BD (slugs en español)
+  categorySlug?: string;  // Slug de categoría (ropa, accesorios, bebidas, hogar, oficina)
+  categoryId?: number;    // ID de categoría en la BD
+  typeSlug?: string;      // Slug de tipo de producto
+  typeId?: number;        // ID de tipo de producto en la BD
+  // Campos legacy para compatibilidad (se usarán categorySlug/typeSlug en su lugar)
+  type?: ProductType | string;
+  category?: ProductCategory | string;
   basePrice: number;
   images: {
     front: string;

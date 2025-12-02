@@ -6,8 +6,8 @@ export const mockProducts: Product[] = [
     id: '1',
     name: 'Camiseta Sublimación Full Print',
     description: 'Camiseta 100% poliéster ideal para sublimación completa. Colores vibrantes y duraderos.',
-    type: 'camiseta',
-    category: 'ropa',
+    typeSlug: 'camiseta',
+    categorySlug: 'ropa',
     basePrice: 25000,
     images: {
       front: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
@@ -31,8 +31,8 @@ export const mockProducts: Product[] = [
     id: '2',
     name: 'Buzo con Capucha Sublimable',
     description: 'Hoodie de poliéster con interior afelpado. Perfecto para diseños personalizados en toda la prenda.',
-    type: 'hoodie',
-    category: 'ropa',
+    typeSlug: 'hoodie',
+    categorySlug: 'ropa',
     basePrice: 65000,
     images: {
       front: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80',
@@ -55,8 +55,8 @@ export const mockProducts: Product[] = [
     id: '3',
     name: 'Suéter Cuello Redondo',
     description: 'Suéter sin capucha ideal para sublimación. Material suave y cómodo para uso diario.',
-    type: 'sueter',
-    category: 'ropa',
+    typeSlug: 'sueter',
+    categorySlug: 'ropa',
     basePrice: 55000,
     images: {
       front: 'https://images.unsplash.com/photo-1572495532056-8583af1cbae0?w=800&q=80',
@@ -79,8 +79,8 @@ export const mockProducts: Product[] = [
     id: '4',
     name: 'Polo Deportivo Sublimable',
     description: 'Polo en tela deportiva perfecta para sublimación. Ideal para uniformes y equipos.',
-    type: 'polo',
-    category: 'ropa',
+    typeSlug: 'polo',
+    categorySlug: 'ropa',
     basePrice: 35000,
     images: {
       front: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=800&q=80',
@@ -103,8 +103,8 @@ export const mockProducts: Product[] = [
     id: '5',
     name: 'Gorra Trucker Sublimable',
     description: 'Gorra con frente sublimable y malla trasera. Perfecta para logos y diseños llamativos.',
-    type: 'gorra',
-    category: 'accesorios',
+    typeSlug: 'gorra',
+    categorySlug: 'accesorios',
     basePrice: 18000,
     images: {
       front: 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&q=80',
@@ -129,8 +129,8 @@ export const mockProducts: Product[] = [
     id: '6',
     name: 'Taza Cerámica 11oz',
     description: 'Taza de cerámica blanca premium para sublimación. Apta para microondas y lavavajillas.',
-    type: 'taza',
-    category: 'bebidas',
+    typeSlug: 'taza',
+    categorySlug: 'bebidas',
     basePrice: 15000,
     images: {
       front: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=800&q=80',
@@ -154,8 +154,8 @@ export const mockProducts: Product[] = [
     id: '7',
     name: 'Taza Mágica Cambia Color',
     description: 'Taza que revela el diseño con el calor. Efecto sorpresa perfecto para regalos.',
-    type: 'taza-magica',
-    category: 'bebidas',
+    typeSlug: 'taza-magica',
+    categorySlug: 'bebidas',
     basePrice: 22000,
     images: {
       front: 'https://images.unsplash.com/photo-1577937927133-66ef06acdf18?w=800&q=80',
@@ -176,8 +176,8 @@ export const mockProducts: Product[] = [
     id: '8',
     name: 'Termo Acero Inoxidable 500ml',
     description: 'Botella térmica de acero inoxidable con recubrimiento para sublimación. Mantiene bebidas frías o calientes.',
-    type: 'termo',
-    category: 'bebidas',
+    typeSlug: 'termo',
+    categorySlug: 'bebidas',
     basePrice: 35000,
     images: {
       front: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&q=80',
@@ -199,8 +199,8 @@ export const mockProducts: Product[] = [
     id: '9',
     name: 'Vaso Térmico 20oz',
     description: 'Tumbler de acero inoxidable con tapa. Ideal para sublimación con diseños de 360°.',
-    type: 'vaso-termico',
-    category: 'bebidas',
+    typeSlug: 'vaso-termico',
+    categorySlug: 'bebidas',
     basePrice: 28000,
     images: {
       front: 'https://images.unsplash.com/photo-1571167530149-c1105da4c2c7?w=800&q=80',
@@ -224,8 +224,8 @@ export const mockProducts: Product[] = [
     id: '10',
     name: 'Cuadro en Aluminio 20x30cm',
     description: 'Panel de aluminio sublimable de alta definición. Colores vibrantes y acabado premium para decoración.',
-    type: 'cuadro-aluminio',
-    category: 'hogar',
+    typeSlug: 'cuadro-aluminio',
+    categorySlug: 'hogar',
     basePrice: 45000,
     images: {
       front: 'https://images.unsplash.com/photo-1513519245088-0e12902e35a6?w=800&q=80',
@@ -247,8 +247,8 @@ export const mockProducts: Product[] = [
     id: '11',
     name: 'Posa Vasos Set x4',
     description: 'Set de 4 posa vasos sublimables. Base de corcho antideslizante. Perfectos para personalizar.',
-    type: 'posa-vasos',
-    category: 'hogar',
+    typeSlug: 'posa-vasos',
+    categorySlug: 'hogar',
     basePrice: 25000,
     images: {
       front: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
@@ -270,8 +270,8 @@ export const mockProducts: Product[] = [
     id: '12',
     name: 'Cojín Sublimable 40x40cm',
     description: 'Cojín con funda sublimable. Incluye relleno. Ideal para decoración personalizada.',
-    type: 'cojin',
-    category: 'hogar',
+    typeSlug: 'cojin',
+    categorySlug: 'hogar',
     basePrice: 32000,
     images: {
       front: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=800&q=80',
@@ -292,8 +292,8 @@ export const mockProducts: Product[] = [
     id: '13',
     name: 'Reloj de Pared 20cm',
     description: 'Reloj de pared circular sublimable. Mecanismo silencioso incluido. Decoración única.',
-    type: 'reloj',
-    category: 'hogar',
+    typeSlug: 'reloj',
+    categorySlug: 'hogar',
     basePrice: 38000,
     images: {
       front: 'https://images.unsplash.com/photo-1563861826100-9cb868fdbe1c?w=800&q=80',
@@ -314,8 +314,8 @@ export const mockProducts: Product[] = [
     id: '14',
     name: 'Rompecabezas Sublimable',
     description: 'Puzzle personalizado de cartón premium. Disponible en varias piezas. Regalo perfecto.',
-    type: 'rompecabezas',
-    category: 'hogar',
+    typeSlug: 'rompecabezas',
+    categorySlug: 'hogar',
     basePrice: 28000,
     images: {
       front: 'https://images.unsplash.com/photo-1494059980473-813e73ee784b?w=800&q=80',
@@ -336,8 +336,8 @@ export const mockProducts: Product[] = [
     id: '15',
     name: 'Manta Polar Sublimable',
     description: 'Manta de polar suave 100x150cm. Sublimación en toda la superficie. Perfecta para fotos.',
-    type: 'manta',
-    category: 'hogar',
+    typeSlug: 'manta',
+    categorySlug: 'hogar',
     basePrice: 75000,
     images: {
       front: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80',
@@ -360,8 +360,8 @@ export const mockProducts: Product[] = [
     id: '16',
     name: 'Llavero MDF Rectangular',
     description: 'Llavero de MDF sublimable con argolla metálica. Perfecto para recuerdos y promocionales.',
-    type: 'llavero',
-    category: 'accesorios',
+    typeSlug: 'llavero',
+    categorySlug: 'accesorios',
     basePrice: 5000,
     images: {
       front: 'https://images.unsplash.com/photo-1622556498246-755f44ca76f3?w=800&q=80',
@@ -382,8 +382,8 @@ export const mockProducts: Product[] = [
     id: '17',
     name: 'Mouse Pad Gamer XL',
     description: 'Mouse pad extendido 80x30cm con base antideslizante. Superficie óptima para sublimación.',
-    type: 'mouse-pad',
-    category: 'accesorios',
+    typeSlug: 'mouse-pad',
+    categorySlug: 'accesorios',
     basePrice: 22000,
     images: {
       front: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=800&q=80',
@@ -404,8 +404,8 @@ export const mockProducts: Product[] = [
     id: '18',
     name: 'Funda Celular Sublimable',
     description: 'Funda dura para smartphone con superficie sublimable. Protección y personalización.',
-    type: 'funda-celular',
-    category: 'accesorios',
+    typeSlug: 'funda-celular',
+    categorySlug: 'accesorios',
     basePrice: 18000,
     images: {
       front: 'https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&q=80',
@@ -427,8 +427,8 @@ export const mockProducts: Product[] = [
     id: '19',
     name: 'Bolsa Tote Bag Sublimable',
     description: 'Bolsa de poliéster resistente para sublimación completa. Asas reforzadas.',
-    type: 'bolsa-tote',
-    category: 'accesorios',
+    typeSlug: 'bolsa-tote',
+    categorySlug: 'accesorios',
     basePrice: 20000,
     images: {
       front: 'https://images.unsplash.com/photo-1597633125097-5a9ae3370364?w=800&q=80',
@@ -449,8 +449,8 @@ export const mockProducts: Product[] = [
     id: '20',
     name: 'Cordón Lanyard Sublimable',
     description: 'Lanyard de poliéster para credenciales. Sublimación a doble cara. Gancho metálico incluido.',
-    type: 'lanyard',
-    category: 'accesorios',
+    typeSlug: 'lanyard',
+    categorySlug: 'accesorios',
     basePrice: 8000,
     images: {
       front: 'https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=800&q=80',
@@ -473,8 +473,8 @@ export const mockProducts: Product[] = [
     id: '21',
     name: 'Libreta A5 Tapa Dura',
     description: 'Libreta con tapa dura sublimable. 100 hojas rayadas. Ideal para regalos corporativos.',
-    type: 'libreta',
-    category: 'oficina',
+    typeSlug: 'libreta',
+    categorySlug: 'oficina',
     basePrice: 25000,
     images: {
       front: 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&q=80',
@@ -495,8 +495,8 @@ export const mockProducts: Product[] = [
     id: '22',
     name: 'Calendario de Escritorio',
     description: 'Calendario de escritorio con base de cartón. 12 hojas sublimables para cada mes.',
-    type: 'calendario',
-    category: 'oficina',
+    typeSlug: 'calendario',
+    categorySlug: 'oficina',
     basePrice: 28000,
     images: {
       front: 'https://images.unsplash.com/photo-1506784365847-bbad939e9335?w=800&q=80',
@@ -519,8 +519,8 @@ export const mockProducts: Product[] = [
     id: '23',
     name: 'Camiseta Dry Fit Deportiva',
     description: 'Camiseta deportiva de tela dry fit. Ideal para uniformes deportivos y gimnasios.',
-    type: 'camiseta',
-    category: 'ropa',
+    typeSlug: 'camiseta',
+    categorySlug: 'ropa',
     basePrice: 28000,
     images: {
       front: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&q=80',
@@ -544,8 +544,8 @@ export const mockProducts: Product[] = [
     id: '24',
     name: 'Gorra Dad Hat Sublimable',
     description: 'Gorra estilo vintage con frente sublimable. Cierre ajustable de hebilla.',
-    type: 'gorra',
-    category: 'accesorios',
+    typeSlug: 'gorra',
+    categorySlug: 'accesorios',
     basePrice: 16000,
     images: {
       front: 'https://images.unsplash.com/photo-1534215754734-18e55d13e346?w=800&q=80',
@@ -567,8 +567,8 @@ export const mockProducts: Product[] = [
     id: '25',
     name: 'Set Tazas Parejas',
     description: 'Set de 2 tazas de cerámica para parejas. Ideal para San Valentín y aniversarios.',
-    type: 'taza',
-    category: 'bebidas',
+    typeSlug: 'taza',
+    categorySlug: 'bebidas',
     basePrice: 28000,
     images: {
       front: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=800&q=80',
@@ -600,11 +600,11 @@ export const getProducts = (filters?: {
   let filtered = [...mockProducts];
 
   if (filters?.category) {
-    filtered = filtered.filter((p) => p.category === filters.category);
+    filtered = filtered.filter((p) => p.categorySlug === filters.category || p.category === filters.category);
   }
 
   if (filters?.type) {
-    filtered = filtered.filter((p) => p.type === filters.type);
+    filtered = filtered.filter((p) => p.typeSlug === filters.type || p.type === filters.type);
   }
 
   if (filters?.featured !== undefined) {
@@ -648,17 +648,17 @@ export const getProducts = (filters?: {
 
 // Obtener tipos de productos únicos
 export const getProductTypes = (): string[] => {
-  const types = new Set(mockProducts.map(p => p.type));
-  return Array.from(types);
+  const types = new Set(mockProducts.map(p => p.typeSlug || p.type).filter(Boolean));
+  return Array.from(types) as string[];
 };
 
 // Obtener categorías únicas
 export const getProductCategories = (): string[] => {
-  const categories = new Set(mockProducts.map(p => p.category));
-  return Array.from(categories);
+  const categories = new Set(mockProducts.map(p => p.categorySlug || p.category).filter(Boolean));
+  return Array.from(categories) as string[];
 };
 
 // Función helper para obtener un producto por ID
-export const getProductById = (id: string): Product | undefined => {
-  return mockProducts.find((p) => p.id === id);
+export const getProductById = (id: string | number): Product | undefined => {
+  return mockProducts.find((p) => p.id == id); // == permite comparar string con number
 };
