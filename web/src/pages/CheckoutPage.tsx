@@ -148,8 +148,13 @@ export const CheckoutPage = () => {
     const orderItems = cart.items.map((item) => {
       if (item.type === 'customized') {
         const customized = item.customizedProduct;
+        // Convertir productId a número - si es string numérico parsearlo, sino usar 1
+        const productId = typeof customized.productId === 'string'
+          ? (Number.isNaN(Number(customized.productId)) ? 1 : Number(customized.productId))
+          : Number(customized.productId);
+
         return {
-          productId: customized.productId,
+          productId: productId,
           productName: customized.productName,
           productImage: customized.previewImages.front,
           size: customized.selectedSize,
@@ -167,8 +172,13 @@ export const CheckoutPage = () => {
         };
       } else {
         const standardItem = item as import('../types/cart').CartItem;
+        // Convertir productId a número
+        const productId = typeof standardItem.product.id === 'string'
+          ? (Number.isNaN(Number(standardItem.product.id)) ? 1 : Number(standardItem.product.id))
+          : Number(standardItem.product.id);
+
         return {
-          productId: standardItem.product.id,
+          productId: productId,
           productName: standardItem.product.name,
           productImage: standardItem.product.images.front,
           size: standardItem.selectedSize,

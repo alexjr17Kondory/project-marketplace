@@ -107,6 +107,12 @@ export const catalogsService = {
     return response.data || [];
   },
 
+  async getProductTypeById(id: number): Promise<ProductType> {
+    const response = await api.get<ProductType>(`/catalogs/product-types/${id}`);
+    if (!response.data) throw new Error('Tipo de producto no encontrado');
+    return response.data;
+  },
+
   async createProductType(data: Omit<ProductType, 'id'>): Promise<ProductType> {
     const response = await api.post<ProductType>('/catalogs/product-types', data);
     if (!response.data) throw new Error('Error creando tipo de producto');

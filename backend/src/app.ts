@@ -21,9 +21,9 @@ app.use(helmet({
 // CORS
 app.use(cors(corsOptions));
 
-// Request parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Request parsing - Límite aumentado para soportar imágenes personalizadas
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Logging
 if (env.isDevelopment) {

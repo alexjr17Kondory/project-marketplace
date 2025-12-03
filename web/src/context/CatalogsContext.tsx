@@ -25,6 +25,8 @@ interface CatalogsContextType {
   addProductType: (type: Omit<ProductType, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateProductType: (id: string, updates: Partial<Omit<ProductType, 'id' | 'createdAt'>>) => Promise<void>;
   deleteProductType: (id: string) => Promise<void>;
+  createProductType: (typeData: Omit<import('../services/catalogs.service').ProductType, 'id'>, sizeIds: number[]) => Promise<void>;
+  updateProductTypeWithSizes: (id: number, typeData: Omit<import('../services/catalogs.service').ProductType, 'id'>, sizeIds: number[]) => Promise<void>;
 
   // Categories
   addCategory: (category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
@@ -194,9 +196,30 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     setProductTypes((prev) => prev.map((t) => (t.id === id ? mapApiProductType(updated) : t)));
   };
 
-  const deleteProductType = async (id: string) => {
-    await catalogsService.deleteProductType(id);
-    setProductTypes((prev) => prev.filter((t) => t.id !== id));
+  const deleteProductType = async (id: string | number) => {
+    await catalogsService.deleteProductType(typeof id === 'string' ? parseInt(id) : id);
+    setProductTypes((prev) => prev.filter((t) => t.id !== (typeof id === 'string' ? id : String(id))));
+  };
+
+  // Crear tipo de producto con tallas asignadas
+  const createProductType = async (
+    typeData: Omit<import('../services/catalogs.service').ProductType, 'id'>,
+    sizeIds: number[]
+  ) => {
+    const newType = await catalogsService.createProductType(typeData);
+    await catalogsService.assignSizesToProductType(newType.id, sizeIds);
+    await loadCatalogs(); // Recargar para obtener datos actualizados
+  };
+
+  // Actualizar tipo de producto con tallas asignadas
+  const updateProductTypeWithSizes = async (
+    id: number,
+    typeData: Omit<import('../services/catalogs.service').ProductType, 'id'>,
+    sizeIds: number[]
+  ) => {
+    await catalogsService.updateProductType(id, typeData);
+    await catalogsService.assignSizesToProductType(id, sizeIds);
+    await loadCatalogs(); // Recargar para obtener datos actualizados
   };
 
   // Category methods
@@ -249,6 +272,8 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
         addProductType,
         updateProductType,
         deleteProductType,
+        createProductType,
+        updateProductTypeWithSizes,
         addCategory,
         updateCategory,
         deleteCategory,

@@ -12,6 +12,7 @@ import {
   createProductTypeSchema,
   updateProductTypeSchema,
   catalogIdSchema,
+  productTypeIdSchema,
 } from '../validators/catalogs.validator';
 
 const router = Router();
@@ -614,7 +615,7 @@ router.delete(
  */
 router.get(
   '/product-types/:productTypeId/sizes',
-  validateParams(catalogIdSchema.extend({ productTypeId: catalogIdSchema.shape.id })),
+  validateParams(productTypeIdSchema),
   catalogsController.getSizesByProductType
 );
 
@@ -654,7 +655,7 @@ router.put(
   '/product-types/:productTypeId/sizes',
   authenticate,
   requireAdmin,
-  validateParams(catalogIdSchema.extend({ productTypeId: catalogIdSchema.shape.id })),
+  validateParams(productTypeIdSchema),
   catalogsController.assignSizesToProductType
 );
 

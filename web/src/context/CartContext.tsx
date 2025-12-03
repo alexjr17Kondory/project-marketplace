@@ -46,10 +46,44 @@ const DEFAULT_ORDER_CONFIG: OrderConfig = {
   taxIncluded: true,
 };
 
+// Helper para normalizar items del carrito (convertir objetos de talla a strings)
+const normalizeCartItem = (item: CartItemType): CartItemType => {
+  if (item.type === 'standard') {
+    const standardItem = item as import('../types/cart').CartItem;
+    // Si selectedSize es un objeto, extraer la abreviación
+    let normalizedSize = standardItem.selectedSize;
+    if (typeof normalizedSize === 'object' && normalizedSize !== null) {
+      normalizedSize = (normalizedSize as any).abbreviation || (normalizedSize as any).name || 'M';
+    }
+
+    return {
+      ...standardItem,
+      selectedSize: normalizedSize as string,
+    };
+  }
+  return item;
+};
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [cartItems, setCartItems] = useLocalStorage<CartItemType[]>(STORAGE_KEYS.CART, []);
+  const [rawCartItems, setRawCartItems] = useLocalStorage<CartItemType[]>(STORAGE_KEYS.CART, []);
+
+  // Normalizar items cuando se cargan desde localStorage
+  const [cartItems, setCartItems] = useState<CartItemType[]>(() => {
+    return rawCartItems.map(normalizeCartItem);
+  });
+
   const [cart, setCart] = useState<Cart>(INITIAL_CART);
   const [orderConfig, setOrderConfig] = useState<OrderConfig>(DEFAULT_ORDER_CONFIG);
+
+  // Sincronizar con localStorage y normalizar
+  useEffect(() => {
+    const normalized = rawCartItems.map(normalizeCartItem);
+    setCartItems(normalized);
+    // Guardar items normalizados de vuelta a localStorage
+    if (JSON.stringify(normalized) !== JSON.stringify(rawCartItems)) {
+      setRawCartItems(normalized);
+    }
+  }, [rawCartItems]);
 
   // Cargar configuración de pedidos desde el backend
   useEffect(() => {
@@ -137,7 +171,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       addedAt: new Date(),
     };
 
-    setCartItems((prev) => [...prev, newItem]);
+    setRawCartItems((prev) => [...prev, newItem]);
   };
 
   const addCustomizedProduct = (customizedProduct: CustomizedProduct, quantity: number = 1) => {
@@ -151,11 +185,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       addedAt: new Date(),
     };
 
-    setCartItems((prev) => [...prev, newItem]);
+    setRawCartItems((prev) => [...prev, newItem]);
   };
 
   const removeItem = (itemId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== itemId));
+    setRawCartItems((prev) => prev.filter((item) => item.id !== itemId));
   };
 
   const updateQuantity = (itemId: string, quantity: number) => {
@@ -164,7 +198,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    setCartItems((prev) =>
+    setRawCartItems((prev) =>
       prev.map((item) => {
         if (item.id === itemId) {
           return {
@@ -179,7 +213,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const clearCart = () => {
-    setCartItems([]);
+    setRawCartItems([]);
   };
 
   const getCartSummary = (): CartSummary => {

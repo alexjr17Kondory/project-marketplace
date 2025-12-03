@@ -114,8 +114,9 @@ export const CatalogPage = () => {
 
   const handleAddToCart = (product: Product) => {
     // Agregar con opciones por defecto
-    const defaultColor = product.colors[0]?.hex || '#FFFFFF';
-    const defaultSize = product.sizes[0] || 'M';
+    const defaultColor = product.colors[0]?.hexCode || '#FFFFFF';
+    const firstSize = product.sizes[0];
+    const defaultSize = typeof firstSize === 'string' ? firstSize : firstSize?.abbreviation || 'M';
 
     addStandardProduct(product, defaultColor, defaultSize, 1);
 

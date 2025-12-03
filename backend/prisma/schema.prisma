@@ -98,6 +98,7 @@ model Product {
   stock       Int     @default(0)
   featured    Boolean @default(false)
   isActive    Boolean @default(true)
+  isTemplate  Boolean @default(false) // Si es true, es un modelo/plantilla para personalización
 
   images Json
   tags   Json

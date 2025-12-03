@@ -65,6 +65,7 @@ const menuWithSubmenus: {
     basePath: '/admin-panel/catalogs',
     submenu: [
       { path: '/admin-panel/products', label: 'Productos', icon: Package, permission: 'products.view' },
+      { path: '/admin-panel/templates', label: 'Modelos', icon: Layers, permission: 'products.view' },
       { path: '/admin-panel/catalogs/sizes', label: 'Tallas', permission: 'catalogs.view' },
       { path: '/admin-panel/catalogs/colors', label: 'Colores', permission: 'catalogs.view' },
       { path: '/admin-panel/catalogs/product-types', label: 'Tipos de Producto', permission: 'catalogs.view' },

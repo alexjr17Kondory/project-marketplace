@@ -66,6 +66,10 @@ export const catalogIdSchema = z.object({
   id: z.string().min(1, 'ID requerido'),
 });
 
+export const productTypeIdSchema = z.object({
+  productTypeId: z.string().min(1, 'ID de tipo de producto requerido'),
+});
+
 // Types
 export type CreateSizeInput = z.infer<typeof createSizeSchema>;
 export type UpdateSizeInput = z.infer<typeof updateSizeSchema>;

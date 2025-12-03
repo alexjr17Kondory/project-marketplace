@@ -2,12 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ShoppingCart, ArrowLeft } from 'lucide-react';
 import { canvasService } from '../services/canvas.service';
+import { templatesService, type Template } from '../services/templates.service';
+import { useCatalogs } from '../context/CatalogsContext';
 import { getProductById } from '../data/mockProducts';
 import { getPrintZones } from '../data/productTypeConfigs';
 import { getSizeChart, getAvailableSizes } from '../data/sizeCharts';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
 import { ProductSelector } from '../components/customizer/ProductSelector';
+import { TemplateSelector } from '../components/customizer/TemplateSelector';
 import { ColorPicker } from '../components/customizer/ColorPicker';
 import { ViewToggle } from '../components/customizer/ViewToggle';
 import { ImageUploader, type ImageUploadData } from '../components/customizer/ImageUploader';
@@ -24,6 +27,7 @@ export const CustomizerPage = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { addCustomizedProduct } = useCart();
   const { settings } = useSettings();
+  const { productTypes } = useCatalogs();
 
   // Colores de marca dinámicos
   const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
@@ -35,6 +39,8 @@ export const CustomizerPage = () => {
 
   // State
   const [productType, setProductType] = useState<ProductType>('tshirt');
+  const [productTypeId, setProductTypeId] = useState<number | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>('#FFFFFF');
   const [selectedSize, setSelectedSize] = useState<string>('M');
   const [currentView, setCurrentView] = useState<'front' | 'back'>('front');
@@ -43,6 +49,17 @@ export const CustomizerPage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+
+  // Actualizar productTypeId cuando cambie el productType
+  useEffect(() => {
+    if (productTypes && productTypes.length > 0) {
+      // Mapear el productType string al ID numérico del catálogo
+      const matchingType = productTypes.find(
+        pt => pt.slug === productType || pt.name.toLowerCase().includes(productType.toLowerCase())
+      );
+      setProductTypeId(matchingType?.id || null);
+    }
+  }, [productType, productTypes]);
 
   // Obtener zonas de impresión disponibles para el producto actual
   const allZones = getPrintZones(productType);
@@ -99,15 +116,51 @@ export const CustomizerPage = () => {
   // Re-renderizar cuando cambien las propiedades
   useEffect(() => {
     renderCanvas();
-  }, [productType, selectedColor, currentView, designs, selectedZone, sizeScale]);
+  }, [productType, selectedColor, currentView, designs, selectedZone, sizeScale, selectedTemplate]);
 
   const renderCanvas = () => {
     if (!canvasRef.current) return;
 
-    // Obtener configuración de la zona seleccionada
-    const zoneConfig = availableZones.find(z => z.id === selectedZone);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    // Dibujar producto base con la zona seleccionada y el tamaño
+    // Limpiar canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Si hay un modelo seleccionado, mostrar su imagen
+    if (selectedTemplate?.images) {
+      const imageUrl = currentView === 'front'
+        ? selectedTemplate.images.front
+        : (selectedTemplate.images.back || selectedTemplate.images.front);
+
+      if (imageUrl) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Dibujar el diseño de la zona actual encima del modelo
+          const currentDesign = designs.get(selectedZone);
+          if (currentDesign) {
+            canvasService.drawDesign(currentDesign);
+          }
+        };
+        img.onerror = () => {
+          // Si falla la carga de la imagen, usar el método original
+          drawProductBase(ctx);
+        };
+        img.src = imageUrl;
+        return;
+      }
+    }
+
+    // Si no hay modelo, dibujar el producto base
+    drawProductBase(ctx);
+  };
+
+  const drawProductBase = (ctx?: CanvasRenderingContext2D) => {
+    const zoneConfig = availableZones.find(z => z.id === selectedZone);
     canvasService.drawProductBase(productType, selectedColor, currentView, zoneConfig, sizeScale);
 
     // Dibujar SOLO el diseño de la zona actualmente seleccionada
@@ -173,16 +226,24 @@ export const CustomizerPage = () => {
     if (newSizes.length > 0) {
       setSelectedSize(newSizes[0]);
     }
+
+    // Limpiar modelo seleccionado
+    setSelectedTemplate(null);
+  };
+
+  const handleTemplateSelect = (template: Template | null) => {
+    setSelectedTemplate(template);
+
+    // Si se selecciona un modelo, actualizar el color si está disponible
+    if (template && template.colors && template.colors.length > 0) {
+      setSelectedColor(template.colors[0].hexCode);
+    }
   };
 
   const handleAddToCart = (quantity: number = 1) => {
-    // Obtener producto base
-    const product = getProductById(`${productType}-001`) || {
-      id: `${productType}-001`,
-      name: `${productType} Personalizado`,
-      type: productType,
-      basePrice: 29.99,
-    };
+    // Calcular precio base (modelo o producto genérico)
+    const basePrice = selectedTemplate?.basePrice || 29.99;
+    const productName = selectedTemplate?.name || `${productType} Personalizado`;
 
     // Verificar que hay al menos un diseño
     if (designs.size === 0) {
@@ -200,22 +261,22 @@ export const CustomizerPage = () => {
     // Convertir Map a Array de diseños
     const allDesigns = Array.from(designs.values());
 
-    // Calcular precio de personalización (por ejemplo, $2 por cada zona con diseño)
-    const customizationPrice = designs.size * 2.00;
-    const totalPrice = product.basePrice + customizationPrice;
+    // Calcular precio de personalización ($2.000 COP por cada zona con diseño)
+    const pricePerZone = 2000; // $2.000 COP por zona
+    const customizationPrice = designs.size * pricePerZone;
+    const totalPrice = basePrice + customizationPrice;
 
     // Generar imágenes de producción (con diseños originales en alta calidad)
-    // Buscamos diseños de frente y espalda
     const frontDesign = allDesigns.find(d => d.zoneId.includes('front') || d.zoneId.includes('chest') || d.zoneId.includes('sleeve'));
     const backDesign = allDesigns.find(d => d.zoneId.includes('back'));
 
     // Crear objeto CustomizedProduct
     const customizedProduct: CustomizedProduct = {
       id: `custom-${Date.now()}`,
-      productId: product.id,
+      productId: selectedTemplate?.id.toString() || `${productType}-001`,
       productType: productType,
-      productName: product.name || `${productType} Personalizado`,
-      basePrice: product.basePrice,
+      productName: productName,
+      basePrice: basePrice,
       selectedColor: selectedColor,
       selectedSize: selectedSize,
       designs: allDesigns,
@@ -240,7 +301,7 @@ export const CustomizerPage = () => {
   };
 
   // Colores disponibles
-  const availableColors = [
+  const availableColors = selectedTemplate?.colors.map(c => c.hexCode) || [
     '#FFFFFF', // Blanco
     '#000000', // Negro
     '#EF4444', // Rojo
@@ -285,6 +346,15 @@ export const CustomizerPage = () => {
               />
             </div>
 
+            {/* Selector de Modelos */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <TemplateSelector
+                productTypeId={productTypeId}
+                selectedTemplate={selectedTemplate}
+                onTemplateSelect={handleTemplateSelect}
+              />
+            </div>
+
             <div className="bg-white rounded-xl shadow-md p-6">
               <ColorPicker
                 colors={availableColors}
@@ -318,6 +388,29 @@ export const CustomizerPage = () => {
           {/* Center - Canvas */}
           <main className="lg:col-span-6">
             <div className="bg-white rounded-xl shadow-md p-6">
+              {/* Preview del modelo seleccionado */}
+              {selectedTemplate && (
+                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {selectedTemplate.images?.front && (
+                      <img
+                        src={selectedTemplate.images.front}
+                        alt={selectedTemplate.name}
+                        className="w-12 h-12 object-cover rounded-lg"
+                      />
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-purple-900">
+                        Modelo: {selectedTemplate.name}
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        Precio base: ${selectedTemplate.basePrice.toLocaleString('es-CO')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-center">
                 <canvas
                   ref={canvasRef}

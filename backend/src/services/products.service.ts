@@ -142,7 +142,9 @@ export async function listProducts(query: ListProductsQuery): Promise<PaginatedP
 
   const skip = (page - 1) * limit;
 
-  const where: Prisma.ProductWhereInput = {};
+  const where: Prisma.ProductWhereInput = {
+    isTemplate: false, // Solo mostrar productos, no modelos/templates
+  };
 
   // Búsqueda por texto
   if (search) {

@@ -30,8 +30,9 @@ import { RolesPage } from './pages/admin/RolesPage';
 import { RoleFormPage } from './pages/admin/RoleFormPage';
 import { SizesPage } from './pages/admin/catalogs/SizesPage';
 import { ColorsPage } from './pages/admin/catalogs/ColorsPage';
-import { ProductTypesPage } from './pages/admin/catalogs/ProductTypesPage';
 import { CategoriesPage } from './pages/admin/catalogs/CategoriesPage';
+import { ProductTypesPage } from './pages/admin/ProductTypesPage';
+import { TemplatesPage } from './pages/admin/TemplatesPage';
 import { OrdersPage } from './pages/admin/OrdersPage';
 import { OrderDetailPage } from './pages/admin/OrderDetailPage';
 import { ShippingPage } from './pages/admin/ShippingPage';
@@ -213,6 +214,16 @@ function App() {
                                       element={
                                         <PermissionRoute permission="catalogs.view">
                                           <CategoriesPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Templates/Modelos */}
+                                    <Route
+                                      path="/templates"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <TemplatesPage />
                                         </PermissionRoute>
                                       }
                                     />

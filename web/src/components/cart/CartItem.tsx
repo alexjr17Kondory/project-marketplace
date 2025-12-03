@@ -26,10 +26,11 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) =>
   return (
     <div className="flex gap-4 p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
       {/* Imagen del producto */}
-      <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-        <div
-          className="w-20 h-20 rounded-lg"
-          style={{ backgroundColor: item.selectedColor }}
+      <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+        <img
+          src={item.product.images.front}
+          alt={item.product.name}
+          className="w-full h-full object-cover"
         />
       </div>
 

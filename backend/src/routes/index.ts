@@ -8,6 +8,7 @@ import settingsRoutes from './settings.routes';
 import rolesRoutes from './roles.routes';
 import uploadsRoutes from './uploads.routes';
 import webhooksRoutes from './webhooks.routes';
+import templatesRoutes from './templates.routes';
 
 const router = Router();
 
@@ -73,5 +74,8 @@ router.use('/uploads', uploadsRoutes);
 
 // Rutas de webhooks (Wompi, etc.)
 router.use('/webhooks', webhooksRoutes);
+
+// Rutas de templates/modelos
+router.use('/templates', templatesRoutes);
 
 export default router;

@@ -125,7 +125,7 @@ export const ProductCard = ({ product, onAddToCart, onCustomize }: ProductCardPr
             <div
               key={idx}
               className="w-3.5 h-3.5 rounded-full border border-gray-200"
-              style={{ backgroundColor: color.hex }}
+              style={{ backgroundColor: color.hexCode }}
               title={color.name}
             />
           ))}
