@@ -2,7 +2,7 @@
 
 ## ESTADO ACTUAL
 
-**Fecha:** 2025-11-30
+**Fecha:** 2025-12-02
 **Entorno:** Docker (MariaDB + Backend + Frontend)
 **Estado General:** 100% Completado
 
@@ -70,39 +70,54 @@ backend/
 │   │   └── cors.ts              # CORS config ✅
 │   │
 │   ├── routes/
-│   │   ├── index.ts             # Router principal ✅
-│   │   ├── auth.routes.ts       # /api/auth/* ✅
-│   │   ├── users.routes.ts      # /api/users/* ✅
-│   │   ├── products.routes.ts   # /api/products/* ✅
-│   │   ├── orders.routes.ts     # /api/orders/* ✅
-│   │   ├── roles.routes.ts      # /api/roles/* ✅
-│   │   ├── catalogs.routes.ts   # /api/catalogs/* ✅
-│   │   ├── settings.routes.ts   # /api/settings/* ✅
-│   │   ├── uploads.routes.ts    # /api/uploads/* ✅
-│   │   └── webhooks.routes.ts   # /api/webhooks/* ✅
+│   │   ├── index.ts                  # Router principal ✅
+│   │   ├── auth.routes.ts            # /api/auth/* ✅
+│   │   ├── users.routes.ts           # /api/users/* ✅
+│   │   ├── products.routes.ts        # /api/products/* ✅
+│   │   ├── orders.routes.ts          # /api/orders/* ✅
+│   │   ├── roles.routes.ts           # /api/roles/* ✅
+│   │   ├── catalogs.routes.ts        # /api/catalogs/* ✅
+│   │   ├── settings.routes.ts        # /api/settings/* ✅
+│   │   ├── uploads.routes.ts         # /api/uploads/* ✅
+│   │   ├── webhooks.routes.ts        # /api/webhooks/* ✅
+│   │   ├── zone-types.routes.ts      # /api/zone-types/* ✅
+│   │   ├── input-types.routes.ts     # /api/input-types/* ✅
+│   │   ├── inputs.routes.ts          # /api/inputs/* ✅
+│   │   ├── input-batches.routes.ts   # /api/input-batches/* ✅
+│   │   └── template-zones.routes.ts  # /api/template-zones/* ✅
 │   │
 │   ├── controllers/
-│   │   ├── auth.controller.ts    ✅
-│   │   ├── users.controller.ts   ✅
-│   │   ├── products.controller.ts ✅
-│   │   ├── orders.controller.ts  ✅
-│   │   ├── roles.controller.ts   ✅
-│   │   ├── catalogs.controller.ts ✅
-│   │   ├── settings.controller.ts ✅
-│   │   ├── uploads.controller.ts ✅
-│   │   └── webhooks.controller.ts ✅
+│   │   ├── auth.controller.ts           ✅
+│   │   ├── users.controller.ts          ✅
+│   │   ├── products.controller.ts       ✅
+│   │   ├── orders.controller.ts         ✅
+│   │   ├── roles.controller.ts          ✅
+│   │   ├── catalogs.controller.ts       ✅
+│   │   ├── settings.controller.ts       ✅
+│   │   ├── uploads.controller.ts        ✅
+│   │   ├── webhooks.controller.ts       ✅
+│   │   ├── zone-types.controller.ts     ✅
+│   │   ├── input-types.controller.ts    ✅
+│   │   ├── inputs.controller.ts         ✅
+│   │   ├── input-batches.controller.ts  ✅
+│   │   └── template-zones.controller.ts ✅
 │   │
 │   ├── services/
-│   │   ├── auth.service.ts       ✅
-│   │   ├── users.service.ts      ✅
-│   │   ├── products.service.ts   ✅
-│   │   ├── orders.service.ts     ✅
-│   │   ├── roles.service.ts      ✅
-│   │   ├── catalogs.service.ts   ✅
-│   │   ├── settings.service.ts   ✅
-│   │   ├── storage.service.ts    ✅
-│   │   ├── email.service.ts      ✅
-│   │   └── wompi.service.ts      ✅
+│   │   ├── auth.service.ts              ✅
+│   │   ├── users.service.ts             ✅
+│   │   ├── products.service.ts          ✅
+│   │   ├── orders.service.ts            ✅
+│   │   ├── roles.service.ts             ✅
+│   │   ├── catalogs.service.ts          ✅
+│   │   ├── settings.service.ts          ✅
+│   │   ├── storage.service.ts           ✅
+│   │   ├── email.service.ts             ✅
+│   │   ├── wompi.service.ts             ✅
+│   │   ├── zone-types.service.ts        ✅
+│   │   ├── input-types.service.ts       ✅
+│   │   ├── inputs.service.ts            ✅
+│   │   ├── input-batches.service.ts     ✅
+│   │   └── template-zones.service.ts    ✅
 │   │
 │   ├── middleware/
 │   │   ├── auth.middleware.ts    ✅
@@ -203,6 +218,16 @@ backend/
 - [x] CRUD /api/catalogs/colors
 - [x] CRUD /api/catalogs/categories
 - [x] CRUD /api/catalogs/product-types
+
+### FASE 6.1: API de Templates y Zonas ✅ COMPLETADA
+
+- [x] CRUD /api/zone-types (tipos de zona globales)
+- [x] CRUD /api/input-types (tipos de insumo)
+- [x] CRUD /api/inputs (inventario de insumos)
+- [x] CRUD /api/input-batches (lotes de inventario)
+- [x] CRUD /api/template-zones (zonas por template)
+- [x] POST /api/template-zones/:id/input (asignar insumo a zona)
+- [x] DELETE /api/template-zones/:id/input (desasignar insumo)
 
 ### FASE 7: API de Pedidos ✅ COMPLETADA
 
@@ -323,6 +348,46 @@ PUT    /api/catalogs/product-types/:id # Actualizar (admin)
 DELETE /api/catalogs/product-types/:id # Eliminar (admin)
 ```
 
+### Tipos de Zona
+```
+GET    /api/zone-types            # Lista tipos de zona (público)
+GET    /api/zone-types/:id        # Detalle tipo de zona (público)
+POST   /api/zone-types            # Crear tipo (admin)
+PUT    /api/zone-types/:id        # Actualizar tipo (admin)
+DELETE /api/zone-types/:id        # Eliminar tipo (admin)
+```
+
+### Tipos de Insumo
+```
+GET    /api/input-types           # Lista tipos de insumo (admin)
+GET    /api/input-types/:id       # Detalle tipo de insumo (admin)
+POST   /api/input-types           # Crear tipo (admin)
+PUT    /api/input-types/:id       # Actualizar tipo (admin)
+DELETE /api/input-types/:id       # Eliminar tipo (admin)
+```
+
+### Inventario de Insumos
+```
+GET    /api/inputs                # Lista insumos (admin)
+GET    /api/inputs/:id            # Detalle insumo (admin)
+POST   /api/inputs                # Crear insumo (admin)
+PUT    /api/inputs/:id            # Actualizar insumo (admin)
+DELETE /api/inputs/:id            # Eliminar insumo (admin)
+GET    /api/inputs/low-stock      # Insumos con stock bajo (admin)
+POST   /api/inputs/:id/recalculate-stock  # Recalcular stock (admin)
+```
+
+### Zonas de Template
+```
+GET    /api/template-zones/template/:templateId  # Zonas de un template
+GET    /api/template-zones/:id                   # Detalle zona
+POST   /api/template-zones/template/:templateId  # Crear zona (admin)
+PUT    /api/template-zones/:id                   # Actualizar zona (admin)
+DELETE /api/template-zones/:id                   # Eliminar zona (admin)
+POST   /api/template-zones/:id/input             # Asignar insumo a zona (admin)
+DELETE /api/template-zones/:id/input             # Desasignar insumo (admin)
+```
+
 ### Pedidos
 ```
 POST   /api/orders                # Crear pedido
@@ -366,11 +431,16 @@ GET    /api/health                # Health check
 
 | Tabla | Cantidad | Descripcion |
 |-------|----------|-------------|
-| Users | 4 | Admin, vendedor, soporte, cliente |
-| Roles | 3 | SuperAdmin, Admin, Cliente |
-| Products | 29 | Catalogo completo |
-| Categories | 8 | Ropa, Bebidas, Hogar, etc |
-| ProductTypes | 22+ | Camiseta, taza, gorra, etc |
+| Users | 3 | Admin, vendedor, cliente |
+| Roles | 3 | SuperAdmin, Administrador, Cliente |
+| Products | 25 | Productos regulares |
+| Templates | 2 | Camiseta (4 zonas), Taza (1 zona) |
+| TemplateZones | 5 | Zonas personalizables |
+| ZoneTypes | 5 | Frente, Espalda, Mangas, Alrededor, Superior |
+| InputTypes | 6 | DTF, Vinilo, Sublimación, etc |
+| Inputs | 6 | Inventario de insumos con stock |
+| Categories | 5 | Ropa, Bebidas, Hogar, etc |
+| ProductTypes | 22 | Camiseta, taza, gorra, etc |
 | Sizes | 7 | XS a XXL + Unica |
 | Colors | 15 | Blanco a Gris |
 | Settings | 4 | general, shipping, payment, appearance |
@@ -380,8 +450,7 @@ GET    /api/health                # Health check
 | Email | Password | Rol |
 |-------|----------|-----|
 | admin@marketplace.com | admin123 | SuperAdmin |
-| vendedor@marketplace.com | vendedor123 | Admin |
-| soporte@marketplace.com | soporte123 | Admin |
+| vendedor@marketplace.com | vendedor123 | Administrador |
 | cliente@marketplace.com | cliente123 | Cliente |
 
 ---
@@ -417,5 +486,28 @@ El backend esta 100% completado. Los siguientes pasos son:
 
 ---
 
-**Ultima actualizacion:** 2025-11-30
-**Version:** 3.0
+---
+
+## CHANGELOG
+
+### v3.1 (2025-12-02)
+- ✅ Sistema de Templates y Zonas Personalizables
+  - API de Zone Types (tipos de zona globales)
+  - API de Input Types y Inputs (gestión de inventario)
+  - API de Input Batches (lotes de inventario)
+  - API de Template Zones (zonas de personalización por template)
+  - Endpoints para asignar/desasignar insumos a zonas
+- ✅ 5 nuevos módulos agregados (15 archivos)
+- ✅ Seed actualizado con templates y zonas de ejemplo
+- ✅ Manejo de stock con tipos Decimal en Prisma
+
+### v3.0 (2025-11-30)
+- ✅ Backend completado al 100%
+- ✅ Todas las APIs implementadas
+- ✅ Integraciones: Cloudinary, Nodemailer, Wompi
+- ✅ Documentación Swagger completa
+
+---
+
+**Ultima actualizacion:** 2025-12-02
+**Version:** 3.1
