@@ -112,6 +112,9 @@ model Product {
 
   orderItems OrderItem[]
 
+  // Relación con zonas de template (si isTemplate = true)
+  templateZones TemplateZone[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -304,4 +307,233 @@ model Setting {
   updatedAt DateTime @updatedAt
 
   @@map("settings")
+}
+
+// ==================== TEMPLATES Y ZONAS ====================
+
+// Tipo de Zona (catálogo: Frente, Espalda, Mangas, etc.)
+model ZoneType {
+  id          Int     @id @default(autoincrement())
+  name        String  // "Frente", "Espalda", "Manga"
+  slug        String  @unique // "front", "back", "sleeve"
+  description String? @db.Text
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  zones TemplateZone[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("zone_types")
+}
+
+// Zona específica de un template
+model TemplateZone {
+  id         Int @id @default(autoincrement())
+  templateId Int // FK a Product (donde isTemplate = true)
+  template   Product @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  zoneTypeId Int // FK a ZoneType
+  zoneType   ZoneType @relation(fields: [zoneTypeId], references: [id])
+
+  // Identificador de zona según PrintZone type
+  zoneId String // 'front-regular', 'back-large', 'sleeve-small', etc.
+
+  // Información de la zona
+  name        String // "Frente Regular (18x25cm)"
+  description String? @db.Text
+
+  // Dimensiones máximas de la zona (en píxeles, 1px = 0.1cm)
+  maxWidth  Int // 180px = 18cm
+  maxHeight Int // 250px = 25cm
+
+  // Posición en el canvas
+  positionX Int // Coordenada X
+  positionY Int // Coordenada Y
+
+  // Control de usuario
+  isEditable Boolean @default(true) // Si el usuario puede modificar esta zona
+  isRequired Boolean @default(false) // Si es obligatorio que el usuario agregue diseño
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  // Una zona puede tener UN insumo predefinido
+  zoneInput ZoneInput?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([templateId])
+  @@index([zoneTypeId])
+  @@map("template_zones")
+}
+
+// Insumo/Diseño predefinido de una zona
+model ZoneInput {
+  id             Int          @id @default(autoincrement())
+  templateZoneId Int          @unique // FK a TemplateZone (relación 1:1)
+  templateZone   TemplateZone @relation(fields: [templateZoneId], references: [id], onDelete: Cascade)
+
+  // Relación con insumo del inventario
+  inputId Int? // FK a Input (insumo del inventario)
+  input   Input? @relation(fields: [inputId], references: [id], onDelete: SetNull)
+
+  // Imagen del insumo
+  imageUrl          String  // URL pública de la imagen
+  imageData         String? @db.LongText // Base64 comprimida (para preview rápido)
+  originalImageData String? @db.LongText // Base64 original (para producción)
+  fileName          String?
+  fileSize          Int? // Tamaño en bytes
+
+  // Propiedades del diseño
+  positionX Int   @default(0)
+  positionY Int   @default(0)
+  width     Int   @default(100)
+  height    Int   @default(100)
+  rotation  Float @default(0) // En grados
+  opacity   Float @default(1) // 0 a 1
+
+  // Control
+  isLocked Boolean @default(false) // Si está bloqueado, el usuario NO puede modificar/eliminar
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inputId])
+  @@map("zone_inputs")
+}
+
+// ==================== INVENTARIO DE INSUMOS ====================
+
+// Tipo de Insumo (DTF, Vinilo, Sublimación, etc.)
+model InputType {
+  id          Int     @id @default(autoincrement())
+  name        String  // "DTF", "Vinilo Textil", "Sublimación"
+  slug        String  @unique // "dtf", "vinilo-textil", "sublimacion"
+  description String? @db.Text
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  inputs Input[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("input_types")
+}
+
+// Insumo (material de inventario)
+model Input {
+  id          Int    @id @default(autoincrement())
+  code        String @unique // Código único del insumo
+  name        String // Nombre descriptivo
+  description String? @db.Text
+
+  inputTypeId Int // FK a InputType
+  inputType   InputType @relation(fields: [inputTypeId], references: [id])
+
+  // Información del insumo
+  unitOfMeasure String // "cm²", "unidad", "metro", etc.
+  unitCost      Decimal @db.Decimal(10, 2) // Costo por unidad
+
+  // Stock
+  currentStock  Decimal @default(0) @db.Decimal(10, 2) // Stock actual
+  minStock      Decimal @default(0) @db.Decimal(10, 2) // Stock mínimo (alerta)
+  maxStock      Decimal @default(0) @db.Decimal(10, 2) // Stock máximo
+
+  // Información adicional
+  supplier     String? // Proveedor
+  supplierCode String? // Código del proveedor
+  notes        String? @db.Text
+
+  isActive Boolean @default(true)
+
+  // Relaciones
+  batches       InputBatch[] // Lotes de este insumo
+  movements     InputBatchMovement[] // Movimientos de inventario
+  zoneInputs    ZoneInput[] // Zonas que usan este insumo
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inputTypeId])
+  @@map("inputs")
+}
+
+// Lote de Insumo (entrada de inventario)
+model InputBatch {
+  id      Int    @id @default(autoincrement())
+  inputId Int // FK a Input
+  input   Input  @relation(fields: [inputId], references: [id], onDelete: Cascade)
+
+  batchNumber String // Número de lote
+  supplier    String? // Proveedor de este lote
+  invoiceRef  String? // Referencia de factura
+
+  // Cantidades
+  initialQuantity  Decimal @db.Decimal(10, 2) // Cantidad inicial del lote
+  currentQuantity  Decimal @db.Decimal(10, 2) // Cantidad actual disponible
+  reservedQuantity Decimal @default(0) @db.Decimal(10, 2) // Cantidad reservada
+
+  // Costos
+  unitCost  Decimal @db.Decimal(10, 2) // Costo unitario de este lote
+  totalCost Decimal @db.Decimal(10, 2) // Costo total del lote
+
+  // Fechas
+  purchaseDate DateTime? // Fecha de compra
+  expiryDate   DateTime? // Fecha de vencimiento (si aplica)
+
+  notes String? @db.Text
+
+  isActive Boolean @default(true)
+
+  movements InputBatchMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inputId])
+  @@unique([inputId, batchNumber])
+  @@map("input_batches")
+}
+
+// Movimiento de Lote de Insumo
+model InputBatchMovement {
+  id           Int        @id @default(autoincrement())
+  inputId      Int // FK a Input
+  input        Input      @relation(fields: [inputId], references: [id], onDelete: Cascade)
+  inputBatchId Int // FK a InputBatch
+  inputBatch   InputBatch @relation(fields: [inputBatchId], references: [id], onDelete: Cascade)
+
+  movementType MovementType // ENTRADA, SALIDA, AJUSTE, RESERVA, LIBERACION
+  quantity     Decimal      @db.Decimal(10, 2) // Cantidad del movimiento (positiva o negativa)
+
+  // Referencias
+  referenceType String? // "order", "production", "adjustment", "return"
+  referenceId   Int? // ID de la referencia (ej: orderId, productionId)
+
+  reason String? @db.Text // Razón del movimiento
+  notes  String? @db.Text
+
+  userId Int? // Usuario que realizó el movimiento
+
+  createdAt DateTime @default(now())
+
+  @@index([inputId])
+  @@index([inputBatchId])
+  @@index([movementType])
+  @@index([createdAt])
+  @@map("input_batch_movements")
+}
+
+enum MovementType {
+  ENTRADA // Entrada de inventario (compra)
+  SALIDA // Salida de inventario (uso en producción)
+  AJUSTE // Ajuste de inventario (corrección)
+  RESERVA // Reserva de inventario (para orden)
+  LIBERACION // Liberación de reserva
+  DEVOLUCION // Devolución
+  MERMA // Pérdida/merma
 }

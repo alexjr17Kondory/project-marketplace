@@ -967,6 +967,89 @@ async function main() {
   });
   console.log('  ✅ Configuración de notificaciones');
 
+  // ==================== TIPOS DE ZONA ====================
+  console.log('\n📐 Creando tipos de zona...');
+
+  const zoneTypes = [
+    { name: 'Frente', slug: 'front', description: 'Zonas frontales del producto', order: 1 },
+    { name: 'Espalda', slug: 'back', description: 'Zonas traseras del producto', order: 2 },
+    { name: 'Mangas', slug: 'sleeve', description: 'Zonas de mangas y laterales', order: 3 },
+    { name: 'Alrededor', slug: 'around', description: 'Diseño alrededor del producto (cilíndricos)', order: 4 },
+    { name: 'Superior', slug: 'top', description: 'Parte superior del producto', order: 5 },
+  ];
+
+  for (const zoneType of zoneTypes) {
+    await prisma.zoneType.upsert({
+      where: { slug: zoneType.slug },
+      update: { name: zoneType.name, description: zoneType.description },
+      create: {
+        name: zoneType.name,
+        slug: zoneType.slug,
+        description: zoneType.description,
+        sortOrder: zoneType.order,
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Tipo de Zona: ${zoneType.name}`);
+  }
+
+  // ==================== TIPOS DE INSUMO ====================
+  console.log('\n🧵 Creando tipos de insumo...');
+
+  const inputTypes = [
+    {
+      name: 'DTF (Direct to Film)',
+      slug: 'dtf',
+      description: 'Transferencia directa a film para aplicación en prendas',
+      order: 1,
+    },
+    {
+      name: 'Vinilo Textil',
+      slug: 'vinilo-textil',
+      description: 'Vinilo termotransferible para telas',
+      order: 2,
+    },
+    {
+      name: 'Sublimación',
+      slug: 'sublimacion',
+      description: 'Tinta sublimable para impresión en poliéster',
+      order: 3,
+    },
+    {
+      name: 'Vinilo Adhesivo',
+      slug: 'vinilo-adhesivo',
+      description: 'Vinilo autoadhesivo para superficies rígidas',
+      order: 4,
+    },
+    {
+      name: 'Serigrafía',
+      slug: 'serigrafia',
+      description: 'Tintas para serigrafía textil',
+      order: 5,
+    },
+    {
+      name: 'Bordado',
+      slug: 'bordado',
+      description: 'Hilos y materiales para bordado',
+      order: 6,
+    },
+  ];
+
+  for (const inputType of inputTypes) {
+    await prisma.inputType.upsert({
+      where: { slug: inputType.slug },
+      update: { name: inputType.name, description: inputType.description },
+      create: {
+        name: inputType.name,
+        slug: inputType.slug,
+        description: inputType.description,
+        sortOrder: inputType.order,
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Tipo de Insumo: ${inputType.name}`);
+  }
+
   console.log('\n✨ Seed completado exitosamente!\n');
   console.log('📊 Resumen:');
   console.log(`   - ${products.length} productos`);
@@ -974,6 +1057,8 @@ async function main() {
   console.log(`   - ${productTypes.length} tipos de producto`);
   console.log(`   - ${sizes.length} tallas`);
   console.log(`   - ${colors.length} colores`);
+  console.log(`   - ${zoneTypes.length} tipos de zona`);
+  console.log(`   - ${inputTypes.length} tipos de insumo`);
   console.log('\n👤 Usuarios de prueba (1 por rol):');
   console.log('   📧 SuperAdmin: admin@marketplace.com / admin123 (roleId: 1)');
   console.log('   📧 Cliente: cliente@marketplace.com / cliente123 (roleId: 2)');
