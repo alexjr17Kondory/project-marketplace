@@ -2,10 +2,10 @@
 
 ## ESTADO GENERAL
 
-**Fecha:** 2025-11-30
+**Fecha:** 2025-12-02
 **Deploy Frontend:** https://project-marketplace.vercel.app
 **Backend Local:** http://localhost:3001/api
-**Progreso Total:** 95%
+**Progreso Total:** 96%
 
 ---
 
@@ -114,7 +114,7 @@
 
 ## FASE 7: BACKEND + BASE DE DATOS ✅
 
-**Estado:** 95% Completado
+**Estado:** 96% Completado
 **Documentacion:** [BACKEND_ROADMAP.md](./BACKEND_ROADMAP.md)
 
 ### Stack
@@ -135,6 +135,10 @@
 | Catalogs | sizes, colors, categories, product-types | ✅ |
 | Orders | CRUD + status + my-orders | ✅ |
 | Settings | public, admin, por key | ✅ |
+| Zone Types | CRUD + filtros | ✅ |
+| Input Types | CRUD + filtros | ✅ |
+| Inputs | CRUD + stock + filtros | ✅ |
+| Template Zones | CRUD + zone inputs | ✅ |
 
 ### Integracion Frontend ✅
 
@@ -159,11 +163,16 @@
 |-------|-----------|
 | Users | 3 |
 | Roles | 3 |
-| Products | 29 |
-| Categories | 8 |
-| ProductTypes | 22+ |
+| Products | 25 |
+| Templates | 2 (Camiseta, Taza) |
+| Categories | 5 |
+| ProductTypes | 22 |
 | Sizes | 7 |
 | Colors | 15 |
+| ZoneTypes | 5 |
+| TemplateZones | 5 |
+| InputTypes | 6 |
+| Inputs | 6 |
 | Settings | 4 |
 
 ### Usuarios de Prueba (1 por rol)
@@ -265,6 +274,24 @@ docker exec marketplace-backend npx prisma studio
 
 ## CHANGELOG RECIENTE
 
+### v5.3 (2025-12-02)
+- ✅ Sistema de Templates y Zonas Personalizables
+  - API de Zone Types (tipos de zona: Frente, Espalda, Mangas, etc.)
+  - API de Input Types y Inputs (gestión de inventario)
+  - API de Template Zones (zonas de personalización por template)
+  - Páginas de administración: ZoneTypesPage, InputTypesPage, InputsPage
+  - Formularios: ZoneTypeDetailPage, InputTypeDetailPage, InputDetailPage
+  - Componente TemplateZonesManager para gestionar zonas en templates
+- ✅ Corrección Frontend-Backend
+  - Corregido acceso a datos de API (response.data en lugar de response.data.data)
+  - Interfaces TypeScript sincronizadas con backend
+  - Manejo correcto de campos Decimal de Prisma (currentStock, minStock, maxStock, unitCost)
+- ✅ Seed actualizado con datos de ejemplo
+  - 2 templates: Camiseta Personalizable y Taza 11oz
+  - 5 zonas de template configuradas
+  - 5 tipos de zona globales
+  - 6 tipos de insumo y 6 insumos de ejemplo
+
 ### v5.2 (2025-11-30)
 - ✅ SettingsContext conectado a API
 - ✅ Backend ampliado con nuevos endpoints:
@@ -311,5 +338,5 @@ docker exec marketplace-backend npx prisma studio
 
 ---
 
-**Ultima actualizacion:** 2025-11-30
-**Version:** 5.2
+**Ultima actualizacion:** 2025-12-02
+**Version:** 5.3

@@ -9,6 +9,11 @@ import rolesRoutes from './roles.routes';
 import uploadsRoutes from './uploads.routes';
 import webhooksRoutes from './webhooks.routes';
 import templatesRoutes from './templates.routes';
+import zoneTypesRoutes from './zone-types.routes';
+import templateZonesRoutes from './template-zones.routes';
+import inputTypesRoutes from './input-types.routes';
+import inputsRoutes from './inputs.routes';
+import inputBatchesRoutes from './input-batches.routes';
 
 const router = Router();
 
@@ -77,5 +82,20 @@ router.use('/webhooks', webhooksRoutes);
 
 // Rutas de templates/modelos
 router.use('/templates', templatesRoutes);
+
+// Rutas de tipos de zona
+router.use('/zone-types', zoneTypesRoutes);
+
+// Rutas de zonas de template
+router.use('/template-zones', templateZonesRoutes);
+
+// Rutas de tipos de insumo
+router.use('/input-types', inputTypesRoutes);
+
+// Rutas de insumos
+router.use('/inputs', inputsRoutes);
+
+// Rutas de lotes de insumo
+router.use('/input-batches', inputBatchesRoutes);
 
 export default router;

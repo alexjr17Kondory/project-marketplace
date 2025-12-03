@@ -858,18 +858,28 @@ async function main() {
   ];
 
   for (const product of products) {
-    await prisma.product.upsert({
+    // Get category and product type IDs
+    const categoryRecord = await prisma.category.findUnique({
+      where: { slug: product.category },
+    });
+
+    const productTypeRecord = await prisma.productType.findUnique({
+      where: { slug: product.type },
+    });
+
+    // Upsert the product
+    const createdProduct = await prisma.product.upsert({
       where: { sku: product.sku },
       update: {
         name: product.name,
         slug: product.slug,
         description: product.description,
+        categoryId: categoryRecord?.id,
+        typeId: productTypeRecord?.id,
         basePrice: product.basePrice,
         stock: product.stock,
         featured: product.featured,
         images: product.images,
-        colors: product.colors,
-        sizes: product.sizes,
         tags: product.tags,
       },
       create: {
@@ -877,18 +887,78 @@ async function main() {
         slug: product.slug,
         name: product.name,
         description: product.description,
-        type: product.type,
-        category: product.category,
+        categoryId: categoryRecord?.id,
+        typeId: productTypeRecord?.id,
         basePrice: product.basePrice,
         stock: product.stock,
         featured: product.featured,
         images: product.images,
-        colors: product.colors,
-        sizes: product.sizes,
         tags: product.tags,
         isActive: true,
       },
     });
+
+    // Handle product colors (many-to-many relationship)
+    if (product.colors && Array.isArray(product.colors)) {
+      for (const colorData of product.colors) {
+        const colorSlug = slugify(colorData.name);
+
+        // Find or create the color
+        const colorRecord = await prisma.color.upsert({
+          where: { slug: colorSlug },
+          update: {},
+          create: {
+            name: colorData.name,
+            slug: colorSlug,
+            hexCode: colorData.hex,
+            isActive: true,
+          },
+        });
+
+        // Create the product-color relationship
+        await prisma.productColor.upsert({
+          where: {
+            productId_colorId: {
+              productId: createdProduct.id,
+              colorId: colorRecord.id,
+            },
+          },
+          update: {},
+          create: {
+            productId: createdProduct.id,
+            colorId: colorRecord.id,
+          },
+        });
+      }
+    }
+
+    // Handle product sizes (many-to-many relationship)
+    if (product.sizes && Array.isArray(product.sizes)) {
+      for (const sizeName of product.sizes) {
+        // Find the size by name
+        const sizeRecord = await prisma.size.findFirst({
+          where: { name: sizeName },
+        });
+
+        if (sizeRecord) {
+          // Create the product-size relationship
+          await prisma.productSize.upsert({
+            where: {
+              productId_sizeId: {
+                productId: createdProduct.id,
+                sizeId: sizeRecord.id,
+              },
+            },
+            update: {},
+            create: {
+              productId: createdProduct.id,
+              sizeId: sizeRecord.id,
+            },
+          });
+        }
+      }
+    }
+
     console.log(`  ✅ Producto: ${product.name} (SKU: ${product.sku})`);
   }
 
@@ -993,6 +1063,174 @@ async function main() {
     console.log(`  ✅ Tipo de Zona: ${zoneType.name}`);
   }
 
+  // ==================== TEMPLATES (PRODUCTOS CON ZONAS) ====================
+  console.log('\n🎨 Creando templates de ejemplo...');
+
+  // Buscar tipos de zona que acabamos de crear
+  const frontZoneType = await prisma.zoneType.findUnique({ where: { slug: 'front' } });
+  const backZoneType = await prisma.zoneType.findUnique({ where: { slug: 'back' } });
+  const sleeveZoneType = await prisma.zoneType.findUnique({ where: { slug: 'sleeve' } });
+  const aroundZoneType = await prisma.zoneType.findUnique({ where: { slug: 'around' } });
+
+  // Buscar categorías y tipos
+  const ropaCategoryRecord = await prisma.category.findUnique({ where: { slug: 'ropa' } });
+  const camisetaTypeRecord = await prisma.productType.findUnique({ where: { slug: 'camiseta' } });
+  const tazaTypeRecord = await prisma.productType.findUnique({ where: { slug: 'taza' } });
+
+  // Template 1: Camiseta con zonas Front, Back y Mangas
+  const templateCamiseta = await prisma.product.upsert({
+    where: { sku: 'TMPL-CAM-001' },
+    update: {},
+    create: {
+      sku: 'TMPL-CAM-001',
+      slug: 'camiseta-personalizable',
+      name: 'Camiseta Personalizable',
+      description: 'Camiseta 100% algodón con áreas personalizables en frente, espalda y mangas',
+      categoryId: ropaCategoryRecord?.id,
+      typeId: camisetaTypeRecord?.id,
+      basePrice: 35000,
+      stock: 500,
+      featured: true,
+      isTemplate: true,
+      images: {
+        front: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+        back: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80',
+      },
+      tags: ['camiseta', 'personalizable', 'template'],
+      isActive: true,
+    },
+  });
+  console.log(`  ✅ Template: ${templateCamiseta.name}`);
+
+  // Crear zonas para la camiseta
+  if (frontZoneType) {
+    const zone1 = await prisma.templateZone.create({
+      data: {
+        templateId: templateCamiseta.id,
+        zoneTypeId: frontZoneType.id,
+        zoneId: 'front-regular',
+        name: 'Pecho Central (20x15cm)',
+        description: 'Área central del frente ideal para logos y textos',
+        positionX: 50,
+        positionY: 30,
+        maxWidth: 200,
+        maxHeight: 150,
+        isEditable: true,
+        isRequired: false,
+        sortOrder: 1,
+        isActive: true,
+      },
+    });
+    console.log(`    ✅ Zona: ${zone1.name}`);
+  }
+
+  if (backZoneType) {
+    const zone2 = await prisma.templateZone.create({
+      data: {
+        templateId: templateCamiseta.id,
+        zoneTypeId: backZoneType.id,
+        zoneId: 'back-large',
+        name: 'Espalda Completa (25x30cm)',
+        description: 'Área completa de la espalda para diseños grandes',
+        positionX: 50,
+        positionY: 40,
+        maxWidth: 250,
+        maxHeight: 300,
+        isEditable: true,
+        isRequired: false,
+        sortOrder: 2,
+        isActive: true,
+      },
+    });
+    console.log(`    ✅ Zona: ${zone2.name}`);
+  }
+
+  if (sleeveZoneType) {
+    const zone3 = await prisma.templateZone.create({
+      data: {
+        templateId: templateCamiseta.id,
+        zoneTypeId: sleeveZoneType.id,
+        zoneId: 'sleeve-left',
+        name: 'Manga Izquierda (8x8cm)',
+        description: 'Área pequeña en la manga izquierda',
+        positionX: 20,
+        positionY: 25,
+        maxWidth: 80,
+        maxHeight: 80,
+        isEditable: true,
+        isRequired: false,
+        sortOrder: 3,
+        isActive: true,
+      },
+    });
+    console.log(`    ✅ Zona: ${zone3.name}`);
+
+    const zone4 = await prisma.templateZone.create({
+      data: {
+        templateId: templateCamiseta.id,
+        zoneTypeId: sleeveZoneType.id,
+        zoneId: 'sleeve-right',
+        name: 'Manga Derecha (8x8cm)',
+        description: 'Área pequeña en la manga derecha',
+        positionX: 80,
+        positionY: 25,
+        maxWidth: 80,
+        maxHeight: 80,
+        isEditable: true,
+        isRequired: false,
+        sortOrder: 4,
+        isActive: true,
+      },
+    });
+    console.log(`    ✅ Zona: ${zone4.name}`);
+  }
+
+  // Template 2: Taza con zona alrededor
+  const templateTaza = await prisma.product.upsert({
+    where: { sku: 'TMPL-TAZ-001' },
+    update: {},
+    create: {
+      sku: 'TMPL-TAZ-001',
+      slug: 'taza-personalizable',
+      name: 'Taza Personalizable 11oz',
+      description: 'Taza de cerámica blanca 11oz con área de personalización completa',
+      categoryId: await prisma.category.findUnique({ where: { slug: 'hogar' } }).then(c => c?.id),
+      typeId: tazaTypeRecord?.id,
+      basePrice: 15000,
+      stock: 300,
+      featured: true,
+      isTemplate: true,
+      images: {
+        front: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=800&q=80',
+      },
+      tags: ['taza', 'personalizable', 'template', 'sublimacion'],
+      isActive: true,
+    },
+  });
+  console.log(`  ✅ Template: ${templateTaza.name}`);
+
+  // Crear zona alrededor para la taza
+  if (aroundZoneType) {
+    const zoneTaza = await prisma.templateZone.create({
+      data: {
+        templateId: templateTaza.id,
+        zoneTypeId: aroundZoneType.id,
+        zoneId: 'around-full',
+        name: 'Área Completa 360° (35x20cm)',
+        description: 'Área completa alrededor de la taza para diseños panorámicos',
+        positionX: 0,
+        positionY: 20,
+        maxWidth: 350,
+        maxHeight: 200,
+        isEditable: true,
+        isRequired: true,
+        sortOrder: 1,
+        isActive: true,
+      },
+    });
+    console.log(`    ✅ Zona: ${zoneTaza.name}`);
+  }
+
   // ==================== TIPOS DE INSUMO ====================
   console.log('\n🧵 Creando tipos de insumo...');
 
@@ -1050,21 +1288,145 @@ async function main() {
     console.log(`  ✅ Tipo de Insumo: ${inputType.name}`);
   }
 
+  // ==================== INSUMOS ====================
+  console.log('\n📦 Creando insumos de ejemplo...');
+
+  // Obtener IDs de tipos de insumo
+  const sublimacionType = await prisma.inputType.findUnique({ where: { slug: 'sublimacion' } });
+  const vitroimpressionType = await prisma.inputType.findUnique({ where: { slug: 'vitroimpression' } });
+  const dtfType = await prisma.inputType.findUnique({ where: { slug: 'dtf' } });
+
+  if (sublimacionType) {
+    // Insumos de Sublimación
+    await prisma.input.upsert({
+      where: { code: 'SUB-TELA-POLY-BL' },
+      update: {},
+      create: {
+        code: 'SUB-TELA-POLY-BL',
+        inputTypeId: sublimacionType.id,
+        name: 'Tela Polyester Blanca',
+        description: 'Tela 100% polyester para sublimación, color blanco',
+        unitOfMeasure: 'metros',
+        currentStock: 150,
+        minStock: 50,
+        maxStock: 300,
+        unitCost: 8500,
+        isActive: true,
+      },
+    });
+
+    await prisma.input.upsert({
+      where: { code: 'SUB-TINTA-CYAN' },
+      update: {},
+      create: {
+        code: 'SUB-TINTA-CYAN',
+        inputTypeId: sublimacionType.id,
+        name: 'Tinta Sublimación Cyan',
+        description: 'Tinta para impresora de sublimación, color cyan',
+        unitOfMeasure: 'ml',
+        currentStock: 2500,
+        minStock: 500,
+        maxStock: 5000,
+        unitCost: 45,
+        isActive: true,
+      },
+    });
+
+    await prisma.input.upsert({
+      where: { code: 'SUB-TINTA-MAG' },
+      update: {},
+      create: {
+        code: 'SUB-TINTA-MAG',
+        inputTypeId: sublimacionType.id,
+        name: 'Tinta Sublimación Magenta',
+        description: 'Tinta para impresora de sublimación, color magenta',
+        unitOfMeasure: 'ml',
+        currentStock: 2300,
+        minStock: 500,
+        maxStock: 5000,
+        unitCost: 45,
+        isActive: true,
+      },
+    });
+  }
+
+  if (dtfType) {
+    // Insumos DTF
+    await prisma.input.upsert({
+      where: { code: 'DTF-FILM-A3' },
+      update: {},
+      create: {
+        code: 'DTF-FILM-A3',
+        inputTypeId: dtfType.id,
+        name: 'Film DTF A3',
+        description: 'Película para impresión DTF, tamaño A3',
+        unitOfMeasure: 'hojas',
+        currentStock: 500,
+        minStock: 100,
+        maxStock: 1000,
+        unitCost: 2500,
+        isActive: true,
+      },
+    });
+
+    await prisma.input.upsert({
+      where: { code: 'DTF-POLVO-ADH' },
+      update: {},
+      create: {
+        code: 'DTF-POLVO-ADH',
+        inputTypeId: dtfType.id,
+        name: 'Polvo Adhesivo DTF',
+        description: 'Polvo termoadhesivo for transfers DTF',
+        unitOfMeasure: 'kg',
+        currentStock: 25,
+        minStock: 5,
+        maxStock: 50,
+        unitCost: 85000,
+        isActive: true,
+      },
+    });
+  }
+
+  if (vitroimpressionType) {
+    // Insumos Vitroimpresión
+    await prisma.input.upsert({
+      where: { code: 'VIT-TAZA-11OZ' },
+      update: {},
+      create: {
+        code: 'VIT-TAZA-11OZ',
+        inputTypeId: vitroimpressionType.id,
+        name: 'Taza Cerámica Blanca 11oz',
+        description: 'Taza de cerámica apta para sublimación, 11 onzas',
+        unitOfMeasure: 'unidades',
+        currentStock: 200,
+        minStock: 50,
+        maxStock: 500,
+        unitCost: 4500,
+        isActive: true,
+      },
+    });
+  }
+
+  console.log('  ✅ Insumos de ejemplo creados');
+
   console.log('\n✨ Seed completado exitosamente!\n');
   console.log('📊 Resumen:');
   console.log(`   - ${products.length} productos`);
+  console.log(`   - 2 templates con zonas personalizables (Camiseta y Taza)`);
   console.log(`   - ${categories.length} categorías`);
   console.log(`   - ${productTypes.length} tipos de producto`);
   console.log(`   - ${sizes.length} tallas`);
   console.log(`   - ${colors.length} colores`);
   console.log(`   - ${zoneTypes.length} tipos de zona`);
   console.log(`   - ${inputTypes.length} tipos de insumo`);
+  console.log(`   - 6 insumos de ejemplo`);
   console.log('\n👤 Usuarios de prueba (1 por rol):');
   console.log('   📧 SuperAdmin: admin@marketplace.com / admin123 (roleId: 1)');
   console.log('   📧 Cliente: cliente@marketplace.com / cliente123 (roleId: 2)');
   console.log('   📧 Administrador: vendedor@marketplace.com / vendedor123 (roleId: 3)');
   console.log('\n🔒 Roles del sistema (no editables): SuperAdmin (1), Cliente (2)');
   console.log('✏️  Roles personalizables: Administrador (3+)');
+  console.log('\n🎨 Templates disponibles en /admin-panel/templates');
 }
 
 main()

@@ -11,8 +11,8 @@ datasource db {
 // ==================== USUARIOS ====================
 
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String     @unique
+  id           Int     @id @default(autoincrement())
+  email        String  @unique
   passwordHash String
   name         String
   phone        String?
@@ -81,11 +81,11 @@ enum UserStatus {
 // ==================== PRODUCTOS ====================
 
 model Product {
-  id          Int     @id @default(autoincrement())
-  sku         String  @unique
-  slug        String  @unique
+  id          Int    @id @default(autoincrement())
+  sku         String @unique
+  slug        String @unique
   name        String
-  description String  @db.Text
+  description String @db.Text
 
   // Relaciones con categoría y tipo de producto
   categoryId Int?
@@ -94,11 +94,11 @@ model Product {
   typeId      Int?
   productType ProductType? @relation(fields: [typeId], references: [id], onDelete: SetNull)
 
-  basePrice   Decimal @db.Decimal(10, 2)
-  stock       Int     @default(0)
-  featured    Boolean @default(false)
-  isActive    Boolean @default(true)
-  isTemplate  Boolean @default(false) // Si es true, es un modelo/plantilla para personalización
+  basePrice  Decimal @db.Decimal(10, 2)
+  stock      Int     @default(0)
+  featured   Boolean @default(false)
+  isActive   Boolean @default(true)
+  isTemplate Boolean @default(false) // Si es true, es un modelo/plantilla para personalización
 
   images Json
   tags   Json
@@ -314,7 +314,7 @@ model Setting {
 // Tipo de Zona (catálogo: Frente, Espalda, Mangas, etc.)
 model ZoneType {
   id          Int     @id @default(autoincrement())
-  name        String  // "Frente", "Espalda", "Manga"
+  name        String // "Frente", "Espalda", "Manga"
   slug        String  @unique // "front", "back", "sleeve"
   description String? @db.Text
   sortOrder   Int     @default(0)
@@ -330,7 +330,7 @@ model ZoneType {
 
 // Zona específica de un template
 model TemplateZone {
-  id         Int @id @default(autoincrement())
+  id         Int     @id @default(autoincrement())
   templateId Int // FK a Product (donde isTemplate = true)
   template   Product @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
@@ -381,7 +381,7 @@ model ZoneInput {
   input   Input? @relation(fields: [inputId], references: [id], onDelete: SetNull)
 
   // Imagen del insumo
-  imageUrl          String  // URL pública de la imagen
+  imageUrl          String // URL pública de la imagen
   imageData         String? @db.LongText // Base64 comprimida (para preview rápido)
   originalImageData String? @db.LongText // Base64 original (para producción)
   fileName          String?
@@ -410,7 +410,7 @@ model ZoneInput {
 // Tipo de Insumo (DTF, Vinilo, Sublimación, etc.)
 model InputType {
   id          Int     @id @default(autoincrement())
-  name        String  // "DTF", "Vinilo Textil", "Sublimación"
+  name        String // "DTF", "Vinilo Textil", "Sublimación"
   slug        String  @unique // "dtf", "vinilo-textil", "sublimacion"
   description String? @db.Text
   sortOrder   Int     @default(0)
@@ -426,8 +426,8 @@ model InputType {
 
 // Insumo (material de inventario)
 model Input {
-  id          Int    @id @default(autoincrement())
-  code        String @unique // Código único del insumo
+  id          Int     @id @default(autoincrement())
+  code        String  @unique // Código único del insumo
   name        String // Nombre descriptivo
   description String? @db.Text
 
@@ -439,9 +439,9 @@ model Input {
   unitCost      Decimal @db.Decimal(10, 2) // Costo por unidad
 
   // Stock
-  currentStock  Decimal @default(0) @db.Decimal(10, 2) // Stock actual
-  minStock      Decimal @default(0) @db.Decimal(10, 2) // Stock mínimo (alerta)
-  maxStock      Decimal @default(0) @db.Decimal(10, 2) // Stock máximo
+  currentStock Decimal @default(0) @db.Decimal(10, 2) // Stock actual
+  minStock     Decimal @default(0) @db.Decimal(10, 2) // Stock mínimo (alerta)
+  maxStock     Decimal @default(0) @db.Decimal(10, 2) // Stock máximo
 
   // Información adicional
   supplier     String? // Proveedor
@@ -451,9 +451,9 @@ model Input {
   isActive Boolean @default(true)
 
   // Relaciones
-  batches       InputBatch[] // Lotes de este insumo
-  movements     InputBatchMovement[] // Movimientos de inventario
-  zoneInputs    ZoneInput[] // Zonas que usan este insumo
+  batches    InputBatch[] // Lotes de este insumo
+  movements  InputBatchMovement[] // Movimientos de inventario
+  zoneInputs ZoneInput[] // Zonas que usan este insumo
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -464,9 +464,9 @@ model Input {
 
 // Lote de Insumo (entrada de inventario)
 model InputBatch {
-  id      Int    @id @default(autoincrement())
+  id      Int   @id @default(autoincrement())
   inputId Int // FK a Input
-  input   Input  @relation(fields: [inputId], references: [id], onDelete: Cascade)
+  input   Input @relation(fields: [inputId], references: [id], onDelete: Cascade)
 
   batchNumber String // Número de lote
   supplier    String? // Proveedor de este lote
@@ -494,8 +494,8 @@ model InputBatch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([inputId])
   @@unique([inputId, batchNumber])
+  @@index([inputId])
   @@map("input_batches")
 }
 

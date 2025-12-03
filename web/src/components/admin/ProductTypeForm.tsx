@@ -58,9 +58,11 @@ export const ProductTypeForm = ({ productType, onSubmit, onDelete }: ProductType
     try {
       setLoading(true);
       const assignedSizes = await catalogsService.getSizesByProductType(productType.id);
-      setSelectedSizeIds(assignedSizes.map(s => s.id));
+      const validSizes = Array.isArray(assignedSizes) ? assignedSizes : [];
+      setSelectedSizeIds(validSizes.map(s => s.id));
       setLoadedTypeId(productType.id); // Marcar como cargado
     } catch (error) {
+      setSelectedSizeIds([]);
       console.error('Error cargando tallas asignadas:', error);
     } finally {
       setLoading(false);

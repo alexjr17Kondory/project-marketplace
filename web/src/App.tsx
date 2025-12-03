@@ -33,6 +33,12 @@ import { ColorsPage } from './pages/admin/catalogs/ColorsPage';
 import { CategoriesPage } from './pages/admin/catalogs/CategoriesPage';
 import { ProductTypesPage } from './pages/admin/ProductTypesPage';
 import { TemplatesPage } from './pages/admin/TemplatesPage';
+import ZoneTypesPage from './pages/admin/ZoneTypesPage';
+import ZoneTypeDetailPage from './pages/admin/ZoneTypeDetailPage';
+import InputTypesPage from './pages/admin/InputTypesPage';
+import InputTypeDetailPage from './pages/admin/InputTypeDetailPage';
+import InputsPage from './pages/admin/InputsPage';
+import InputDetailPage from './pages/admin/InputDetailPage';
 import { OrdersPage } from './pages/admin/OrdersPage';
 import { OrderDetailPage } from './pages/admin/OrderDetailPage';
 import { ShippingPage } from './pages/admin/ShippingPage';
@@ -214,6 +220,60 @@ function App() {
                                       element={
                                         <PermissionRoute permission="catalogs.view">
                                           <CategoriesPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Tipos de Zona */}
+                                    <Route
+                                      path="/zone-types"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <ZoneTypesPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/zone-types/:id"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <ZoneTypeDetailPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Tipos de Insumo */}
+                                    <Route
+                                      path="/input-types"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <InputTypesPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/input-types/:id"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <InputTypeDetailPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Insumos/Inventario */}
+                                    <Route
+                                      path="/inputs"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <InputsPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/inputs/:id"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <InputDetailPage />
                                         </PermissionRoute>
                                       }
                                     />

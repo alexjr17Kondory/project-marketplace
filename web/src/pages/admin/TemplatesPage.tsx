@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-table';
 import { templatesService, type Template } from '../../services/templates.service';
 import { TemplateForm, type TemplateFormData } from '../../components/admin/TemplateForm';
+import { TemplateZonesManager } from '../../components/admin/TemplateZonesManager';
 import { useToast } from '../../context/ToastContext';
 import { useCatalogs } from '../../context/CatalogsContext';
 import { Modal } from '../../components/shared/Modal';
@@ -337,13 +338,18 @@ export const TemplatesPage = () => {
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
+        <div className="bg-white rounded-lg shadow-sm p-6 md:p-8 mb-6">
           <TemplateForm
             template={selectedTemplate}
             onSubmit={handleEditTemplate}
             onCancel={cancelEdit}
             onDelete={() => setDeleteConfirmId(selectedTemplate.id)}
           />
+        </div>
+
+        {/* Template Zones Section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
+          <TemplateZonesManager templateId={selectedTemplate.id} />
         </div>
 
         {/* Delete Confirmation Modal */}

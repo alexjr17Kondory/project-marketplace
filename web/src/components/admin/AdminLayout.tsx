@@ -20,6 +20,8 @@ import {
   UserCog,
   DollarSign,
   Key,
+  Archive,
+  Box,
 } from 'lucide-react';
 import type { Permission } from '../../types/roles';
 
@@ -66,6 +68,7 @@ const menuWithSubmenus: {
     submenu: [
       { path: '/admin-panel/products', label: 'Productos', icon: Package, permission: 'products.view' },
       { path: '/admin-panel/templates', label: 'Modelos', icon: Layers, permission: 'products.view' },
+      { path: '/admin-panel/zone-types', label: 'Tipos de Zona', permission: 'products.view' },
       { path: '/admin-panel/catalogs/sizes', label: 'Tallas', permission: 'catalogs.view' },
       { path: '/admin-panel/catalogs/colors', label: 'Colores', permission: 'catalogs.view' },
       { path: '/admin-panel/catalogs/product-types', label: 'Tipos de Producto', permission: 'catalogs.view' },
@@ -80,6 +83,16 @@ const menuWithSubmenus: {
     submenu: [
       { path: '/admin-panel/orders', label: 'Todos los Pedidos', icon: FileText, permission: 'orders.view' },
       { path: '/admin-panel/orders/shipping', label: 'Despacho', icon: Truck, permission: 'orders.manage' },
+    ],
+  },
+  {
+    id: 'inventory',
+    label: 'Inventario',
+    icon: Archive,
+    basePath: '/admin-panel/input',
+    submenu: [
+      { path: '/admin-panel/input-types', label: 'Tipos de Insumo', icon: Box, permission: 'products.view' },
+      { path: '/admin-panel/inputs', label: 'Insumos', icon: Package, permission: 'products.view' },
     ],
   },
   {
@@ -125,6 +138,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     users: false,
     catalogs: false,
     orders: false,
+    inventory: false,
     settings: false,
   });
 

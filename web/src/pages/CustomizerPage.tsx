@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ShoppingCart, ArrowLeft } from 'lucide-react';
 import { canvasService } from '../services/canvas.service';
 import { templatesService, type Template } from '../services/templates.service';
+import { templateZonesService, type TemplateZone } from '../services/template-zones.service';
 import { useCatalogs } from '../context/CatalogsContext';
 import { getProductById } from '../data/mockProducts';
 import { getPrintZones } from '../data/productTypeConfigs';
@@ -41,10 +42,12 @@ export const CustomizerPage = () => {
   const [productType, setProductType] = useState<ProductType>('tshirt');
   const [productTypeId, setProductTypeId] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [templateZones, setTemplateZones] = useState<TemplateZone[]>([]);
   const [selectedColor, setSelectedColor] = useState<string>('#FFFFFF');
   const [selectedSize, setSelectedSize] = useState<string>('M');
   const [currentView, setCurrentView] = useState<'front' | 'back'>('front');
   const [selectedZone, setSelectedZone] = useState<PrintZone>('front-regular');
+  const [selectedTemplateZone, setSelectedTemplateZone] = useState<TemplateZone | null>(null);
   const [designs, setDesigns] = useState<Map<PrintZone, Design>>(new Map());
   const [isUploading, setIsUploading] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
@@ -61,17 +64,54 @@ export const CustomizerPage = () => {
     }
   }, [productType, productTypes]);
 
+  // Cargar zonas del template cuando se selecciona uno
+  useEffect(() => {
+    const loadTemplateZones = async () => {
+      if (selectedTemplate) {
+        try {
+          const zones = await templateZonesService.getByTemplateId(selectedTemplate.id);
+          const validZones = Array.isArray(zones) ? zones : [];
+          setTemplateZones(validZones.filter(z => z.isActive).sort((a, b) => a.sortOrder - b.sortOrder));
+          // Seleccionar la primera zona si existe
+          if (validZones.length > 0) {
+            setSelectedTemplateZone(validZones[0]);
+          }
+        } catch (error) {
+          console.error('Error al cargar zonas del template:', error);
+          setTemplateZones([]);
+        }
+      } else {
+        setTemplateZones([]);
+        setSelectedTemplateZone(null);
+      }
+    };
+    loadTemplateZones();
+  }, [selectedTemplate]);
+
   // Obtener zonas de impresión disponibles para el producto actual
-  const allZones = getPrintZones(productType);
+  // Si hay un template con zonas definidas, usar esas; sino usar las hardcodeadas
+  const allZones = templateZones.length > 0
+    ? templateZones.map(zone => ({
+        id: `zone-${zone.id}` as PrintZone,
+        name: zone.name,
+        position: { x: zone.positionX, y: zone.positionY },
+        maxWidth: zone.width,
+        maxHeight: zone.height,
+        isRequired: zone.isRequired,
+        zoneType: zone.zoneType?.slug || 'text',
+      }))
+    : getPrintZones(productType);
 
   // Filtrar zonas según la vista actual (front/back)
-  const availableZones = allZones.filter(zone => {
-    if (currentView === 'front') {
-      return zone.id.includes('front') || zone.id.includes('sleeve') || zone.id.includes('chest');
-    } else {
-      return zone.id.includes('back');
-    }
-  });
+  const availableZones = templateZones.length > 0
+    ? allZones // Si hay zonas del template, mostrar todas (no filtrar por vista)
+    : allZones.filter(zone => {
+        if (currentView === 'front') {
+          return zone.id.includes('front') || zone.id.includes('sleeve') || zone.id.includes('chest');
+        } else {
+          return zone.id.includes('back');
+        }
+      });
 
   // Obtener tallas disponibles y guía de tallas
   const availableSizes = getAvailableSizes(productType);
@@ -104,14 +144,28 @@ export const CustomizerPage = () => {
     }
   }, []);
 
-  // Cambiar zona seleccionada cuando cambie la vista
+  // Actualizar zona seleccionada cuando cambien las zonas disponibles
   useEffect(() => {
-    if (currentView === 'front' && !selectedZone.includes('front') && !selectedZone.includes('sleeve')) {
-      setSelectedZone('front-regular');
-    } else if (currentView === 'back' && !selectedZone.includes('back')) {
-      setSelectedZone('back-large');
+    if (availableZones.length > 0) {
+      // Si la zona actual no está en las zonas disponibles, seleccionar la primera
+      const currentZoneExists = availableZones.some(z => z.id === selectedZone);
+      if (!currentZoneExists) {
+        setSelectedZone(availableZones[0].id);
+      }
     }
-  }, [currentView]);
+  }, [availableZones]);
+
+  // Cambiar zona seleccionada cuando cambie la vista (solo para zonas hardcodeadas)
+  useEffect(() => {
+    if (templateZones.length === 0) {
+      // Solo aplicar este comportamiento cuando no haya zonas de template
+      if (currentView === 'front' && !selectedZone.includes('front') && !selectedZone.includes('sleeve')) {
+        setSelectedZone('front-regular');
+      } else if (currentView === 'back' && !selectedZone.includes('back')) {
+        setSelectedZone('back-large');
+      }
+    }
+  }, [currentView, templateZones]);
 
   // Re-renderizar cuando cambien las propiedades
   useEffect(() => {
@@ -377,6 +431,11 @@ export const CustomizerPage = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-md p-6">
+              {templateZones.length > 0 && (
+                <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                  Usando zonas personalizadas del template
+                </div>
+              )}
               <ZoneSelector
                 zones={availableZones}
                 selectedZone={selectedZone}
