@@ -1,6 +1,13 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, Prisma as PrismaTypes } from '@prisma/client';
 import { prisma } from '../config/database';
 import { NotFoundError } from '../utils/errors';
+
+// Helper para manejar valores JSON nulos en Prisma
+const jsonNullOrValue = (value: any): Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined => {
+  if (value === null) return Prisma.JsonNull;
+  if (value === undefined) return undefined;
+  return value;
+};
 
 // Include para templates con todas sus relaciones
 const templateInclude = {
@@ -55,6 +62,7 @@ export interface TemplateResponse {
   typeName: string | null;
   basePrice: number;
   images: { front: string; back?: string; side?: string };
+  zoneTypeImages: Record<string, string> | null; // { "front": "url", "back": "url" }
   colors: Array<{ id: number; name: string; slug: string; hexCode: string }>;
   sizes: Array<{ id: number; name: string; abbreviation: string }>;
   tags: string[];
@@ -78,6 +86,7 @@ function formatTemplateResponse(template: any): TemplateResponse {
     typeName: template.productType?.name || null,
     basePrice: Number(template.basePrice),
     images: template.images || { front: '' },
+    zoneTypeImages: template.zoneTypeImages || null,
     colors: template.productColors?.map((pc: any) => ({
       id: pc.color.id,
       name: pc.color.name,
@@ -160,6 +169,7 @@ export async function createTemplate(data: {
   typeId?: number;
   basePrice: number;
   images: { front: string; back?: string; side?: string };
+  zoneTypeImages?: Record<string, string>;
   tags?: string[];
   colorIds?: number[];
   sizeIds?: number[];
@@ -174,6 +184,7 @@ export async function createTemplate(data: {
       typeId: data.typeId || null,
       basePrice: data.basePrice,
       images: data.images,
+      zoneTypeImages: jsonNullOrValue(data.zoneTypeImages || null),
       tags: data.tags || [],
       isTemplate: true, // Marcar como template
       isActive: true,
@@ -208,6 +219,7 @@ export async function updateTemplate(
     typeId?: number | null;
     basePrice?: number;
     images?: { front: string; back?: string; side?: string };
+    zoneTypeImages?: Record<string, string> | null;
     tags?: string[];
     isActive?: boolean;
     colorIds?: number[];
@@ -264,6 +276,7 @@ export async function updateTemplate(
       typeId: data.typeId !== undefined ? data.typeId : undefined,
       basePrice: data.basePrice,
       images: data.images,
+      zoneTypeImages: data.zoneTypeImages !== undefined ? jsonNullOrValue(data.zoneTypeImages) : undefined,
       tags: data.tags,
       isActive: data.isActive,
     },

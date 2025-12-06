@@ -13,6 +13,7 @@ import {
 import { templatesService, type Template } from '../../services/templates.service';
 import { TemplateForm, type TemplateFormData } from '../../components/admin/TemplateForm';
 import { TemplateZonesManager } from '../../components/admin/TemplateZonesManager';
+import { VisualZoneEditor } from '../../components/admin/VisualZoneEditor';
 import { useToast } from '../../context/ToastContext';
 import { useCatalogs } from '../../context/CatalogsContext';
 import { Modal } from '../../components/shared/Modal';
@@ -347,10 +348,42 @@ export const TemplatesPage = () => {
           />
         </div>
 
-        {/* Template Zones Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
-          <TemplateZonesManager templateId={selectedTemplate.id} />
-        </div>
+        {/* Template Zones Section - Editor Visual */}
+        {selectedTemplate.images?.front && (
+          <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
+            <VisualZoneEditor
+              templateId={selectedTemplate.id}
+              templateImage={selectedTemplate.images.front}
+              templateImageBack={selectedTemplate.images.back}
+              zoneTypeImages={selectedTemplate.zoneTypeImages || undefined}
+              onZoneTypeImagesChange={async (images) => {
+                try {
+                  await templatesService.updateTemplate(selectedTemplate.id, {
+                    zoneTypeImages: images,
+                  });
+                  // Actualizar el template seleccionado localmente
+                  setSelectedTemplate(prev => prev ? { ...prev, zoneTypeImages: images } : null);
+                  showToast('Imágenes guardadas', 'success');
+                } catch (error) {
+                  console.error('Error al guardar imágenes:', error);
+                  showToast('Error al guardar las imágenes', 'error');
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* Si no hay imagen, mostrar el editor de texto */}
+        {!selectedTemplate.images?.front && (
+          <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4">
+              <p className="text-sm">
+                <strong>Nota:</strong> Agrega una imagen frontal al modelo para usar el editor visual de zonas.
+              </p>
+            </div>
+            <TemplateZonesManager templateId={selectedTemplate.id} />
+          </div>
+        )}
 
         {/* Delete Confirmation Modal */}
         {deleteConfirmId && (

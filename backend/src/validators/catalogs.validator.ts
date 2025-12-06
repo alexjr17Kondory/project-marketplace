@@ -52,12 +52,14 @@ export const updateCategorySchema = z.object({
 export const createProductTypeSchema = z.object({
   name: z.string().min(1, 'Nombre requerido').max(100),
   description: z.string().max(500).optional(),
+  categoryId: z.coerce.number().int().positive().optional().nullable(),
   isActive: z.boolean().default(true),
 });
 
 export const updateProductTypeSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
+  categoryId: z.coerce.number().int().positive().optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

@@ -4,14 +4,15 @@ export interface TemplateZone {
   id: number;
   templateId: number;
   zoneTypeId: number;
+  zoneId: string; // 'front-regular', 'back-large', etc.
   name: string;
+  description?: string | null;
   positionX: number;
   positionY: number;
-  width: number;
-  height: number;
+  maxWidth: number;  // Dimensiones máximas de la zona
+  maxHeight: number;
+  isEditable: boolean;
   isRequired: boolean;
-  maxCharacters: number | null;
-  allowedColors: string | null;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -21,54 +22,78 @@ export interface TemplateZone {
     name: string;
     slug: string;
   };
-  zoneInput?: ZoneInput;
+  zoneInput?: ZoneInput | null;
 }
 
 export interface ZoneInput {
   id: number;
-  zoneId: number;
-  inputId: number;
-  quantityPerUnit: number;
+  templateZoneId: number;
+  inputId: number | null;
+  imageUrl: string;
+  imageData?: string | null;
+  originalImageData?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  positionX: number;
+  positionY: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+  isLocked: boolean;
   createdAt: string;
   updatedAt: string;
   input?: {
     id: number;
     name: string;
-    unit: string;
-  };
+    unitOfMeasure: string;
+  } | null;
 }
 
 export interface CreateTemplateZoneDto {
   templateId: number;
   zoneTypeId: number;
+  zoneId?: string;
   name: string;
+  description?: string;
   positionX: number;
   positionY: number;
-  width: number;
-  height: number;
+  maxWidth: number;
+  maxHeight: number;
+  isEditable?: boolean;
   isRequired?: boolean;
-  maxCharacters?: number;
-  allowedColors?: string;
   sortOrder?: number;
 }
 
 export interface UpdateTemplateZoneDto {
   zoneTypeId?: number;
+  zoneId?: string;
   name?: string;
+  description?: string;
   positionX?: number;
   positionY?: number;
-  width?: number;
-  height?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  isEditable?: boolean;
   isRequired?: boolean;
-  maxCharacters?: number;
-  allowedColors?: string;
   sortOrder?: number;
   isActive?: boolean;
 }
 
 export interface CreateZoneInputDto {
-  inputId: number;
-  quantityPerUnit: number;
+  inputId?: number;
+  imageUrl: string;
+  imageData?: string;
+  originalImageData?: string;
+  fileName?: string;
+  fileSize?: number;
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
+  rotation?: number;
+  opacity?: number;
+  isLocked?: boolean;
 }
 
 export const templateZonesService = {

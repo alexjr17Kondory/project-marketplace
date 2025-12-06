@@ -32,6 +32,17 @@ export interface ProductionImages {
   back?: string;
 }
 
+// Configuración de zona guardada (para recrear el diseño)
+export interface SavedZoneConfig {
+  zoneId: string;
+  zoneName: string;
+  zoneTypeSlug: string;
+  positionX: number; // Porcentaje
+  positionY: number;
+  maxWidth: number;
+  maxHeight: number;
+}
+
 // Producto personalizado
 export interface CustomizedProduct {
   id: string;
@@ -40,6 +51,7 @@ export interface CustomizedProduct {
   productName: string;
   basePrice: number;
   selectedColor: string;
+  selectedColorName?: string; // Nombre del color para mostrar
   selectedSize: string;
   designs: Design[];
   previewImages: {
@@ -50,6 +62,16 @@ export interface CustomizedProduct {
   customizationPrice: number; // Precio adicional por personalización
   totalPrice: number;
   createdAt: Date;
+
+  // Datos del template para poder recrear/editar
+  templateId?: number;
+  templateSlug?: string;
+  templateImages?: {
+    front: string;
+    back?: string;
+  };
+  zoneTypeImages?: Record<string, string>; // Imágenes por tipo de zona
+  savedZones?: SavedZoneConfig[]; // Configuración de zonas guardadas
 }
 
 // Estado del editor de personalización

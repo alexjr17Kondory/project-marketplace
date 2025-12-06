@@ -103,6 +103,10 @@ model Product {
   images Json
   tags   Json
 
+  // Imágenes por tipo de zona (solo para templates)
+  // Formato: { "front": "url/base64", "back": "url/base64", ... }
+  zoneTypeImages Json?
+
   // Relaciones many-to-many con colores y tallas
   productColors ProductColor[]
   productSizes  ProductSize[]

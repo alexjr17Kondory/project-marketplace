@@ -18,6 +18,7 @@ export interface Template {
     back?: string;
     side?: string;
   };
+  zoneTypeImages: Record<string, string> | null;
   colors: Array<{
     id: number;
     name: string;
@@ -48,6 +49,7 @@ export interface CreateTemplateInput {
     back?: string;
     side?: string;
   };
+  zoneTypeImages?: Record<string, string>;
   tags?: string[];
   colorIds?: number[];
   sizeIds?: number[];
@@ -64,6 +66,7 @@ export interface UpdateTemplateInput {
     back?: string;
     side?: string;
   };
+  zoneTypeImages?: Record<string, string> | null;
   tags?: string[];
   isActive?: boolean;
   colorIds?: number[];

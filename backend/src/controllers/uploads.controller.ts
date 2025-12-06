@@ -9,6 +9,7 @@ const folderMap: Record<string, CloudinaryFolder> = {
   designs: CLOUDINARY_FOLDERS.DESIGNS,
   avatars: CLOUDINARY_FOLDERS.AVATARS,
   orders: CLOUDINARY_FOLDERS.ORDERS,
+  templates: CLOUDINARY_FOLDERS.TEMPLATES,
   general: CLOUDINARY_FOLDERS.GENERAL,
 };
 

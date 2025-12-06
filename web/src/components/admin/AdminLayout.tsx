@@ -22,6 +22,12 @@ import {
   Key,
   Archive,
   Box,
+  Palette,
+  Ruler,
+  Tag,
+  FolderTree,
+  LayoutTemplate,
+  Scissors,
 } from 'lucide-react';
 import type { Permission } from '../../types/roles';
 
@@ -29,7 +35,7 @@ interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-// Módulos principales sin submenú (con permisos requeridos)
+// Módulos principales sin submenú
 const menuItems: {
   path: string;
   icon: typeof BarChart3;
@@ -38,10 +44,9 @@ const menuItems: {
   permission?: Permission;
 }[] = [
   { path: '/admin-panel', icon: BarChart3, label: 'Dashboard', exact: true, permission: 'dashboard.view' },
-  { path: '/admin-panel/payments', icon: DollarSign, label: 'Pagos', permission: 'settings.payment' },
 ];
 
-// Módulos con submenús (con permisos requeridos)
+// Módulos con submenús organizados por categoría
 const menuWithSubmenus: {
   id: string;
   label: string;
@@ -49,6 +54,55 @@ const menuWithSubmenus: {
   basePath: string;
   submenu: { path: string; label: string; icon?: typeof UserCog; permission?: Permission }[];
 }[] = [
+  // 1. VENTAS - Pedidos y Pagos
+  {
+    id: 'sales',
+    label: 'Ventas',
+    icon: ShoppingBag,
+    basePath: '/admin-panel/orders',
+    submenu: [
+      { path: '/admin-panel/orders', label: 'Pedidos', icon: FileText, permission: 'orders.view' },
+      { path: '/admin-panel/payments', label: 'Pagos', icon: DollarSign, permission: 'settings.payment' },
+      { path: '/admin-panel/orders/shipping', label: 'Despachos', icon: Truck, permission: 'orders.manage' },
+    ],
+  },
+  // 2. CATÁLOGO - Productos y clasificaciones
+  {
+    id: 'catalog',
+    label: 'Catálogo',
+    icon: Package,
+    basePath: '/admin-panel/products',
+    submenu: [
+      { path: '/admin-panel/products', label: 'Productos', icon: Package, permission: 'products.view' },
+      { path: '/admin-panel/templates', label: 'Plantillas/Modelos', icon: LayoutTemplate, permission: 'products.view' },
+      { path: '/admin-panel/catalogs/categories', label: 'Categorías', icon: FolderTree, permission: 'catalogs.view' },
+      { path: '/admin-panel/catalogs/product-types', label: 'Tipos de Producto', icon: Tag, permission: 'catalogs.view' },
+      { path: '/admin-panel/catalogs/sizes', label: 'Tallas', icon: Ruler, permission: 'catalogs.view' },
+      { path: '/admin-panel/catalogs/colors', label: 'Colores', icon: Palette, permission: 'catalogs.view' },
+    ],
+  },
+  // 3. PRODUCCIÓN - Zonas y personalización
+  {
+    id: 'production',
+    label: 'Producción',
+    icon: Scissors,
+    basePath: '/admin-panel/zone',
+    submenu: [
+      { path: '/admin-panel/zone-types', label: 'Tipos de Zona', icon: Layers, permission: 'products.view' },
+    ],
+  },
+  // 4. INVENTARIO - Insumos y materiales
+  {
+    id: 'inventory',
+    label: 'Inventario',
+    icon: Archive,
+    basePath: '/admin-panel/input',
+    submenu: [
+      { path: '/admin-panel/inputs', label: 'Insumos', icon: Box, permission: 'products.view' },
+      { path: '/admin-panel/input-types', label: 'Tipos de Insumo', icon: Layers, permission: 'products.view' },
+    ],
+  },
+  // 5. USUARIOS - Gestión de usuarios y roles
   {
     id: 'users',
     label: 'Usuarios',
@@ -60,41 +114,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/roles', label: 'Roles y Permisos', icon: Key, permission: 'roles.view' },
     ],
   },
-  {
-    id: 'catalogs',
-    label: 'Catálogos',
-    icon: Layers,
-    basePath: '/admin-panel/catalogs',
-    submenu: [
-      { path: '/admin-panel/products', label: 'Productos', icon: Package, permission: 'products.view' },
-      { path: '/admin-panel/templates', label: 'Modelos', icon: Layers, permission: 'products.view' },
-      { path: '/admin-panel/zone-types', label: 'Tipos de Zona', permission: 'products.view' },
-      { path: '/admin-panel/catalogs/sizes', label: 'Tallas', permission: 'catalogs.view' },
-      { path: '/admin-panel/catalogs/colors', label: 'Colores', permission: 'catalogs.view' },
-      { path: '/admin-panel/catalogs/product-types', label: 'Tipos de Producto', permission: 'catalogs.view' },
-      { path: '/admin-panel/catalogs/categories', label: 'Categorías', permission: 'catalogs.view' },
-    ],
-  },
-  {
-    id: 'orders',
-    label: 'Pedidos',
-    icon: ShoppingBag,
-    basePath: '/admin-panel/orders',
-    submenu: [
-      { path: '/admin-panel/orders', label: 'Todos los Pedidos', icon: FileText, permission: 'orders.view' },
-      { path: '/admin-panel/orders/shipping', label: 'Despacho', icon: Truck, permission: 'orders.manage' },
-    ],
-  },
-  {
-    id: 'inventory',
-    label: 'Inventario',
-    icon: Archive,
-    basePath: '/admin-panel/input',
-    submenu: [
-      { path: '/admin-panel/input-types', label: 'Tipos de Insumo', icon: Box, permission: 'products.view' },
-      { path: '/admin-panel/inputs', label: 'Insumos', icon: Package, permission: 'products.view' },
-    ],
-  },
+  // 6. CONFIGURACIÓN - Ajustes del sistema
   {
     id: 'settings',
     label: 'Configuración',
@@ -135,10 +155,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   // Estado para cada submenú
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    users: false,
-    catalogs: false,
-    orders: false,
+    sales: false,
+    catalog: false,
+    production: false,
     inventory: false,
+    users: false,
     settings: false,
   });
 
@@ -151,6 +172,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       return location.pathname === path;
     }
     return location.pathname.startsWith(path);
+  };
+
+  // Verificar si algún submenú del módulo está activo
+  const isModuleActive = (module: typeof menuWithSubmenus[0]) => {
+    return module.submenu.some(sub => isActive(sub.path));
   };
 
   return (
@@ -281,10 +307,13 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                 );
               })}
 
+              {/* Separador */}
+              <div className="my-3 border-t border-gray-200"></div>
+
               {/* Menús con submenús */}
               {visibleModules.map((module) => {
                 const Icon = module.icon;
-                const moduleActive = isActive(module.basePath) || (module.id === 'catalogs' && isActive('/admin-panel/products')) || (module.id === 'users' && (isActive('/admin-panel/admins') || isActive('/admin-panel/roles')));
+                const moduleActive = isModuleActive(module);
 
                 return (
                   <div key={module.id}>
@@ -306,7 +335,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                     </button>
 
                     {openSubmenus[module.id] && (
-                      <div className="ml-4 mt-1 space-y-1">
+                      <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 pl-2">
                         {module.submenu.map((subItem) => {
                           const subActive = isActive(subItem.path);
                           const SubIcon = subItem.icon;
@@ -314,16 +343,16 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                             <Link
                               key={subItem.path}
                               to={subItem.path}
-                              className={`flex items-center gap-3 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                              className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
                                 subActive
                                   ? 'bg-orange-50 text-orange-700'
                                   : 'text-gray-600 hover:bg-gray-50'
                               }`}
                             >
                               {SubIcon ? (
-                                <SubIcon className={`w-4 h-4 ${subActive ? 'text-orange-600' : 'text-gray-500'}`} />
+                                <SubIcon className={`w-4 h-4 ${subActive ? 'text-orange-600' : 'text-gray-400'}`} />
                               ) : (
-                                <span className="text-xs">•</span>
+                                <span className="w-4 h-4 flex items-center justify-center text-xs text-gray-400">•</span>
                               )}
                               {subItem.label}
                             </Link>

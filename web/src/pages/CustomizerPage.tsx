@@ -88,15 +88,24 @@ export const CustomizerPage = () => {
     loadTemplateZones();
   }, [selectedTemplate]);
 
+  // Constantes del canvas para conversión de porcentajes a píxeles
+  const CANVAS_WIDTH = 600;
+  const CANVAS_HEIGHT = 600;
+
   // Obtener zonas de impresión disponibles para el producto actual
   // Si hay un template con zonas definidas, usar esas; sino usar las hardcodeadas
+  // Las zonas del template están en porcentajes, las hardcodeadas en píxeles
   const allZones = templateZones.length > 0
     ? templateZones.map(zone => ({
         id: `zone-${zone.id}` as PrintZone,
         name: zone.name,
-        position: { x: zone.positionX, y: zone.positionY },
-        maxWidth: zone.width,
-        maxHeight: zone.height,
+        // Convertir porcentajes a píxeles
+        position: {
+          x: Math.round((zone.positionX / 100) * CANVAS_WIDTH),
+          y: Math.round((zone.positionY / 100) * CANVAS_HEIGHT),
+        },
+        maxWidth: Math.round((zone.maxWidth / 100) * CANVAS_WIDTH),
+        maxHeight: Math.round((zone.maxHeight / 100) * CANVAS_HEIGHT),
         isRequired: zone.isRequired,
         zoneType: zone.zoneType?.slug || 'text',
       }))
@@ -170,7 +179,7 @@ export const CustomizerPage = () => {
   // Re-renderizar cuando cambien las propiedades
   useEffect(() => {
     renderCanvas();
-  }, [productType, selectedColor, currentView, designs, selectedZone, sizeScale, selectedTemplate]);
+  }, [productType, selectedColor, currentView, designs, selectedZone, sizeScale, selectedTemplate, templateZones]);
 
   const renderCanvas = () => {
     if (!canvasRef.current) return;
@@ -183,10 +192,28 @@ export const CustomizerPage = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Si hay un modelo seleccionado, mostrar su imagen
-    if (selectedTemplate?.images) {
-      const imageUrl = currentView === 'front'
-        ? selectedTemplate.images.front
-        : (selectedTemplate.images.back || selectedTemplate.images.front);
+    if (selectedTemplate) {
+      // Determinar qué imagen usar:
+      // 1. Primero intentar con zoneTypeImages basado en la zona seleccionada
+      // 2. Luego con currentView (front/back)
+      // 3. Finalmente fallback a images.front
+      let imageUrl: string | undefined;
+
+      // Obtener el tipo de zona de la zona seleccionada (si es una zona del template)
+      const selectedZoneData = templateZones.find(z => `zone-${z.id}` === selectedZone);
+      const zoneTypeSlug = selectedZoneData?.zoneType?.slug;
+
+      // Si hay zoneTypeImages y tenemos un slug de tipo de zona, usar esa imagen
+      if (selectedTemplate.zoneTypeImages && zoneTypeSlug) {
+        imageUrl = selectedTemplate.zoneTypeImages[zoneTypeSlug];
+      }
+
+      // Si no hay imagen de tipo de zona, usar las imágenes estándar basadas en currentView
+      if (!imageUrl && selectedTemplate.images) {
+        imageUrl = currentView === 'front'
+          ? selectedTemplate.images.front
+          : (selectedTemplate.images.back || selectedTemplate.images.front);
+      }
 
       if (imageUrl) {
         const img = new Image();

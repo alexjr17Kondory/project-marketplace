@@ -105,6 +105,17 @@ export const TemplateForm = ({ template, onSubmit, onDelete }: TemplateFormProps
     loadSizes();
   }, [formData.typeId]);
 
+  // Limpiar typeId si la categoría cambia y el tipo actual no pertenece a la nueva categoría
+  useEffect(() => {
+    if (formData.categoryId && formData.typeId) {
+      const currentType = availableProductTypes.find(t => t.id === formData.typeId);
+      if (currentType && currentType.categoryId !== formData.categoryId) {
+        setFormData(prev => ({ ...prev, typeId: null }));
+        setSelectedSizeIds([]);
+      }
+    }
+  }, [formData.categoryId, availableProductTypes]);
+
   // Auto-generar slug desde el nombre
   useEffect(() => {
     if (!template && formData.name) {

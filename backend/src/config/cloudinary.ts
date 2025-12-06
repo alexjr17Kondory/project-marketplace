@@ -15,6 +15,7 @@ export const CLOUDINARY_FOLDERS = {
   DESIGNS: 'marketplace/designs',
   AVATARS: 'marketplace/avatars',
   ORDERS: 'marketplace/orders',
+  TEMPLATES: 'marketplace/templates',
   GENERAL: 'marketplace/general',
 } as const;
 
