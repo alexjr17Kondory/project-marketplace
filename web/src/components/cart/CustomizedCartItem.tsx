@@ -1,4 +1,5 @@
-import { Minus, Plus, Trash2, Sparkles } from 'lucide-react';
+import { Minus, Plus, Trash2, Sparkles, Pencil } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../hooks/useCurrency';
 import type { CartItemCustomized } from '../../types/cart';
 
@@ -10,6 +11,7 @@ interface CustomizedCartItemProps {
 
 export const CustomizedCartItem = ({ item, onUpdateQuantity, onRemove }: CustomizedCartItemProps) => {
   const { format } = useCurrency();
+  const navigate = useNavigate();
   const { customizedProduct } = item;
 
   const handleDecrease = () => {
@@ -22,6 +24,12 @@ export const CustomizedCartItem = ({ item, onUpdateQuantity, onRemove }: Customi
     if (item.quantity < 99) {
       onUpdateQuantity(item.id, item.quantity + 1);
     }
+  };
+
+  // Editar el producto personalizado
+  const handleEdit = () => {
+    // Navegar al personalizador con el ID del item del carrito para editar
+    navigate(`/customize?edit=${item.id}`);
   };
 
   return (
@@ -61,7 +69,9 @@ export const CustomizedCartItem = ({ item, onUpdateQuantity, onRemove }: Customi
                 className="w-4 h-4 rounded border border-gray-300"
                 style={{ backgroundColor: customizedProduct.selectedColor }}
               />
-              <span className="text-gray-700">{customizedProduct.selectedColor}</span>
+              <span className="text-gray-700">
+                {customizedProduct.selectedColorName || customizedProduct.selectedColor}
+              </span>
             </div>
           </div>
 
@@ -93,13 +103,26 @@ export const CustomizedCartItem = ({ item, onUpdateQuantity, onRemove }: Customi
 
       {/* Precio y controles */}
       <div className="flex flex-col items-end justify-between">
-        <button
-          onClick={() => onRemove(item.id)}
-          className="text-gray-400 hover:text-red-500 transition-colors p-1"
-          aria-label="Eliminar producto"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Botón editar - solo si tiene datos del template */}
+          {customizedProduct.templateId && (
+            <button
+              onClick={handleEdit}
+              className="text-gray-400 hover:text-blue-500 transition-colors p-1"
+              aria-label="Editar diseño"
+              title="Editar diseño"
+            >
+              <Pencil className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            onClick={() => onRemove(item.id)}
+            className="text-gray-400 hover:text-red-500 transition-colors p-1"
+            aria-label="Eliminar producto"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
 
         <div className="text-right">
           <p className="text-sm text-gray-500 mb-1">

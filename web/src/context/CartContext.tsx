@@ -19,6 +19,8 @@ interface CartContextType {
   orderConfig: OrderConfig;
   addStandardProduct: (product: Product, color: string, size: string, quantity?: number) => void;
   addCustomizedProduct: (customizedProduct: CustomizedProduct, quantity?: number) => void;
+  updateCustomizedProduct: (itemId: string, customizedProduct: CustomizedProduct) => void;
+  getCartItemById: (itemId: string) => CartItemType | undefined;
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
@@ -188,6 +190,28 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setRawCartItems((prev) => [...prev, newItem]);
   };
 
+  // Actualizar un producto personalizado existente en el carrito
+  const updateCustomizedProduct = (itemId: string, customizedProduct: CustomizedProduct) => {
+    setRawCartItems((prev) =>
+      prev.map((item) => {
+        if (item.id === itemId && item.type === 'customized') {
+          return {
+            ...item,
+            customizedProduct,
+            price: customizedProduct.totalPrice,
+            subtotal: customizedProduct.totalPrice * item.quantity,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Obtener un item del carrito por ID
+  const getCartItemById = (itemId: string): CartItemType | undefined => {
+    return cartItems.find((item) => item.id === itemId);
+  };
+
   const removeItem = (itemId: string) => {
     setRawCartItems((prev) => prev.filter((item) => item.id !== itemId));
   };
@@ -231,6 +255,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         orderConfig,
         addStandardProduct,
         addCustomizedProduct,
+        updateCustomizedProduct,
+        getCartItemById,
         removeItem,
         updateQuantity,
         clearCart,

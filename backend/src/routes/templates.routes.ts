@@ -5,6 +5,16 @@ import { authenticate, requireAdmin } from '../middleware/auth.middleware';
 const router = Router();
 
 /**
+ * @route   GET /api/templates/public
+ * @desc    Listar templates activos (para personalizador)
+ * @access  Public
+ */
+router.get(
+  '/public',
+  templatesController.listPublicTemplates
+);
+
+/**
  * @route   GET /api/templates
  * @desc    Listar todos los templates (admin)
  * @access  Private/Admin

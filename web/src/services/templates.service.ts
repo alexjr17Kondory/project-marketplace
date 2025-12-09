@@ -82,6 +82,12 @@ class TemplatesService {
     return response.data || [];
   }
 
+  // Listar templates públicos (para personalizador)
+  async getPublicTemplates(): Promise<Template[]> {
+    const response = await api.get<Template[]>(`${this.baseUrl}/public`);
+    return response.data || [];
+  }
+
   // Obtener templates por tipo de producto (para personalizador)
   async getTemplatesByType(typeSlug: string): Promise<Template[]> {
     const response = await api.get<Template[]>(

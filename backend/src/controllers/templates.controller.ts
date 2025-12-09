@@ -15,6 +15,20 @@ export async function listTemplates(req: Request, res: Response, next: NextFunct
   }
 }
 
+// Listar templates públicos (para personalizador)
+export async function listPublicTemplates(req: Request, res: Response, next: NextFunction) {
+  try {
+    const templates = await templatesService.listPublicTemplates();
+
+    res.json({
+      success: true,
+      data: templates,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // Listar templates por tipo de producto (público - para personalizador)
 export async function getTemplatesByType(req: Request, res: Response, next: NextFunction) {
   try {

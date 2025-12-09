@@ -142,6 +142,20 @@ export async function getTemplatesByType(typeSlug: string): Promise<TemplateResp
   return templates.map(formatTemplateResponse);
 }
 
+// Listar templates públicos (activos)
+export async function listPublicTemplates(): Promise<TemplateResponse[]> {
+  const templates = await prisma.product.findMany({
+    where: {
+      isTemplate: true,
+      isActive: true,
+    },
+    include: templateInclude,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return templates.map(formatTemplateResponse);
+}
+
 // Obtener template por ID
 export async function getTemplateById(id: number): Promise<TemplateResponse> {
   const template = await prisma.product.findFirst({

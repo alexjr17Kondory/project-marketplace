@@ -14,6 +14,20 @@ interface ImageUploaderProps {
   isUploading?: boolean;
 }
 
+// Detectar si una imagen tiene transparencia
+const hasTransparency = (ctx: CanvasRenderingContext2D, width: number, height: number): boolean => {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  // Revisar canal alpha (cada 4 bytes: R, G, B, A)
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) {
+      return true; // Encontró pixel con transparencia
+    }
+  }
+  return false;
+};
+
 // Comprimir imagen para preview manteniendo calidad aceptable
 const compressImage = (
   originalDataUrl: string,
@@ -38,8 +52,13 @@ const compressImage = (
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0, width, height);
-        // Usar JPEG para mejor compresión, pero PNG si tiene transparencia
-        const compressed = canvas.toDataURL('image/jpeg', quality);
+
+        // Detectar si la imagen tiene transparencia
+        const isTransparent = hasTransparency(ctx, width, height);
+
+        // Usar PNG para imágenes con transparencia, JPEG para las demás
+        const format = isTransparent ? 'image/png' : 'image/jpeg';
+        const compressed = canvas.toDataURL(format, isTransparent ? undefined : quality);
         resolve(compressed);
       } else {
         resolve(originalDataUrl);
