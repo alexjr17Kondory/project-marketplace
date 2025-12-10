@@ -41,16 +41,16 @@ export const CustomizedCartItem = ({ item, onUpdateQuantity, onRemove }: Customi
       </div>
 
       {/* Preview del producto personalizado */}
-      <div className="w-32 h-32 bg-white rounded-lg flex items-center justify-center flex-shrink-0 shadow-md mt-6">
+      <div className="w-36 h-36 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md mt-6 p-2 border border-gray-200">
         {customizedProduct.previewImages?.front ? (
           <img
             src={customizedProduct.previewImages.front}
             alt={`Preview de ${customizedProduct.productName}`}
-            className="w-full h-full object-contain rounded-lg"
+            className="max-w-full max-h-full object-contain rounded"
           />
         ) : (
           <div
-            className="w-28 h-28 rounded-lg"
+            className="w-28 h-28 rounded-lg shadow-inner"
             style={{ backgroundColor: customizedProduct.selectedColor }}
           />
         )}

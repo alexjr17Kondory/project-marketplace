@@ -855,7 +855,24 @@ export const CustomizerPage = () => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        // Dibujar imagen del template
+        // Usar las dimensiones originales de la imagen para preservar aspect ratio
+        const imgWidth = img.naturalWidth || CANVAS_WIDTH;
+        const imgHeight = img.naturalHeight || CANVAS_HEIGHT;
+
+        // Redimensionar canvas para que coincida con la imagen original (máximo 800px)
+        const maxSize = 800;
+        let canvasW = imgWidth;
+        let canvasH = imgHeight;
+        if (canvasW > maxSize || canvasH > maxSize) {
+          const scale = maxSize / Math.max(canvasW, canvasH);
+          canvasW = Math.round(canvasW * scale);
+          canvasH = Math.round(canvasH * scale);
+        }
+
+        canvas.width = canvasW;
+        canvas.height = canvasH;
+
+        // Dibujar imagen del template preservando proporción
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
