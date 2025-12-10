@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Move, Maximize2, RotateCw, Trash2, Link, Unlink } from 'lucide-react';
+import { Move, Maximize2, RotateCw, Trash2, Link, Unlink, Palette, Loader2 } from 'lucide-react';
 import type { Design } from '../../types/design';
+import { DESIGN_COLORS, applyColorToImage } from '../../utils/imageColorizer';
 
 interface DesignControlsProps {
   design: Design | null;
@@ -17,6 +18,7 @@ export const DesignControls = ({ design, onUpdate, onDelete, zoneConfig }: Desig
   // Estado para mantener la proporción y la relación de aspecto
   const [keepAspectRatio, setKeepAspectRatio] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<number>(1);
+  const [isColorizing, setIsColorizing] = useState(false);
 
   // Calcular la relación de aspecto cuando el diseño cambie
   useEffect(() => {
@@ -25,6 +27,35 @@ export const DesignControls = ({ design, onUpdate, onDelete, zoneConfig }: Desig
       setAspectRatio(ratio);
     }
   }, [design?.id]); // Solo recalcular cuando cambie el diseño (nueva imagen)
+
+  // Manejar cambio de color del diseño
+  const handleColorChange = async (color: string) => {
+    if (!design || !design.imageData) return;
+
+    // Si es vacío, restaurar imagen original
+    if (!color) {
+      onUpdate({
+        tintColor: undefined,
+        colorizedImageData: undefined,
+      });
+      return;
+    }
+
+    setIsColorizing(true);
+    try {
+      // Usar siempre la imagen original para aplicar el nuevo color
+      const sourceImage = design.originalImageData || design.imageData;
+      const colorizedImage = await applyColorToImage(sourceImage, color);
+      onUpdate({
+        tintColor: color,
+        colorizedImageData: colorizedImage,
+      });
+    } catch (error) {
+      console.error('Error al aplicar color:', error);
+    } finally {
+      setIsColorizing(false);
+    }
+  };
 
   if (!design) {
     return (
@@ -226,6 +257,55 @@ export const DesignControls = ({ design, onUpdate, onDelete, zoneConfig }: Desig
           <span className="font-semibold text-gray-900">{Math.round(design.opacity * 100)}%</span>
           <span>100%</span>
         </div>
+      </div>
+
+      {/* Color del Diseño - Solo para PNG */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+            <Palette className="w-4 h-4" />
+            <span>Color del diseño</span>
+          </div>
+          {isColorizing && (
+            <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
+          )}
+        </div>
+        <div className="grid grid-cols-6 gap-2">
+          {DESIGN_COLORS.map((colorOption) => (
+            <button
+              key={colorOption.value || 'original'}
+              onClick={() => handleColorChange(colorOption.value)}
+              disabled={isColorizing}
+              className={`relative w-8 h-8 rounded-full border-2 transition-all hover:scale-110 disabled:opacity-50 ${
+                (design.tintColor || '') === colorOption.value
+                  ? 'border-purple-600 ring-2 ring-purple-200'
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              style={{
+                backgroundColor: colorOption.value || 'transparent',
+                backgroundImage: !colorOption.value
+                  ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%)'
+                  : undefined,
+                backgroundSize: !colorOption.value ? '8px 8px' : undefined,
+                backgroundPosition: !colorOption.value ? '0 0, 4px 4px' : undefined,
+              }}
+              title={colorOption.name}
+            >
+              {(design.tintColor || '') === colorOption.value && (
+                <span className="absolute inset-0 flex items-center justify-center text-xs">
+                  {colorOption.value === '#FFFFFF' || !colorOption.value ? '✓' : (
+                    <span className="text-white drop-shadow-md">✓</span>
+                  )}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500">
+          {design.tintColor
+            ? `Color aplicado: ${DESIGN_COLORS.find(c => c.value === design.tintColor)?.name || design.tintColor}`
+            : 'Selecciona un color para aplicar al diseño'}
+        </p>
       </div>
 
       {/* Delete Button */}

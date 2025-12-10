@@ -7,6 +7,7 @@ export interface Design {
   imageUrl: string;
   imageData?: string; // Base64 comprimido para preview
   originalImageData?: string; // Base64 original sin compresión para producción
+  colorizedImageData?: string; // Base64 con color aplicado (para preview)
   originalFileName?: string; // Nombre original del archivo
   originalFileSize?: number; // Tamaño original en bytes
   position: {
@@ -19,6 +20,7 @@ export interface Design {
   };
   rotation: number; // En grados
   opacity: number;  // 0 a 1
+  tintColor?: string; // Color aplicado al diseño (hex)
   filters?: {
     brightness?: number;
     contrast?: number;

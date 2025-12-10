@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ShoppingCart, ArrowLeft, Loader2, Package, Eye, EyeOff } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, Loader2, Package, Eye, EyeOff, Download } from 'lucide-react';
 import { canvasService } from '../services/canvas.service';
 import { templatesService, type Template } from '../services/templates.service';
 import { templateZonesService, type TemplateZone } from '../services/template-zones.service';
@@ -10,6 +10,8 @@ import { ColorPicker } from '../components/customizer/ColorPicker';
 import { ImageUploader, type ImageUploadData } from '../components/customizer/ImageUploader';
 import { DesignControls } from '../components/customizer/DesignControls';
 import { SizeGuideModal } from '../components/customizer/SizeGuideModal';
+import { applyColorToImage } from '../utils/imageColorizer';
+import { exportDesignsToZip } from '../utils/designExporter';
 import type { ProductType, PrintZone } from '../types/product';
 import type { Design, CustomizedProduct } from '../types/design';
 
@@ -49,6 +51,9 @@ export const CustomizerPage = () => {
   const [imageDimensions, setImageDimensions] = useState({ naturalWidth: 0, naturalHeight: 0 });
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [showZoneBorders, setShowZoneBorders] = useState(true);
+  const [colorizedTemplateImage, setColorizedTemplateImage] = useState<string | null>(null);
+  const [isColorizingTemplate, setIsColorizingTemplate] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Ref para la imagen del template
   const templateImageRef = useRef<HTMLImageElement>(null);
@@ -414,6 +419,36 @@ export const CustomizerPage = () => {
     return () => clearTimeout(timeoutId);
   }, [selectedTemplate?.id, currentZoneType, handleTemplateImageLoad]);
 
+  // Aplicar color a la imagen del template cuando cambia el color seleccionado
+  useEffect(() => {
+    const colorizeTemplate = async () => {
+      const originalImage = getCurrentTemplateImage();
+      if (!originalImage) {
+        setColorizedTemplateImage(null);
+        return;
+      }
+
+      // Si el color es blanco o no hay color, usar imagen original
+      if (!selectedColor || selectedColor.toUpperCase() === '#FFFFFF' || selectedColor.toUpperCase() === '#FFF') {
+        setColorizedTemplateImage(null);
+        return;
+      }
+
+      setIsColorizingTemplate(true);
+      try {
+        const colorized = await applyColorToImage(originalImage, selectedColor);
+        setColorizedTemplateImage(colorized);
+      } catch (error) {
+        console.error('Error al colorizar template:', error);
+        setColorizedTemplateImage(null);
+      } finally {
+        setIsColorizingTemplate(false);
+      }
+    };
+
+    colorizeTemplate();
+  }, [selectedColor, getCurrentTemplateImage]);
+
   const renderCanvas = () => {
     if (!canvasRef.current) return;
 
@@ -647,6 +682,29 @@ export const CustomizerPage = () => {
     navigate('/cart');
   };
 
+  // Exportar diseños como ZIP
+  const handleExportDesigns = async () => {
+    if (designs.size === 0) {
+      alert('No hay diseños para exportar');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      await exportDesignsToZip(designs, {
+        templateName: selectedTemplate?.name || 'diseño',
+        selectedColor: selectedColor,
+        selectedSize: selectedSize,
+        includeOriginal: true,
+      });
+    } catch (error) {
+      console.error('Error al exportar:', error);
+      alert('Error al exportar los diseños');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -856,12 +914,12 @@ export const CustomizerPage = () => {
               <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-gray-100" style={{ minHeight: '500px' }}>
                 {selectedTemplate ? (
                   <>
-                    {/* Imagen del template */}
+                    {/* Imagen del template - usa coloreada si existe */}
                     {getCurrentTemplateImage() ? (
                       <img
-                        key={`${selectedTemplate.id}-${currentZoneType}`}
+                        key={`${selectedTemplate.id}-${currentZoneType}-${selectedColor}`}
                         ref={templateImageRef}
-                        src={getCurrentTemplateImage()}
+                        src={colorizedTemplateImage || getCurrentTemplateImage()}
                         alt={selectedTemplate.name}
                         onLoad={(e) => {
                           const img = e.currentTarget;
@@ -882,8 +940,8 @@ export const CustomizerPage = () => {
                       />
                     ) : null}
 
-                    {/* Loading mientras carga la imagen */}
-                    {!imageLoaded && getCurrentTemplateImage() && (
+                    {/* Loading mientras carga la imagen o coloriza */}
+                    {(!imageLoaded || isColorizingTemplate) && getCurrentTemplateImage() && (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
                       </div>
@@ -973,10 +1031,13 @@ export const CustomizerPage = () => {
                             const leftPercent = design.position.x - (widthPercent / 2);
                             const topPercent = design.position.y - (heightPercent / 2);
 
+                            // Usar imagen coloreada si existe, sino la original
+                            const displayImage = design.colorizedImageData || design.imageData;
+
                             return (
                               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                                 <img
-                                  src={design.imageData}
+                                  src={displayImage}
                                   alt="Diseño"
                                   className="absolute"
                                   style={{
@@ -1061,6 +1122,23 @@ export const CustomizerPage = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Botón de descarga ZIP */}
+                  <button
+                    onClick={handleExportDesigns}
+                    disabled={designs.size === 0 || isExporting}
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    title="Descargar diseños como ZIP"
+                  >
+                    {isExporting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Download className="w-5 h-5" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isExporting ? 'Exportando...' : 'Descargar'}
+                    </span>
+                  </button>
 
                   <button
                     onClick={handleAddToCart}
