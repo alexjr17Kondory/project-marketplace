@@ -368,27 +368,77 @@ export const CustomizerPage = () => {
       if (cartItem && cartItem.type === 'customized') {
         const { customizedProduct } = cartItem;
 
+        console.log('[Edit Mode] Cargando producto:', customizedProduct);
+
         setIsEditMode(true);
         setEditingCartItemId(editId);
-        setSelectedColor(customizedProduct.selectedColor);
-        setSelectedSize(customizedProduct.selectedSize);
 
-        // Cargar diseños existentes
-        const designsMap = new Map<PrintZone, Design>();
+        // Cargar diseños existentes usando viewType como key (igual que al crear)
+        const designsMap = new Map<string, Design>();
         customizedProduct.designs.forEach(design => {
-          designsMap.set(design.zoneId, design);
+          // Usar viewType como key (front, back, etc.) - no zoneId
+          const key = design.viewType || design.zoneId.replace('view-', '');
+          console.log('[Edit Mode] Cargando diseño para vista:', key, design);
+          designsMap.set(key, design);
         });
-        setDesigns(designsMap);
 
-        // Cargar template
+        // Cargar template primero (sin resetear diseños)
         if (customizedProduct.templateId) {
           const template = templates.find(t => t.id === customizedProduct.templateId);
+
+          // Determinar la vista que tiene diseño para seleccionarla
+          const viewWithDesign = Array.from(designsMap.keys())[0] || null;
+
+          // Función para aplicar los datos guardados del producto al template
+          const applyEditData = (baseTemplate: typeof template) => {
+            if (!baseTemplate) return;
+
+            // Combinar el template base con las imágenes guardadas del producto
+            // Prioridad: datos guardados en el producto > datos del template base
+            const savedImages = customizedProduct.templateImages;
+            const savedZoneTypeImages = customizedProduct.zoneTypeImages;
+
+            console.log('[Edit Mode] Imágenes guardadas en producto:', savedImages);
+            console.log('[Edit Mode] ZoneTypeImages guardadas:', savedZoneTypeImages);
+            console.log('[Edit Mode] Imágenes del template base:', baseTemplate.images);
+            console.log('[Edit Mode] ZoneTypeImages del template base:', baseTemplate.zoneTypeImages);
+
+            const templateWithSavedData = {
+              ...baseTemplate,
+              // Usar las imágenes guardadas del producto si están disponibles
+              images: savedImages || baseTemplate.images,
+              zoneTypeImages: savedZoneTypeImages || baseTemplate.zoneTypeImages,
+            };
+
+            console.log('[Edit Mode] Template final con datos combinados:', {
+              id: templateWithSavedData.id,
+              images: templateWithSavedData.images,
+              zoneTypeImages: templateWithSavedData.zoneTypeImages,
+            });
+
+            setSelectedTemplate(templateWithSavedData);
+            setCurrentZoneType(viewWithDesign);
+            setImageLoaded(false);
+            setSelectedColor(customizedProduct.selectedColor);
+            setSelectedSize(customizedProduct.selectedSize);
+            setDesigns(designsMap);
+          };
+
           if (template) {
-            handleTemplateSelect(template);
+            // Siempre cargar el template completo desde la API para tener las imágenes actualizadas
+            templatesService.getTemplateById(customizedProduct.templateId)
+              .then(freshTemplate => {
+                console.log('[Edit Mode] Template fresco de API:', freshTemplate);
+                applyEditData(freshTemplate);
+              })
+              .catch(err => {
+                console.error('[Edit Mode] Error cargando template de API, usando cache:', err);
+                applyEditData(template);
+              });
           } else {
             // Cargar desde API si no está en la lista
             templatesService.getTemplateById(customizedProduct.templateId)
-              .then(t => handleTemplateSelect(t))
+              .then(t => applyEditData(t))
               .catch(console.error);
           }
         }
@@ -397,6 +447,7 @@ export const CustomizerPage = () => {
   }, [searchParams, templates, getCartItemById]);
 
   // Cargar zonas del template (solo como guías visuales)
+  // IMPORTANTE: No incluir 'designs' en dependencias para evitar cambios de vista al subir imagen
   useEffect(() => {
     const loadTemplateZones = async () => {
       if (selectedTemplate) {
@@ -409,12 +460,21 @@ export const CustomizerPage = () => {
           console.log('[CustomizerPage] Zonas activas (guías):', activeZones);
           setTemplateZones(activeZones);
 
-          // Obtener tipos de zona únicos y establecer el primero (para cambiar vistas)
+          // Obtener tipos de zona únicos
           const zoneTypes = [...new Set(activeZones.map(z => z.zoneType?.slug).filter(Boolean))] as string[];
           console.log('[CustomizerPage] Tipos de vista encontrados:', zoneTypes);
+
           if (zoneTypes.length > 0) {
-            setCurrentZoneType(zoneTypes[0]);
-            console.log('[CustomizerPage] Vista establecida:', zoneTypes[0]);
+            // Solo establecer vista si no hay una seleccionada actualmente
+            // Esto evita cambiar la vista cuando el usuario ya está trabajando
+            setCurrentZoneType(prev => {
+              if (prev && zoneTypes.includes(prev)) {
+                // Mantener la vista actual si sigue siendo válida
+                return prev;
+              }
+              // Si no hay vista o no es válida, usar la primera disponible
+              return zoneTypes[0];
+            });
           }
         } catch (error) {
           console.error('Error al cargar zonas:', error);
@@ -504,9 +564,16 @@ export const CustomizerPage = () => {
   // Obtener la imagen actual para el tipo de zona seleccionado
   // IMPORTANTE: Las zonas se definen sobre zoneTypeImages, no sobre images.front/back
   const getCurrentTemplateImage = useCallback((): string | undefined => {
-    if (!selectedTemplate) return undefined;
+    if (!selectedTemplate) {
+      console.log('[getCurrentTemplateImage] No hay template seleccionado');
+      return undefined;
+    }
 
     let imageUrl: string | undefined;
+
+    console.log('[getCurrentTemplateImage] Template:', selectedTemplate.id, 'currentZoneType:', currentZoneType);
+    console.log('[getCurrentTemplateImage] zoneTypeImages:', selectedTemplate.zoneTypeImages);
+    console.log('[getCurrentTemplateImage] images:', selectedTemplate.images);
 
     // PRIORIDAD 1: Usar zoneTypeImages que es donde se definen las zonas en el admin
     if (selectedTemplate.zoneTypeImages && currentZoneType) {
@@ -519,9 +586,16 @@ export const CustomizerPage = () => {
       if (currentZoneType === 'back') {
         imageUrl = selectedTemplate.images.back || selectedTemplate.images.front;
       } else {
+        // Para front o cualquier otra vista, usar front
         imageUrl = selectedTemplate.images.front;
       }
-      console.log('[getCurrentTemplateImage] Fallback a images para:', currentZoneType);
+      console.log('[getCurrentTemplateImage] Fallback a images para:', currentZoneType, imageUrl ? 'encontrada' : 'no encontrada');
+    }
+
+    // PRIORIDAD 3: Si currentZoneType no está definido pero hay imagen front, usarla
+    if (!imageUrl && !currentZoneType && selectedTemplate.images?.front) {
+      imageUrl = selectedTemplate.images.front;
+      console.log('[getCurrentTemplateImage] Sin zoneType, usando images.front');
     }
 
     return imageUrl;
@@ -840,6 +914,7 @@ export const CustomizerPage = () => {
   };
 
   // Generar imagen de preview usando el canvas oculto
+  // El diseño se recorta al contorno del template PNG (como en el personalizador)
   const generatePreviewImage = async (): Promise<string | null> => {
     if (!canvasRef.current || !selectedTemplate) return null;
 
@@ -849,7 +924,9 @@ export const CustomizerPage = () => {
 
     // Obtener imagen del template (coloreada si aplica)
     const imageUrl = colorizedTemplateImage || getCurrentTemplateImage();
-    if (!imageUrl) return null;
+    // También necesitamos la imagen original (sin colorear) para la máscara
+    const originalTemplateUrl = getCurrentTemplateImage();
+    if (!imageUrl || !originalTemplateUrl) return null;
 
     return new Promise((resolve) => {
       const img = new Image();
@@ -872,14 +949,15 @@ export const CustomizerPage = () => {
         canvas.width = canvasW;
         canvas.height = canvasH;
 
-        // Dibujar imagen del template preservando proporción
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        // Dibujar el diseño de la vista actual con posicionamiento libre
+        // Dibujar el diseño de la vista actual con recorte al contorno del template
         const drawDesign = async () => {
           const design = currentZoneType ? designs.get(currentZoneType) : null;
+
+          // Limpiar canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
           if (design?.imageData) {
+            // PASO 1: Dibujar el diseño primero
             const designImg = new Image();
             designImg.crossOrigin = 'anonymous';
             await new Promise<void>((res) => {
@@ -923,7 +1001,27 @@ export const CustomizerPage = () => {
               designImg.onerror = () => res();
               designImg.src = design.imageData;
             });
+
+            // PASO 2: Usar el template como máscara para recortar el diseño
+            // Solo los píxeles donde el template tiene contenido (no transparente) se mantienen
+            const maskImg = new Image();
+            maskImg.crossOrigin = 'anonymous';
+            await new Promise<void>((res) => {
+              maskImg.onload = () => {
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.drawImage(maskImg, 0, 0, canvas.width, canvas.height);
+                ctx.globalCompositeOperation = 'source-over';
+                res();
+              };
+              maskImg.onerror = () => res();
+              maskImg.src = originalTemplateUrl;
+            });
           }
+
+          // PASO 3: Dibujar el template encima (con el diseño ya recortado debajo)
+          ctx.globalCompositeOperation = 'destination-over';
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          ctx.globalCompositeOperation = 'source-over';
 
           // Exportar como imagen
           const dataUrl = canvas.toDataURL('image/png', 0.95);
