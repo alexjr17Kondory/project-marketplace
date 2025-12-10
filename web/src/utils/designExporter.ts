@@ -1,6 +1,5 @@
 import JSZip from 'jszip';
 import type { Design } from '../types/design';
-import type { PrintZone } from '../types/product';
 
 interface ExportOptions {
   templateName?: string;
@@ -48,9 +47,10 @@ const getExtensionFromBase64 = (base64: string): string => {
 
 /**
  * Exporta todos los diseños a un archivo ZIP
+ * La clave del Map ahora es el viewType (front, back, etc.)
  */
 export const exportDesignsToZip = async (
-  designs: Map<PrintZone, Design>,
+  designs: Map<string, Design>,
   options: ExportOptions = {}
 ): Promise<void> => {
   const {
@@ -97,14 +97,14 @@ export const exportDesignsToZip = async (
 
   // Agregar cada diseño al ZIP
   for (const design of designsWithImages) {
-    const zoneId = design.zoneId.replace('zone-', '');
-    const zoneName = `zona_${zoneId}`;
+    const viewType = design.viewType || 'unknown';
+    const viewName = `vista_${viewType}`;
 
     // Imagen para preview (comprimida o coloreada)
     const previewImage = design.colorizedImageData || design.imageData;
     if (previewImage) {
       const ext = getExtensionFromBase64(previewImage);
-      const fileName = `${zoneName}_preview.${ext}`;
+      const fileName = `${viewName}_preview.${ext}`;
       const blob = base64ToBlob(previewImage);
       folder.file(fileName, blob);
 
@@ -125,7 +125,7 @@ export const exportDesignsToZip = async (
       const ext = getExtensionFromBase64(design.originalImageData);
       const originalName = design.originalFileName
         ? design.originalFileName.replace(/\.[^/.]+$/, '') // Remover extensión original
-        : zoneName;
+        : viewName;
       const fileName = `${originalName}_original.${ext}`;
       const blob = base64ToBlob(design.originalImageData);
       folder.file(fileName, blob);

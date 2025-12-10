@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ShoppingCart, ArrowLeft, Loader2, Package, Eye, EyeOff, Download } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, Loader2, Package, Eye, EyeOff, Download, Move } from 'lucide-react';
 import { canvasService } from '../services/canvas.service';
-import { templatesService, type Template } from '../services/templates.service';
+import { templatesService, type Template, type DesignZone } from '../services/templates.service';
 import { templateZonesService, type TemplateZone } from '../services/template-zones.service';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
@@ -12,6 +12,7 @@ import { DesignControls } from '../components/customizer/DesignControls';
 import { SizeGuideModal } from '../components/customizer/SizeGuideModal';
 import { applyColorToImage } from '../utils/imageColorizer';
 import { exportDesignsToZip } from '../utils/designExporter';
+import { detectPngBounds, clampPositionToBounds, type PngBounds } from '../utils/pngBoundsDetector';
 import type { ProductType, PrintZone } from '../types/product';
 import type { Design, CustomizedProduct } from '../types/design';
 
@@ -42,25 +43,169 @@ export const CustomizerPage = () => {
   const [selectedColor, setSelectedColor] = useState<string>('#FFFFFF');
   const [selectedSize, setSelectedSize] = useState<string>('M');
   const [currentZoneType, setCurrentZoneType] = useState<string | null>(null);
-  const [selectedZone, setSelectedZone] = useState<PrintZone | null>(null);
-  const [designs, setDesigns] = useState<Map<PrintZone, Design>>(new Map());
+  // Diseños por vista (front, back, etc.) - uno por vista, posicionamiento libre
+  const [designs, setDesigns] = useState<Map<string, Design>>(new Map());
   const [isUploading, setIsUploading] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageDimensions, setImageDimensions] = useState({ naturalWidth: 0, naturalHeight: 0 });
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
-  const [showZoneBorders, setShowZoneBorders] = useState(true);
+  const [showZoneGuides, setShowZoneGuides] = useState(true); // Zonas como guías visuales
   const [colorizedTemplateImage, setColorizedTemplateImage] = useState<string | null>(null);
   const [isColorizingTemplate, setIsColorizingTemplate] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Ref para la imagen del template
+  // Límites del contenido visible del PNG (para restringir el diseño)
+  const [pngBounds, setPngBounds] = useState<PngBounds | null>(null);
+  // Zona seleccionada para ajustar el tamaño del diseño
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  // Zonas de diseño (habilitadas y bloqueadas) del template actual
+  const [allowedZones, setAllowedZones] = useState<DesignZone[]>([]);
+  const [blockedZones, setBlockedZones] = useState<DesignZone[]>([]);
+
+  // Estado para drag & drop del diseño
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [designStartPos, setDesignStartPos] = useState({ x: 0, y: 0 });
+
+  // Ref para la imagen del template y el contenedor
   const templateImageRef = useRef<HTMLImageElement>(null);
+  const designContainerRef = useRef<HTMLDivElement>(null);
 
   // Constantes del canvas
   const CANVAS_WIDTH = 600;
   const CANVAS_HEIGHT = 600;
+
+  // Función auxiliar para verificar si un punto está dentro de un polígono (triángulo)
+  const isPointInPolygon = useCallback((
+    point: { x: number; y: number },
+    polygonPoints: Array<{ x: number; y: number }>,
+    zoneX: number,
+    zoneY: number,
+    zoneWidth: number,
+    zoneHeight: number
+  ): boolean => {
+    // Convertir puntos relativos (0-100%) a coordenadas absolutas
+    const absolutePoints = polygonPoints.map(p => ({
+      x: zoneX + (p.x / 100) * zoneWidth,
+      y: zoneY + (p.y / 100) * zoneHeight
+    }));
+
+    let inside = false;
+    for (let i = 0, j = absolutePoints.length - 1; i < absolutePoints.length; j = i++) {
+      const xi = absolutePoints[i].x, yi = absolutePoints[i].y;
+      const xj = absolutePoints[j].x, yj = absolutePoints[j].y;
+
+      if (((yi > point.y) !== (yj > point.y)) &&
+          (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }, []);
+
+  // Función para verificar si el diseño colisiona con una zona
+  const checkZoneCollision = useCallback((
+    position: { x: number; y: number },
+    size: { width: number; height: number },
+    zone: DesignZone
+  ): boolean => {
+    // Calcular los bordes del diseño (posición es el centro)
+    const designLeft = position.x - size.width / 2;
+    const designRight = position.x + size.width / 2;
+    const designTop = position.y - size.height / 2;
+    const designBottom = position.y + size.height / 2;
+
+    if (zone.shape === 'circle' && zone.radius) {
+      // Para círculos, verificar si el rectángulo del diseño intersecta con el círculo
+      const centerX = zone.x + zone.radius;
+      const centerY = zone.y + zone.radius;
+      // Encontrar el punto más cercano del rectángulo al centro del círculo
+      const closestX = Math.max(designLeft, Math.min(centerX, designRight));
+      const closestY = Math.max(designTop, Math.min(centerY, designBottom));
+      const distance = Math.sqrt(Math.pow(closestX - centerX, 2) + Math.pow(closestY - centerY, 2));
+      return distance <= zone.radius;
+    }
+
+    if (zone.shape === 'polygon' && zone.points && zone.points.length >= 3) {
+      // Para polígonos (triángulos), verificar si alguna esquina del diseño está dentro
+      const zoneWidth = zone.width || 30;
+      const zoneHeight = zone.height || 30;
+
+      // Verificar las 4 esquinas del diseño
+      const corners = [
+        { x: designLeft, y: designTop },
+        { x: designRight, y: designTop },
+        { x: designRight, y: designBottom },
+        { x: designLeft, y: designBottom },
+        { x: position.x, y: position.y } // También el centro
+      ];
+
+      for (const corner of corners) {
+        if (isPointInPolygon(corner, zone.points, zone.x, zone.y, zoneWidth, zoneHeight)) {
+          return true;
+        }
+      }
+
+      // Verificar si el centro del triángulo está dentro del diseño
+      const triangleCenter = {
+        x: zone.x + zoneWidth / 2,
+        y: zone.y + zoneHeight * 0.67 // El centroide del triángulo está a 2/3 de la altura
+      };
+
+      if (triangleCenter.x >= designLeft && triangleCenter.x <= designRight &&
+          triangleCenter.y >= designTop && triangleCenter.y <= designBottom) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // Rectángulo: verificar intersección
+    const zoneLeft = zone.x;
+    const zoneRight = zone.x + (zone.width || 0);
+    const zoneTop = zone.y;
+    const zoneBottom = zone.y + (zone.height || 0);
+
+    return !(
+      designRight < zoneLeft ||
+      designLeft > zoneRight ||
+      designBottom < zoneTop ||
+      designTop > zoneBottom
+    );
+  }, [isPointInPolygon]);
+
+  // Función para verificar si la posición del diseño es válida
+  // Retorna true si el diseño está en una posición válida
+  const isDesignPositionValid = useCallback((
+    position: { x: number; y: number },
+    size: { width: number; height: number }
+  ): boolean => {
+    // Verificar colisión con zonas bloqueadas - si colisiona, posición inválida
+    for (const zone of blockedZones) {
+      if (checkZoneCollision(position, size, zone)) {
+        return false;
+      }
+    }
+
+    // Si hay zonas habilitadas, el diseño debe estar dentro de al menos una
+    if (allowedZones.length > 0) {
+      let isInAnyAllowedZone = false;
+      for (const zone of allowedZones) {
+        if (checkZoneCollision(position, size, zone)) {
+          isInAnyAllowedZone = true;
+          break;
+        }
+      }
+      // Si no está en ninguna zona habilitada, posición inválida
+      if (!isInAnyAllowedZone) {
+        return false;
+      }
+    }
+
+    return true;
+  }, [allowedZones, blockedZones, checkZoneCollision]);
 
   // Calcular el área real de la imagen visible considerando object-contain
   const getImageContentArea = useCallback(() => {
@@ -251,7 +396,7 @@ export const CustomizerPage = () => {
     }
   }, [searchParams, templates, getCartItemById]);
 
-  // Cargar zonas del template
+  // Cargar zonas del template (solo como guías visuales)
   useEffect(() => {
     const loadTemplateZones = async () => {
       if (selectedTemplate) {
@@ -261,23 +406,15 @@ export const CustomizerPage = () => {
           console.log('[CustomizerPage] Zonas recibidas:', zones);
           const validZones = Array.isArray(zones) ? zones : [];
           const activeZones = validZones.filter(z => z.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
-          console.log('[CustomizerPage] Zonas activas:', activeZones);
+          console.log('[CustomizerPage] Zonas activas (guías):', activeZones);
           setTemplateZones(activeZones);
 
-          // Obtener tipos de zona únicos y establecer el primero
+          // Obtener tipos de zona únicos y establecer el primero (para cambiar vistas)
           const zoneTypes = [...new Set(activeZones.map(z => z.zoneType?.slug).filter(Boolean))] as string[];
-          console.log('[CustomizerPage] Tipos de zona encontrados:', zoneTypes);
+          console.log('[CustomizerPage] Tipos de vista encontrados:', zoneTypes);
           if (zoneTypes.length > 0) {
-            // Siempre establecer el primer tipo de zona del nuevo template
             setCurrentZoneType(zoneTypes[0]);
-            console.log('[CustomizerPage] Tipo de zona establecido:', zoneTypes[0]);
-
-            // Seleccionar primera zona de ese tipo
-            const firstZoneOfType = activeZones.find(z => z.zoneType?.slug === zoneTypes[0]);
-            if (firstZoneOfType) {
-              setSelectedZone(`zone-${firstZoneOfType.id}` as PrintZone);
-              console.log('[CustomizerPage] Zona seleccionada:', firstZoneOfType.id);
-            }
+            console.log('[CustomizerPage] Vista establecida:', zoneTypes[0]);
           }
         } catch (error) {
           console.error('Error al cargar zonas:', error);
@@ -286,7 +423,6 @@ export const CustomizerPage = () => {
       } else {
         setTemplateZones([]);
         setCurrentZoneType(null);
-        setSelectedZone(null);
       }
     };
     loadTemplateZones();
@@ -301,12 +437,12 @@ export const CustomizerPage = () => {
     ).values()
   );
 
-  // Zonas filtradas por tipo de zona actual
+  // Zonas filtradas por tipo de zona actual (excluyendo bloqueadas para las guías)
   const zonesForCurrentType = templateZones.filter(
-    z => z.zoneType?.slug === currentZoneType
+    z => z.zoneType?.slug === currentZoneType && !z.isBlocked
   );
 
-  // Convertir zonas a formato del canvas
+  // Convertir zonas a formato del canvas (solo zonas NO bloqueadas para las guías)
   // positionX/Y son la esquina superior izquierda en porcentaje
   const availableZones = zonesForCurrentType.map(zone => ({
     id: `zone-${zone.id}` as PrintZone,
@@ -363,7 +499,7 @@ export const CustomizerPage = () => {
   // Re-renderizar canvas cuando cambian los diseños
   useEffect(() => {
     renderCanvas();
-  }, [designs, selectedZone]);
+  }, [designs, currentZoneType]);
 
   // Obtener la imagen actual para el tipo de zona seleccionado
   // IMPORTANTE: Las zonas se definen sobre zoneTypeImages, no sobre images.front/back
@@ -449,6 +585,91 @@ export const CustomizerPage = () => {
     colorizeTemplate();
   }, [selectedColor, getCurrentTemplateImage]);
 
+  // Detectar los límites del contenido visible del PNG
+  useEffect(() => {
+    const detectBounds = async () => {
+      const templateImage = getCurrentTemplateImage();
+      if (!templateImage || !imageLoaded) {
+        setPngBounds(null);
+        return;
+      }
+
+      try {
+        const bounds = await detectPngBounds(templateImage);
+        console.log('[detectBounds] Límites detectados:', bounds);
+        setPngBounds(bounds);
+      } catch (error) {
+        console.error('Error al detectar límites del PNG:', error);
+        // Fallback: usar toda el área
+        setPngBounds({
+          left: 0,
+          top: 0,
+          right: 100,
+          bottom: 100,
+          width: 100,
+          height: 100,
+        });
+      }
+    };
+
+    detectBounds();
+  }, [getCurrentTemplateImage, imageLoaded]);
+
+  // Cargar zonas de diseño (habilitadas y bloqueadas) desde la base de datos
+  useEffect(() => {
+    const loadZonesFromDB = async () => {
+      if (!selectedTemplate?.id || !currentZoneType) {
+        setAllowedZones([]);
+        setBlockedZones([]);
+        return;
+      }
+
+      try {
+        // Cargar zonas desde la tabla template_zones
+        const templateZones = await templateZonesService.getByTemplateId(selectedTemplate.id);
+
+        // Filtrar por el tipo de zona actual (front, back, etc.)
+        const zonesForCurrentView = templateZones.filter(
+          (z) => z.zoneType?.slug === currentZoneType && z.isActive
+        );
+
+        console.log('[CustomizerPage] Zonas de BD para', currentZoneType, ':', zonesForCurrentView);
+
+        // Convertir TemplateZone a formato DesignZone para compatibilidad
+        const convertToDesignZone = (zone: TemplateZone): DesignZone => ({
+          id: zone.zoneId || `zone-${zone.id}`,
+          type: zone.isBlocked ? 'blocked' : 'allowed',
+          shape: zone.shape || 'rect',
+          x: zone.positionX,
+          y: zone.positionY,
+          width: zone.maxWidth,
+          height: zone.maxHeight,
+          radius: zone.radius || undefined,
+          points: zone.points || undefined,
+          name: zone.name,
+        });
+
+        // Separar zonas por isBlocked
+        const allowed = zonesForCurrentView
+          .filter((z) => !z.isBlocked)
+          .map(convertToDesignZone);
+        const blocked = zonesForCurrentView
+          .filter((z) => z.isBlocked)
+          .map(convertToDesignZone);
+
+        console.log('[CustomizerPage] Zonas habilitadas:', allowed.length, 'Zonas bloqueadas:', blocked.length);
+        setAllowedZones(allowed);
+        setBlockedZones(blocked);
+      } catch (error) {
+        console.error('[CustomizerPage] Error al cargar zonas:', error);
+        setAllowedZones([]);
+        setBlockedZones([]);
+      }
+    };
+
+    loadZonesFromDB();
+  }, [selectedTemplate?.id, currentZoneType]);
+
   const renderCanvas = () => {
     if (!canvasRef.current) return;
 
@@ -467,7 +688,6 @@ export const CustomizerPage = () => {
     setDesigns(new Map());
     // Resetear el tipo de zona para que se cargue el nuevo del template
     setCurrentZoneType(null);
-    setSelectedZone(null);
     setImageLoaded(false);
 
     // Establecer color y talla por defecto del template
@@ -479,56 +699,142 @@ export const CustomizerPage = () => {
     }
   };
 
+  // Diseño actual para la vista seleccionada
+  const currentDesign = currentZoneType ? designs.get(currentZoneType) : null;
+
   const handleImageUpload = (imageData: string, uploadData?: ImageUploadData) => {
-    if (!selectedZone) return;
+    if (!currentZoneType) return;
 
     setIsUploading(true);
-    const zoneConfig = availableZones.find(z => z.id === selectedZone);
 
-    // Tamaño inicial: 80% del tamaño de la zona para que quepa con margen
-    const initialWidth = Math.round((zoneConfig?.maxWidth || 200) * 0.8);
-    const initialHeight = Math.round((zoneConfig?.maxHeight || 200) * 0.8);
-
+    // Tamaño inicial: 30% del template (se puede ajustar con controles)
     const newDesign: Design = {
-      id: `design-${selectedZone}-${Date.now()}`,
-      zoneId: selectedZone,
+      id: `design-${currentZoneType}-${Date.now()}`,
+      zoneId: `view-${currentZoneType}` as PrintZone,
+      viewType: currentZoneType,
       imageUrl: '',
       imageData: imageData,
       originalImageData: uploadData?.original,
       originalFileName: uploadData?.fileName,
       originalFileSize: uploadData?.fileSize,
-      // Posición como porcentaje dentro de la zona (0-100)
-      // 50 = centrado
+      // Posición centrada en el template (50%, 50%)
       position: {
         x: 50,
         y: 50,
       },
+      // Tamaño como porcentaje del template
       size: {
-        width: initialWidth,
-        height: initialHeight,
+        width: 30,  // 30% del ancho del template
+        height: 30, // 30% del alto del template
       },
       rotation: 0,
       opacity: 1,
     };
 
-    setDesigns(prev => new Map(prev).set(selectedZone, newDesign));
+    setDesigns(prev => new Map(prev).set(currentZoneType, newDesign));
     setIsUploading(false);
   };
 
-  const handleDesignUpdate = (updates: Partial<Design>) => {
-    if (!selectedZone) return;
-    const currentDesign = designs.get(selectedZone);
-    if (!currentDesign) return;
+  // Funciones de Drag & Drop para mover el diseño libremente
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!currentDesign || !designContainerRef.current) return;
 
-    const updatedDesign = { ...currentDesign, ...updates };
-    setDesigns(prev => new Map(prev).set(selectedZone, updatedDesign));
+    e.preventDefault();
+    setIsDragging(true);
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    setDragStart({ x: clientX, y: clientY });
+    setDesignStartPos({ x: currentDesign.position.x, y: currentDesign.position.y });
+  };
+
+  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isDragging || !currentDesign || !designContainerRef.current || !currentZoneType) return;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const container = designContainerRef.current;
+    const rect = container.getBoundingClientRect();
+
+    // Calcular el movimiento en píxeles y convertir a porcentaje
+    const deltaX = clientX - dragStart.x;
+    const deltaY = clientY - dragStart.y;
+
+    // Convertir delta de píxeles a porcentaje del contenedor
+    const deltaXPercent = (deltaX / rect.width) * 100;
+    const deltaYPercent = (deltaY / rect.height) * 100;
+
+    // Nueva posición calculada
+    let newX = designStartPos.x + deltaXPercent;
+    let newY = designStartPos.y + deltaYPercent;
+
+    // Aplicar límites basados en el contorno del PNG si están disponibles
+    if (pngBounds) {
+      const clampedPos = clampPositionToBounds(
+        { x: newX, y: newY },
+        { width: currentDesign.size.width, height: currentDesign.size.height },
+        pngBounds
+      );
+      newX = clampedPos.x;
+      newY = clampedPos.y;
+    } else {
+      // Fallback: limitar a los bordes del contenedor (0-100)
+      newX = Math.max(0, Math.min(100, newX));
+      newY = Math.max(0, Math.min(100, newY));
+    }
+
+    // Actualizar diseño - el movimiento es siempre fluido
+    // Las zonas bloqueadas se manejan visualmente con máscara SVG
+    setDesigns(prev => {
+      const updated = new Map(prev);
+      const design = updated.get(currentZoneType);
+      if (design) {
+        updated.set(currentZoneType, {
+          ...design,
+          position: { x: newX, y: newY }
+        });
+      }
+      return updated;
+    });
+  }, [isDragging, currentDesign, currentZoneType, dragStart, designStartPos, pngBounds]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Event listeners para drag & drop
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleDragMove);
+      window.addEventListener('mouseup', handleDragEnd);
+      window.addEventListener('touchmove', handleDragMove);
+      window.addEventListener('touchend', handleDragEnd);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleDragMove);
+      window.removeEventListener('touchend', handleDragEnd);
+    };
+  }, [isDragging, handleDragMove, handleDragEnd]);
+
+  const handleDesignUpdate = (updates: Partial<Design>) => {
+    if (!currentZoneType) return;
+    const design = designs.get(currentZoneType);
+    if (!design) return;
+
+    const updatedDesign = { ...design, ...updates };
+    setDesigns(prev => new Map(prev).set(currentZoneType, updatedDesign));
   };
 
   const handleDesignDelete = () => {
-    if (!selectedZone) return;
+    if (!currentZoneType) return;
     setDesigns(prev => {
       const newMap = new Map(prev);
-      newMap.delete(selectedZone);
+      newMap.delete(currentZoneType);
       return newMap;
     });
   };
@@ -541,8 +847,8 @@ export const CustomizerPage = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Obtener imagen del template
-    const imageUrl = getCurrentTemplateImage();
+    // Obtener imagen del template (coloreada si aplica)
+    const imageUrl = colorizedTemplateImage || getCurrentTemplateImage();
     if (!imageUrl) return null;
 
     return new Promise((resolve) => {
@@ -553,51 +859,53 @@ export const CustomizerPage = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // Dibujar los diseños en sus zonas correspondientes
-        const drawDesigns = async () => {
-          for (const zone of availableZones) {
-            const design = designs.get(zone.id);
-            if (design?.imageData) {
-              const designImg = new Image();
-              designImg.crossOrigin = 'anonymous';
-              await new Promise<void>((res) => {
-                designImg.onload = () => {
-                  // Calcular posición en el canvas usando porcentajes
-                  const x = (zone.positionXPercent / 100) * canvas.width;
-                  const y = (zone.positionYPercent / 100) * canvas.height;
-                  const w = (zone.widthPercent / 100) * canvas.width;
-                  const h = (zone.heightPercent / 100) * canvas.height;
+        // Dibujar el diseño de la vista actual con posicionamiento libre
+        const drawDesign = async () => {
+          const design = currentZoneType ? designs.get(currentZoneType) : null;
+          if (design?.imageData) {
+            const designImg = new Image();
+            designImg.crossOrigin = 'anonymous';
+            await new Promise<void>((res) => {
+              designImg.onload = () => {
+                // Calcular tamaño en píxeles del canvas
+                const w = (design.size.width / 100) * canvas.width;
+                const h = (design.size.height / 100) * canvas.height;
 
-                  ctx.save();
-                  ctx.globalAlpha = design.opacity || 1;
+                // Calcular posición (centro del diseño en porcentaje)
+                const centerX = (design.position.x / 100) * canvas.width;
+                const centerY = (design.position.y / 100) * canvas.height;
+                const x = centerX - w / 2;
+                const y = centerY - h / 2;
 
-                  // Aplicar rotación si existe
-                  if (design.rotation) {
-                    ctx.translate(x + w / 2, y + h / 2);
-                    ctx.rotate((design.rotation * Math.PI) / 180);
-                    ctx.translate(-(x + w / 2), -(y + h / 2));
-                  }
+                ctx.save();
+                ctx.globalAlpha = design.opacity || 1;
 
-                  // Mantener proporciones del diseño
-                  const aspectRatio = designImg.width / designImg.height;
-                  let drawW = w;
-                  let drawH = h;
-                  if (aspectRatio > w / h) {
-                    drawH = w / aspectRatio;
-                  } else {
-                    drawW = h * aspectRatio;
-                  }
-                  const drawX = x + (w - drawW) / 2;
-                  const drawY = y + (h - drawH) / 2;
+                // Aplicar rotación si existe
+                if (design.rotation) {
+                  ctx.translate(centerX, centerY);
+                  ctx.rotate((design.rotation * Math.PI) / 180);
+                  ctx.translate(-centerX, -centerY);
+                }
 
-                  ctx.drawImage(designImg, drawX, drawY, drawW, drawH);
+                // Usar imagen coloreada si existe
+                const displayImage = design.colorizedImageData || design.imageData;
+                const colorizedImg = new Image();
+                colorizedImg.crossOrigin = 'anonymous';
+                colorizedImg.onload = () => {
+                  ctx.drawImage(colorizedImg, x, y, w, h);
                   ctx.restore();
                   res();
                 };
-                designImg.onerror = () => res();
-                designImg.src = design.imageData;
-              });
-            }
+                colorizedImg.onerror = () => {
+                  ctx.drawImage(designImg, x, y, w, h);
+                  ctx.restore();
+                  res();
+                };
+                colorizedImg.src = displayImage;
+              };
+              designImg.onerror = () => res();
+              designImg.src = design.imageData;
+            });
           }
 
           // Exportar como imagen
@@ -605,7 +913,7 @@ export const CustomizerPage = () => {
           resolve(dataUrl);
         };
 
-        drawDesigns();
+        drawDesign();
       };
       img.onerror = () => resolve(null);
       img.src = imageUrl;
@@ -626,11 +934,13 @@ export const CustomizerPage = () => {
 
     const allDesigns = Array.from(designs.values());
     const basePrice = selectedTemplate.basePrice;
-    const pricePerZone = 2000;
-    const customizationPrice = designs.size * pricePerZone;
+    const pricePerView = 2000; // Precio por cada vista con diseño
+    const customizationPrice = designs.size * pricePerView;
     const totalPrice = basePrice + customizationPrice;
 
     const selectedColorData = selectedTemplate.colors?.find(c => c.hexCode === selectedColor);
+
+    // Guardar zonas como referencia (ya no son obligatorias para posicionar)
     const savedZones = templateZones.map(zone => ({
       zoneId: `zone-${zone.id}`,
       zoneName: zone.name,
@@ -641,10 +951,9 @@ export const CustomizerPage = () => {
       maxHeight: zone.maxHeight,
     }));
 
-    const frontDesign = allDesigns.find(d =>
-      d.zoneId.includes('front') || d.zoneId.includes('chest')
-    );
-    const backDesign = allDesigns.find(d => d.zoneId.includes('back'));
+    // Buscar diseños por vista
+    const frontDesign = allDesigns.find(d => d.viewType === 'front');
+    const backDesign = allDesigns.find(d => d.viewType === 'back');
 
     const customizedProduct: CustomizedProduct = {
       id: `custom-${Date.now()}`,
@@ -823,7 +1132,7 @@ export const CustomizerPage = () => {
               </div>
             )}
 
-            {/* Selector de Vista/Tipo de Zona */}
+            {/* Selector de Vista (Front/Back) */}
             {selectedTemplate && availableZoneTypes.length > 0 && (
               <div className="bg-white rounded-xl shadow-md p-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Vista</h3>
@@ -831,56 +1140,25 @@ export const CustomizerPage = () => {
                   {availableZoneTypes.map((zt) => (
                     <button
                       key={zt.slug}
-                      onClick={() => {
-                        setCurrentZoneType(zt.slug);
-                        // Seleccionar primera zona de este tipo
-                        const firstZone = templateZones.find(z => z.zoneType?.slug === zt.slug);
-                        if (firstZone) {
-                          setSelectedZone(`zone-${firstZone.id}` as PrintZone);
-                        }
-                      }}
-                      className={`px-4 py-2 rounded-lg border-2 font-medium transition-all ${
+                      onClick={() => setCurrentZoneType(zt.slug)}
+                      className={`px-4 py-2 rounded-lg border-2 font-medium transition-all relative ${
                         currentZoneType === zt.slug
                           ? 'border-purple-600 bg-purple-50 text-purple-600'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       {zt.name}
+                      {designs.has(zt.slug) && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+                      )}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Zonas de Impresión */}
-            {selectedTemplate && availableZones.length > 0 && (
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Zonas de Impresión</h3>
-                <div className="space-y-2">
-                  {availableZones.map((zone) => (
-                    <button
-                      key={zone.id}
-                      onClick={() => setSelectedZone(zone.id)}
-                      className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${
-                        selectedZone === zone.id
-                          ? 'border-purple-600 bg-purple-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{zone.name}</span>
-                        {designs.has(zone.id) && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                            Con diseño
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        Máx: {zone.maxWidth}x{zone.maxHeight}px
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                {currentDesign && (
+                  <p className="text-xs text-green-600 mt-2">
+                    ✓ Esta vista tiene un diseño
+                  </p>
+                )}
               </div>
             )}
           </aside>
@@ -930,7 +1208,7 @@ export const CustomizerPage = () => {
                           });
                           handleTemplateImageLoad();
                         }}
-                        onError={(e) => {
+                        onError={() => {
                           console.error('[img onError] Error loading image:', getCurrentTemplateImage()?.substring(0, 100));
                           // Si falla, marcar como cargada para mostrar mensaje de error
                           setImageLoaded(true);
@@ -954,119 +1232,271 @@ export const CustomizerPage = () => {
                       </div>
                     )}
 
-                    {/* Botón para mostrar/ocultar bordes de zonas */}
-                    {imageLoaded && availableZones.length > 0 && (
-                      <button
-                        onClick={() => setShowZoneBorders(!showZoneBorders)}
-                        className="absolute top-2 right-2 z-20 bg-white/90 hover:bg-white shadow-md rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 transition-all"
-                        title={showZoneBorders ? 'Ocultar zonas' : 'Mostrar zonas'}
-                      >
-                        {showZoneBorders ? (
-                          <>
-                            <EyeOff className="w-4 h-4" />
-                            <span className="hidden sm:inline">Ocultar zonas</span>
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="w-4 h-4" />
-                            <span className="hidden sm:inline">Mostrar zonas</span>
-                          </>
-                        )}
-                      </button>
-                    )}
+                    {/* Botones para mostrar/ocultar zonas */}
+                    <div className="absolute top-2 right-2 z-20 flex flex-col gap-2">
+                      {/* Botón para guías de zonas */}
+                      {imageLoaded && availableZones.length > 0 && (
+                        <button
+                          onClick={() => setShowZoneGuides(!showZoneGuides)}
+                          className="bg-white/90 hover:bg-white shadow-md rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 transition-all"
+                          title={showZoneGuides ? 'Ocultar guías' : 'Mostrar guías'}
+                        >
+                          {showZoneGuides ? (
+                            <>
+                              <EyeOff className="w-4 h-4" />
+                              <span className="hidden sm:inline">Ocultar guías</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4" />
+                              <span className="hidden sm:inline">Mostrar guías</span>
+                            </>
+                          )}
+                        </button>
+                      )}
 
-                    {/* Zonas como overlays HTML - posicionamiento preciso */}
-                    {imageLoaded && availableZones.map((zone) => {
-                      const isSelected = zone.id === selectedZone;
-                      const hasDesign = designs.has(zone.id);
-                      const dimensions = getZoneDisplayDimensions(zone);
+                    </div>
+
+                    {/* Contenedor de guías de zonas (sin máscara para que se vean) */}
+                    <div className="absolute inset-0" style={{ pointerEvents: 'auto' }}>
+                      {/* Zonas como GUÍAS visuales - Seleccionables para ajustar tamaño */}
+                      {imageLoaded && showZoneGuides && availableZones.map((zone) => {
+                        const dimensions = getZoneDisplayDimensions(zone);
+                        const isSelected = selectedZone === zone.id;
+
+                        return (
+                          <div
+                            key={zone.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Si hay diseño, ajustar su tamaño a la zona seleccionada
+                              if (currentDesign && currentZoneType) {
+                                // Calcular el centro de la zona
+                                const zoneCenterX = zone.positionXPercent + (zone.widthPercent / 2);
+                                const zoneCenterY = zone.positionYPercent + (zone.heightPercent / 2);
+
+                                // Aplicar límites del PNG si están disponibles
+                                let finalX = zoneCenterX;
+                                let finalY = zoneCenterY;
+                                if (pngBounds) {
+                                  const clampedPos = clampPositionToBounds(
+                                    { x: zoneCenterX, y: zoneCenterY },
+                                    { width: zone.widthPercent, height: zone.heightPercent },
+                                    pngBounds
+                                  );
+                                  finalX = clampedPos.x;
+                                  finalY = clampedPos.y;
+                                }
+
+                                setDesigns(prev => {
+                                  const updated = new Map(prev);
+                                  const design = updated.get(currentZoneType);
+                                  if (design) {
+                                    updated.set(currentZoneType, {
+                                      ...design,
+                                      position: { x: finalX, y: finalY },
+                                      size: { width: zone.widthPercent, height: zone.heightPercent },
+                                    });
+                                  }
+                                  return updated;
+                                });
+                              }
+                              setSelectedZone(isSelected ? null : zone.id);
+                            }}
+                            className={`absolute border-2 cursor-pointer transition-all ${
+                              isSelected
+                                ? 'border-purple-500 bg-purple-100/20'
+                                : 'border-dashed border-blue-400/50 hover:border-blue-500 hover:bg-blue-50/10'
+                            }`}
+                            style={{
+                              left: dimensions.left,
+                              top: dimensions.top,
+                              width: dimensions.width,
+                              height: dimensions.height,
+                            }}
+                          >
+                            {/* Etiqueta de la guía */}
+                            <div className={`absolute -top-5 left-0 px-1.5 py-0.5 text-xs font-medium rounded-t whitespace-nowrap ${
+                              isSelected ? 'bg-purple-600 text-white' : 'bg-blue-500/70 text-white'
+                            }`}>
+                              {zone.name} {isSelected && '- Clic para ajustar'}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Las zonas habilitadas y bloqueadas NO se muestran, solo aplican máscara */}
+                    </div>
+
+                    {/* SVG con definiciones de máscaras para zonas bloqueadas */}
+                    {blockedZones.length > 0 && (() => {
+                      // Obtener el área real de la imagen para transformar coordenadas
+                      const contentArea = getImageContentArea();
 
                       return (
-                        <div
-                          key={zone.id}
-                          onClick={() => setSelectedZone(zone.id)}
-                          className={`absolute cursor-pointer transition-all ${
-                            showZoneBorders
-                              ? isSelected
-                                ? 'border-2 border-purple-600 bg-purple-500/20 shadow-lg z-10'
-                                : 'border border-dashed border-gray-400/60 hover:border-gray-500 hover:bg-gray-500/10'
-                              : ''
-                          }`}
-                          style={{
-                            left: dimensions.left,
-                            top: dimensions.top,
-                            width: dimensions.width,
-                            height: dimensions.height,
-                          }}
+                        <svg
+                          className="absolute"
+                          style={{ width: 0, height: 0, position: 'absolute' }}
                         >
-                          {/* Etiqueta de la zona - solo visible si showZoneBorders */}
-                          {showZoneBorders && (
-                            <div
-                              className={`absolute -top-6 left-0 px-2 py-0.5 text-xs font-medium rounded-t whitespace-nowrap ${
-                                isSelected
-                                  ? 'bg-purple-600 text-white'
-                                  : 'bg-gray-500 text-white'
-                              }`}
-                            >
-                              {zone.name}
-                              {hasDesign && (
-                                <span className="ml-1 text-green-300">✓</span>
-                              )}
-                            </div>
-                          )}
+                          <defs>
+                            <mask id="blocked-zones-container-mask" maskUnits="objectBoundingBox" maskContentUnits="objectBoundingBox">
+                              {/* Fondo blanco = visible */}
+                              <rect x="0" y="0" width="1" height="1" fill="white" />
+                              {/* Zonas bloqueadas en negro = invisible */}
+                              {blockedZones.map((zone) => {
+                                // Las coordenadas de zona están en porcentaje (0-100) relativo a la IMAGEN
+                                // Necesitamos convertirlas a porcentaje (0-1) relativo al CONTENEDOR
+                                let containerLeft: number;
+                                let containerTop: number;
+                                let containerWidth: number;
+                                let containerHeight: number;
 
-                          {/* Mostrar diseño si existe */}
-                          {hasDesign && (() => {
-                            const design = designs.get(zone.id)!;
-                            const zoneWidth = zone.maxWidth; // px en escala canvas
-                            const zoneHeight = zone.maxHeight; // px en escala canvas
+                                if (contentArea) {
+                                  const { renderedWidth, renderedHeight, offsetX, offsetY, containerWidth: cw, containerHeight: ch } = contentArea;
+                                  // Convertir de % de imagen a px, luego a % del contenedor
+                                  containerLeft = (offsetX + (zone.x / 100) * renderedWidth) / cw;
+                                  containerTop = (offsetY + (zone.y / 100) * renderedHeight) / ch;
+                                  containerWidth = ((zone.width || 0) / 100) * renderedWidth / cw;
+                                  containerHeight = ((zone.height || 0) / 100) * renderedHeight / ch;
+                                } else {
+                                  // Fallback si no hay contentArea
+                                  containerLeft = zone.x / 100;
+                                  containerTop = zone.y / 100;
+                                  containerWidth = (zone.width || 0) / 100;
+                                  containerHeight = (zone.height || 0) / 100;
+                                }
 
-                            // Tamaño como porcentaje de la zona
-                            const widthPercent = (design.size.width / zoneWidth) * 100;
-                            const heightPercent = (design.size.height / zoneHeight) * 100;
-
-                            // position.x/y ahora son porcentajes (0-100) donde 50 = centrado
-                            // Calcular la posición CSS para centrar el diseño en el punto indicado
-                            // left = posición% - (ancho%/2)
-                            const leftPercent = design.position.x - (widthPercent / 2);
-                            const topPercent = design.position.y - (heightPercent / 2);
-
-                            // Usar imagen coloreada si existe, sino la original
-                            const displayImage = design.colorizedImageData || design.imageData;
-
-                            return (
-                              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                                <img
-                                  src={displayImage}
-                                  alt="Diseño"
-                                  className="absolute"
-                                  style={{
-                                    left: `${leftPercent}%`,
-                                    top: `${topPercent}%`,
-                                    width: `${widthPercent}%`,
-                                    height: `${heightPercent}%`,
-                                    opacity: design.opacity || 1,
-                                    transform: `rotate(${design.rotation || 0}deg)`,
-                                    transformOrigin: 'center center',
-                                    objectFit: 'contain',
-                                  }}
-                                />
-                              </div>
-                            );
-                          })()}
-
-                          {/* Indicador de zona seleccionada vacía - solo visible si showZoneBorders */}
-                          {showZoneBorders && isSelected && !hasDesign && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-purple-600">
-                              <Package className="w-8 h-8 mb-1 opacity-50" />
-                              <span className="text-xs font-medium opacity-70">
-                                Sube una imagen
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                                if (zone.shape === 'circle') {
+                                  // Usar elipse para cubrir todo el área definida (width x height)
+                                  const cx = containerLeft + containerWidth / 2;
+                                  const cy = containerTop + containerHeight / 2;
+                                  const rx = containerWidth / 2;  // Radio horizontal
+                                  const ry = containerHeight / 2; // Radio vertical
+                                  return (
+                                    <ellipse
+                                      key={zone.id}
+                                      cx={cx}
+                                      cy={cy}
+                                      rx={rx}
+                                      ry={ry}
+                                      fill="black"
+                                    />
+                                  );
+                                }
+                                if (zone.shape === 'polygon' && zone.points) {
+                                  const points = zone.points.map(p => {
+                                    const px = containerLeft + (p.x / 100) * containerWidth;
+                                    const py = containerTop + (p.y / 100) * containerHeight;
+                                    return `${px},${py}`;
+                                  }).join(' ');
+                                  return (
+                                    <polygon
+                                      key={zone.id}
+                                      points={points}
+                                      fill="black"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <rect
+                                    key={zone.id}
+                                    x={containerLeft}
+                                    y={containerTop}
+                                    width={containerWidth}
+                                    height={containerHeight}
+                                    fill="black"
+                                  />
+                                );
+                              })}
+                            </mask>
+                          </defs>
+                        </svg>
                       );
-                    })}
+                    })()}
+
+                    {/* Contenedor del diseño con máscara del PNG */}
+                    {/* La máscara hace que el diseño se recorte al contorno de la prenda */}
+                    <div
+                      ref={designContainerRef}
+                      className="absolute inset-0"
+                      style={{
+                        pointerEvents: 'none', // El contenedor no captura eventos, solo el diseño
+                        // Usar la imagen del template como máscara para recortar el diseño
+                        WebkitMaskImage: getCurrentTemplateImage()
+                          ? `url(${getCurrentTemplateImage()})`
+                          : undefined,
+                        maskImage: getCurrentTemplateImage()
+                          ? `url(${getCurrentTemplateImage()})`
+                          : undefined,
+                        WebkitMaskSize: 'contain',
+                        maskSize: 'contain',
+                        WebkitMaskPosition: 'center',
+                        maskPosition: 'center',
+                        WebkitMaskRepeat: 'no-repeat',
+                        maskRepeat: 'no-repeat',
+                      } as React.CSSProperties}
+                    >
+                      {/* Capa adicional con máscara de zonas bloqueadas */}
+                      <div
+                        className="absolute inset-0"
+                        style={blockedZones.length > 0 ? {
+                          mask: 'url(#blocked-zones-container-mask)',
+                          WebkitMask: 'url(#blocked-zones-container-mask)',
+                        } : undefined}
+                      >
+                        {/* Diseño posicionable libremente */}
+                        {currentDesign && (() => {
+                          const design = currentDesign;
+                          const displayImage = design.colorizedImageData || design.imageData;
+
+                          // Calcular posición y tamaño como porcentajes del contenedor
+                          const leftPercent = design.position.x - (design.size.width / 2);
+                          const topPercent = design.position.y - (design.size.height / 2);
+
+                          return (
+                            <div
+                              className={`absolute cursor-move select-none ${
+                                isDragging ? 'ring-2 ring-purple-500 ring-offset-2' : 'hover:ring-2 hover:ring-purple-300'
+                              }`}
+                              style={{
+                                left: `${leftPercent}%`,
+                                top: `${topPercent}%`,
+                                width: `${design.size.width}%`,
+                                height: `${design.size.height}%`,
+                                opacity: design.opacity || 1,
+                                transform: `rotate(${design.rotation || 0}deg)`,
+                                transformOrigin: 'center center',
+                                pointerEvents: 'auto', // El diseño sí captura eventos para arrastrarlo
+                              }}
+                              onMouseDown={handleDragStart}
+                              onTouchStart={handleDragStart}
+                            >
+                              <img
+                                src={displayImage}
+                                alt="Diseño"
+                                className="w-full h-full object-contain pointer-events-none"
+                                draggable={false}
+                              />
+                              {/* Indicador de arrastre */}
+                              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 opacity-0 hover:opacity-100 transition-opacity">
+                                <Move className="w-3 h-3" />
+                                <span>Arrastra para mover</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Indicador cuando no hay diseño (fuera de la máscara) */}
+                    {!currentDesign && imageLoaded && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none">
+                        <Package className="w-12 h-12 mb-2 opacity-50" />
+                        <span className="text-sm font-medium opacity-70">
+                          Sube una imagen para esta vista
+                        </span>
+                      </div>
+                    )}
                   </>
                 ) : (
                   // Sin template seleccionado
@@ -1161,11 +1591,18 @@ export const CustomizerPage = () => {
           <aside className="lg:col-span-3 space-y-6">
             <div className="bg-white rounded-xl shadow-md p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Subir Imagen</h3>
-              {selectedTemplate && selectedZone ? (
-                <ImageUploader onImageUpload={handleImageUpload} isUploading={isUploading} />
+              {selectedTemplate && currentZoneType ? (
+                <>
+                  <ImageUploader onImageUpload={handleImageUpload} isUploading={isUploading} />
+                  {currentDesign && (
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      Subir una nueva imagen reemplazará la actual
+                    </p>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">
-                  Selecciona un modelo y una zona para subir tu imagen
+                  Selecciona un modelo para subir tu imagen
                 </p>
               )}
             </div>
@@ -1173,10 +1610,10 @@ export const CustomizerPage = () => {
             <div className="bg-white rounded-xl shadow-md p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Controles de Diseño</h3>
               <DesignControls
-                design={selectedZone ? designs.get(selectedZone) || null : null}
+                design={currentDesign || null}
                 onUpdate={handleDesignUpdate}
                 onDelete={handleDesignDelete}
-                zoneConfig={selectedZone ? availableZones.find(z => z.id === selectedZone) || null : null}
+                zoneConfig={null}
               />
             </div>
           </aside>

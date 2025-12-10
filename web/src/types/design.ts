@@ -1,22 +1,27 @@
 import type { PrintZone, ProductType } from './product';
 
-// Diseño aplicado a una zona de estampado
+// Diseño aplicado a una vista del template (front/back)
+// El posicionamiento es libre sobre el área del template PNG
 export interface Design {
   id: string;
-  zoneId: PrintZone;
+  zoneId: PrintZone; // Ahora representa la vista (front/back) no una zona específica
+  viewType: string; // 'front', 'back', etc. - tipo de vista donde está el diseño
   imageUrl: string;
   imageData?: string; // Base64 comprimido para preview
   originalImageData?: string; // Base64 original sin compresión para producción
   colorizedImageData?: string; // Base64 con color aplicado (para preview)
   originalFileName?: string; // Nombre original del archivo
   originalFileSize?: number; // Tamaño original en bytes
+  // Posición como porcentaje del área del template (0-100)
+  // 50,50 = centrado en el template
   position: {
-    x: number;
-    y: number;
+    x: number; // Porcentaje horizontal (0=izquierda, 100=derecha)
+    y: number; // Porcentaje vertical (0=arriba, 100=abajo)
   };
+  // Tamaño como porcentaje del ancho del template
   size: {
-    width: number;
-    height: number;
+    width: number;  // Porcentaje del ancho del template
+    height: number; // Porcentaje del alto del template
   };
   rotation: number; // En grados
   opacity: number;  // 0 a 1

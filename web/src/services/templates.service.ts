@@ -1,5 +1,22 @@
 import { api } from './api.service';
 
+// Zona de diseño (puede ser habilitada o bloqueada)
+export interface DesignZone {
+  id: string;
+  type: 'allowed' | 'blocked'; // 'allowed' = donde SÍ se puede poner diseño, 'blocked' = donde NO
+  shape: 'rect' | 'circle' | 'polygon';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  radius?: number;
+  points?: Array<{ x: number; y: number }>;
+  name?: string;
+}
+
+// Alias para compatibilidad
+export type ExclusionZone = DesignZone;
+
 export interface Template {
   id: number;
   sku: string;
@@ -19,6 +36,8 @@ export interface Template {
     side?: string;
   };
   zoneTypeImages: Record<string, string> | null;
+  designZones: Record<string, DesignZone[]> | null; // Zonas habilitadas y bloqueadas por vista
+  exclusionZones: Record<string, ExclusionZone[]> | null; // @deprecated - usar designZones
   colors: Array<{
     id: number;
     name: string;
@@ -50,6 +69,8 @@ export interface CreateTemplateInput {
     side?: string;
   };
   zoneTypeImages?: Record<string, string>;
+  designZones?: Record<string, DesignZone[]>;
+  exclusionZones?: Record<string, ExclusionZone[]>; // @deprecated
   tags?: string[];
   colorIds?: number[];
   sizeIds?: number[];
@@ -67,6 +88,8 @@ export interface UpdateTemplateInput {
     side?: string;
   };
   zoneTypeImages?: Record<string, string> | null;
+  designZones?: Record<string, DesignZone[]> | null;
+  exclusionZones?: Record<string, ExclusionZone[]> | null; // @deprecated
   tags?: string[];
   isActive?: boolean;
   colorIds?: number[];

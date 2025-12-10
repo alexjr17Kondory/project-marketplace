@@ -63,12 +63,16 @@ export const templateZonesService = {
     zoneId: string;
     name: string;
     description?: string;
+    shape?: string; // 'rect' | 'circle' | 'polygon'
     maxWidth: number;
     maxHeight: number;
     positionX: number;
     positionY: number;
+    radius?: number; // Para círculos
+    points?: Array<{ x: number; y: number }>; // Para polígonos
     isEditable?: boolean;
     isRequired?: boolean;
+    isBlocked?: boolean; // true = zona bloqueada (roja)
     sortOrder?: number;
   }): Promise<TemplateZone> {
     return prisma.templateZone.create({
@@ -78,12 +82,16 @@ export const templateZonesService = {
         zoneId: data.zoneId,
         name: data.name,
         description: data.description,
+        shape: data.shape || 'rect',
         maxWidth: data.maxWidth,
         maxHeight: data.maxHeight,
         positionX: data.positionX,
         positionY: data.positionY,
+        radius: data.radius,
+        points: data.points,
         isEditable: data.isEditable ?? true,
         isRequired: data.isRequired ?? false,
+        isBlocked: data.isBlocked ?? false,
         sortOrder: data.sortOrder || 0,
         isActive: true,
       },
@@ -98,12 +106,16 @@ export const templateZonesService = {
       zoneId?: string;
       name?: string;
       description?: string;
+      shape?: string;
       maxWidth?: number;
       maxHeight?: number;
       positionX?: number;
       positionY?: number;
+      radius?: number;
+      points?: Array<{ x: number; y: number }>;
       isEditable?: boolean;
       isRequired?: boolean;
+      isBlocked?: boolean;
       sortOrder?: number;
       isActive?: boolean;
     }

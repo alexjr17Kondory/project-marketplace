@@ -7,12 +7,16 @@ export interface TemplateZone {
   zoneId: string; // 'front-regular', 'back-large', etc.
   name: string;
   description?: string | null;
+  shape: 'rect' | 'circle' | 'polygon'; // Forma de la zona
   positionX: number;
   positionY: number;
-  maxWidth: number;  // Dimensiones máximas de la zona
+  maxWidth: number;  // Dimensiones máximas de la zona (en %)
   maxHeight: number;
+  radius?: number | null; // Para círculos
+  points?: Array<{ x: number; y: number }> | null; // Para polígonos
   isEditable: boolean;
   isRequired: boolean;
+  isBlocked: boolean; // true = zona bloqueada (roja), false = zona de diseño
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -56,12 +60,16 @@ export interface CreateTemplateZoneDto {
   zoneId?: string;
   name: string;
   description?: string;
+  shape?: 'rect' | 'circle' | 'polygon';
   positionX: number;
   positionY: number;
   maxWidth: number;
   maxHeight: number;
+  radius?: number;
+  points?: Array<{ x: number; y: number }>;
   isEditable?: boolean;
   isRequired?: boolean;
+  isBlocked?: boolean;
   sortOrder?: number;
 }
 
@@ -70,12 +78,16 @@ export interface UpdateTemplateZoneDto {
   zoneId?: string;
   name?: string;
   description?: string;
+  shape?: 'rect' | 'circle' | 'polygon';
   positionX?: number;
   positionY?: number;
   maxWidth?: number;
   maxHeight?: number;
+  radius?: number;
+  points?: Array<{ x: number; y: number }>;
   isEditable?: boolean;
   isRequired?: boolean;
+  isBlocked?: boolean;
   sortOrder?: number;
   isActive?: boolean;
 }

@@ -28,6 +28,97 @@ const hasTransparency = (ctx: CanvasRenderingContext2D, width: number, height: n
   return false;
 };
 
+// Detectar los límites del contenido visible (no transparente) y recortar
+const trimTransparentPixels = (imageDataUrl: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(imageDataUrl);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+
+      // Verificar si la imagen tiene transparencia
+      if (!hasTransparency(ctx, canvas.width, canvas.height)) {
+        resolve(imageDataUrl); // No tiene transparencia, devolver original
+        return;
+      }
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      let minX = canvas.width;
+      let minY = canvas.height;
+      let maxX = 0;
+      let maxY = 0;
+
+      // Umbral de transparencia (píxeles con alpha > 10 se consideran visibles)
+      const alphaThreshold = 10;
+
+      // Encontrar los límites del contenido visible
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const index = (y * canvas.width + x) * 4;
+          const alpha = data[index + 3];
+
+          if (alpha > alphaThreshold) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      // Si no se encontró contenido visible, devolver original
+      if (minX > maxX || minY > maxY) {
+        resolve(imageDataUrl);
+        return;
+      }
+
+      // Agregar pequeño padding (2px) para evitar cortes muy ajustados
+      const padding = 2;
+      minX = Math.max(0, minX - padding);
+      minY = Math.max(0, minY - padding);
+      maxX = Math.min(canvas.width - 1, maxX + padding);
+      maxY = Math.min(canvas.height - 1, maxY + padding);
+
+      // Crear nuevo canvas con el tamaño recortado
+      const trimmedWidth = maxX - minX + 1;
+      const trimmedHeight = maxY - minY + 1;
+
+      const trimmedCanvas = document.createElement('canvas');
+      trimmedCanvas.width = trimmedWidth;
+      trimmedCanvas.height = trimmedHeight;
+
+      const trimmedCtx = trimmedCanvas.getContext('2d');
+      if (!trimmedCtx) {
+        resolve(imageDataUrl);
+        return;
+      }
+
+      // Copiar solo la región visible
+      trimmedCtx.drawImage(
+        canvas,
+        minX, minY, trimmedWidth, trimmedHeight,
+        0, 0, trimmedWidth, trimmedHeight
+      );
+
+      // Devolver imagen recortada como PNG
+      resolve(trimmedCanvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(imageDataUrl);
+    img.src = imageDataUrl;
+  });
+};
+
 // Comprimir imagen para preview manteniendo calidad aceptable
 const compressImage = (
   originalDataUrl: string,
@@ -91,15 +182,18 @@ export const ImageUploader = ({ onImageUpload, isUploading = false }: ImageUploa
     // Leer archivo como base64 (original)
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const originalData = event.target?.result as string;
+      const rawData = event.target?.result as string;
 
-      // Comprimir para preview
-      const compressedData = await compressImage(originalData);
+      // Recortar espacio transparente de imágenes PNG
+      const trimmedData = await trimTransparentPixels(rawData);
 
-      // Crear objeto con ambas versiones
+      // Comprimir para preview (usando la imagen ya recortada)
+      const compressedData = await compressImage(trimmedData);
+
+      // Crear objeto con ambas versiones (ambas recortadas)
       const uploadData: ImageUploadData = {
         compressed: compressedData,
-        original: originalData,
+        original: trimmedData, // Usar la versión recortada como original
         fileName: file.name,
         fileSize: file.size,
       };

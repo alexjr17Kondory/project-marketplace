@@ -14,7 +14,7 @@ interface DesignControlsProps {
   } | null;
 }
 
-export const DesignControls = ({ design, onUpdate, onDelete, zoneConfig }: DesignControlsProps) => {
+export const DesignControls = ({ design, onUpdate, onDelete }: DesignControlsProps) => {
   // Estado para mantener la proporción y la relación de aspecto
   const [keepAspectRatio, setKeepAspectRatio] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<number>(1);
@@ -65,31 +65,31 @@ export const DesignControls = ({ design, onUpdate, onDelete, zoneConfig }: Desig
     );
   }
 
-  // Obtener límites de la zona o usar valores por defecto
-  const zoneMaxWidth = zoneConfig?.maxWidth || 200;
-  const zoneMaxHeight = zoneConfig?.maxHeight || 200;
+  // Tamaños ahora son porcentajes del template (5% a 80%)
+  const minSize = 5;
+  const maxSize = 80;
 
-  // Manejar cambio de ancho manteniendo proporción
+  // Manejar cambio de ancho manteniendo proporción (ahora en porcentaje)
   const handleWidthChange = (newWidth: number) => {
     if (keepAspectRatio) {
       const newHeight = Math.round(newWidth / aspectRatio);
-      onUpdate({ size: { width: newWidth, height: Math.min(newHeight, zoneMaxHeight) } });
+      onUpdate({ size: { width: newWidth, height: Math.min(newHeight, maxSize) } });
     } else {
       onUpdate({ size: { ...design.size, width: newWidth } });
     }
   };
 
-  // Manejar cambio de alto manteniendo proporción
+  // Manejar cambio de alto manteniendo proporción (ahora en porcentaje)
   const handleHeightChange = (newHeight: number) => {
     if (keepAspectRatio) {
       const newWidth = Math.round(newHeight * aspectRatio);
-      onUpdate({ size: { width: Math.min(newWidth, zoneMaxWidth), height: newHeight } });
+      onUpdate({ size: { width: Math.min(newWidth, maxSize), height: newHeight } });
     } else {
       onUpdate({ size: { ...design.size, height: newHeight } });
     }
   };
 
-  // position.x/y ahora son porcentajes directos (0-100) donde 50 = centrado
+  // position.x/y son porcentajes directos (0-100) donde 50 = centrado
   const handlePositionXChange = (percent: number) => {
     onUpdate({ position: { ...design.position, x: percent } });
   };
@@ -100,12 +100,13 @@ export const DesignControls = ({ design, onUpdate, onDelete, zoneConfig }: Desig
 
   return (
     <div className="space-y-6">
-      {/* Position Controls - Porcentaje directo (0-100) */}
+      {/* Position Controls - Porcentaje del template (0-100) */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
           <Move className="w-4 h-4" />
-          <span>Posición en zona</span>
+          <span>Posición</span>
         </div>
+        <p className="text-xs text-gray-500">También puedes arrastrar la imagen directamente</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-gray-600 mb-1 block">Horizontal</label>
@@ -144,7 +145,7 @@ export const DesignControls = ({ design, onUpdate, onDelete, zoneConfig }: Desig
         </div>
       </div>
 
-      {/* Size Controls - Basado en el tamaño máximo de la zona */}
+      {/* Size Controls - Porcentaje del template */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
@@ -178,34 +179,34 @@ export const DesignControls = ({ design, onUpdate, onDelete, zoneConfig }: Desig
             <label className="text-xs text-gray-600 mb-1 block">Ancho</label>
             <input
               type="range"
-              min="20"
-              max={zoneMaxWidth}
-              step="5"
+              min={minSize}
+              max={maxSize}
+              step="1"
               value={design.size.width}
               onChange={(e) => handleWidthChange(Number(e.target.value))}
               className="w-full accent-purple-600"
             />
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-400">20px</span>
-              <span className="text-xs text-gray-500 font-medium">{Math.round(design.size.width)}px</span>
-              <span className="text-xs text-gray-400">{zoneMaxWidth}px</span>
+              <span className="text-xs text-gray-400">{minSize}%</span>
+              <span className="text-xs text-gray-500 font-medium">{Math.round(design.size.width)}%</span>
+              <span className="text-xs text-gray-400">{maxSize}%</span>
             </div>
           </div>
           <div>
             <label className="text-xs text-gray-600 mb-1 block">Alto</label>
             <input
               type="range"
-              min="20"
-              max={zoneMaxHeight}
-              step="5"
+              min={minSize}
+              max={maxSize}
+              step="1"
               value={design.size.height}
               onChange={(e) => handleHeightChange(Number(e.target.value))}
               className="w-full accent-purple-600"
             />
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-400">20px</span>
-              <span className="text-xs text-gray-500 font-medium">{Math.round(design.size.height)}px</span>
-              <span className="text-xs text-gray-400">{zoneMaxHeight}px</span>
+              <span className="text-xs text-gray-400">{minSize}%</span>
+              <span className="text-xs text-gray-500 font-medium">{Math.round(design.size.height)}%</span>
+              <span className="text-xs text-gray-400">{maxSize}%</span>
             </div>
           </div>
         </div>

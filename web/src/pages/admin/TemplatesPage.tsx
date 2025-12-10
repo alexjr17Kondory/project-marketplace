@@ -370,6 +370,7 @@ export const TemplatesPage = () => {
                 }
               }}
             />
+
           </div>
         )}
 

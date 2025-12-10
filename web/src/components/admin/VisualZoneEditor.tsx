@@ -16,7 +16,12 @@ import {
   Unlock,
   Upload,
   Image as ImageIcon,
-  X
+  X,
+  Ban,
+  Square,
+  Circle,
+  Triangle,
+  CheckCircle
 } from 'lucide-react';
 
 // Imágenes por tipo de zona (front, back, etc.)
@@ -52,7 +57,7 @@ export const VisualZoneEditor = ({
   templateImageBack,
   onZonesChange,
   zoneTypeImages: externalZoneTypeImages,
-  onZoneTypeImagesChange
+  onZoneTypeImagesChange,
 }: VisualZoneEditorProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -74,6 +79,8 @@ export const VisualZoneEditor = ({
   const [newZoneName, setNewZoneName] = useState('');
   const [newZoneWidthCm, setNewZoneWidthCm] = useState<number>(18);
   const [newZoneHeightCm, setNewZoneHeightCm] = useState<number>(25);
+  const [newZoneShape, setNewZoneShape] = useState<'rect' | 'circle' | 'polygon'>('rect');
+  const [newZoneIsBlocked, setNewZoneIsBlocked] = useState(false);
 
   // Estado para bloqueo de proporciones al redimensionar
   const [lockAspectRatio, setLockAspectRatio] = useState<boolean>(true); // Bloquear proporciones por defecto
@@ -389,7 +396,7 @@ export const VisualZoneEditor = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState, selectedZoneId, getRelativePosition]);
+  }, [dragState, selectedZoneId, getRelativePosition, lockAspectRatio]);
 
   // Dimensiones de referencia del área de impresión (en cm)
   // Estas son las dimensiones máximas del área de impresión de una camiseta típica
@@ -554,6 +561,7 @@ export const VisualZoneEditor = ({
 
     const selectedType = zoneTypes.find(t => t.id === newZoneType);
     const zoneSlug = selectedType?.slug || 'zone';
+    const blockedPrefix = newZoneIsBlocked ? 'blocked-' : '';
 
     // Convertir cm a porcentajes basados en el área de impresión
     const widthPercent = Math.min((newZoneWidthCm / PRINT_AREA_WIDTH_CM) * 100, 100);
@@ -566,13 +574,23 @@ export const VisualZoneEditor = ({
     const newZone: CreateTemplateZoneDto = {
       templateId,
       zoneTypeId: newZoneType,
-      zoneId: `${zoneSlug}-${Date.now()}`,
-      name: `${newZoneName} (${newZoneWidthCm}x${newZoneHeightCm}cm)`,
+      zoneId: `${blockedPrefix}${zoneSlug}-${Date.now()}`,
+      name: newZoneIsBlocked
+        ? `${newZoneName} (bloqueada)`
+        : `${newZoneName} (${newZoneWidthCm}x${newZoneHeightCm}cm)`,
+      shape: newZoneShape,
       positionX: Math.round(positionX),
       positionY: Math.round(positionY),
       maxWidth: Math.round(widthPercent),
       maxHeight: Math.round(heightPercent),
+      radius: newZoneShape === 'circle' ? Math.round(Math.min(widthPercent, heightPercent) / 2) : undefined,
+      points: newZoneShape === 'polygon' ? [
+        { x: 50, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 }
+      ] : undefined,
       isRequired: false,
+      isBlocked: newZoneIsBlocked,
       sortOrder: zones.length + 1,
     };
 
@@ -581,6 +599,8 @@ export const VisualZoneEditor = ({
       // Agregar manualmente el zoneType para que el filtro funcione inmediatamente
       const createdWithType: TemplateZone = {
         ...created,
+        shape: newZoneShape,
+        isBlocked: newZoneIsBlocked,
         zoneType: selectedType ? {
           id: selectedType.id,
           name: selectedType.name,
@@ -593,6 +613,8 @@ export const VisualZoneEditor = ({
       setNewZoneName('');
       setNewZoneWidthCm(18);
       setNewZoneHeightCm(25);
+      setNewZoneShape('rect');
+      setNewZoneIsBlocked(false);
       setSelectedZoneId(created.id);
       onZonesChange?.([...zones, createdWithType]);
     } catch (err) {
@@ -655,7 +677,13 @@ export const VisualZoneEditor = ({
     }
   };
 
+  // Colores para zonas normales y bloqueadas
   const getZoneColor = (zone: TemplateZone) => {
+    // Si es zona bloqueada, usar rojo
+    if (zone.isBlocked) {
+      return 'rgba(239, 68, 68, 0.3)';
+    }
+    // Colores para zonas normales basados en zoneTypeId
     const colors = [
       'rgba(239, 68, 68, 0.4)',
       'rgba(59, 130, 246, 0.4)',
@@ -668,13 +696,18 @@ export const VisualZoneEditor = ({
   };
 
   const getBorderColor = (zone: TemplateZone) => {
+    // Si es zona bloqueada, usar rojo
+    if (zone.isBlocked) {
+      return 'rgb(239, 68, 68)';
+    }
+    // Colores para zonas normales
     const colors = [
-      'rgb(239, 68, 68)',
       'rgb(59, 130, 246)',
       'rgb(16, 185, 129)',
       'rgb(245, 158, 11)',
       'rgb(139, 92, 246)',
       'rgb(236, 72, 153)',
+      'rgb(99, 102, 241)',
     ];
     return colors[zone.zoneTypeId % colors.length];
   };
@@ -787,29 +820,104 @@ export const VisualZoneEditor = ({
               Agregar Zona
             </Button>
           ) : (
-            <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 space-y-3">
+            <div className={`border rounded-lg p-3 space-y-3 ${newZoneIsBlocked ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300'}`}>
+              {/* Tipo de zona: Normal o Bloqueada */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Tipo de zona</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setNewZoneIsBlocked(false)}
+                    className={`flex items-center justify-center gap-1 px-2 py-2 rounded border text-xs ${
+                      !newZoneIsBlocked
+                        ? 'bg-blue-500 text-white border-blue-500'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Normal
+                  </button>
+                  <button
+                    onClick={() => setNewZoneIsBlocked(true)}
+                    className={`flex items-center justify-center gap-1 px-2 py-2 rounded border text-xs ${
+                      newZoneIsBlocked
+                        ? 'bg-red-500 text-white border-red-500'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-red-50'
+                    }`}
+                  >
+                    <Ban className="w-4 h-4" />
+                    Bloqueada
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {newZoneIsBlocked
+                    ? 'Zona donde NO se puede colocar diseño'
+                    : 'Zona donde se puede colocar diseño'}
+                </p>
+              </div>
+
               <select
                 value={newZoneType}
                 onChange={(e) => setNewZoneType(parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
               >
-                <option value={0}>Seleccionar tipo...</option>
+                <option value={0}>Seleccionar vista...</option>
                 {zoneTypes.map(type => (
                   <option key={type.id} value={type.id}>{type.name}</option>
                 ))}
               </select>
+
               <input
                 type="text"
                 value={newZoneName}
                 onChange={(e) => setNewZoneName(e.target.value)}
-                placeholder="Nombre de la zona (ej: Regular)"
+                placeholder={newZoneIsBlocked ? "Nombre (ej: Costura, Logo)" : "Nombre (ej: Regular, Grande)"}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
               />
+
+              {/* Selector de forma */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Forma</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setNewZoneShape('rect')}
+                    className={`flex flex-col items-center justify-center gap-1 px-2 py-2 rounded border text-xs ${
+                      newZoneShape === 'rect'
+                        ? (newZoneIsBlocked ? 'bg-red-500 text-white border-red-500' : 'bg-gray-700 text-white border-gray-700')
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Square className="w-4 h-4" />
+                    Rect
+                  </button>
+                  <button
+                    onClick={() => setNewZoneShape('circle')}
+                    className={`flex flex-col items-center justify-center gap-1 px-2 py-2 rounded border text-xs ${
+                      newZoneShape === 'circle'
+                        ? (newZoneIsBlocked ? 'bg-red-500 text-white border-red-500' : 'bg-gray-700 text-white border-gray-700')
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Circle className="w-4 h-4" />
+                    Círculo
+                  </button>
+                  <button
+                    onClick={() => setNewZoneShape('polygon')}
+                    className={`flex flex-col items-center justify-center gap-1 px-2 py-2 rounded border text-xs ${
+                      newZoneShape === 'polygon'
+                        ? (newZoneIsBlocked ? 'bg-red-500 text-white border-red-500' : 'bg-gray-700 text-white border-gray-700')
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Triangle className="w-4 h-4" />
+                    Triángulo
+                  </button>
+                </div>
+              </div>
 
               {/* Dimensiones en cm */}
               <div className="bg-white border border-gray-200 rounded-md p-2">
                 <label className="block text-xs font-medium text-gray-600 mb-2">
-                  Dimensiones del área de impresión (cm)
+                  Dimensiones {newZoneIsBlocked ? 'de la zona' : 'del área de impresión'} (cm)
                 </label>
                 <div className="flex gap-2 items-center">
                   <div className="flex-1">
@@ -845,11 +953,11 @@ export const VisualZoneEditor = ({
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={() => setIsCreatingZone(false)} variant="admin-secondary" className="flex-1">
+                <Button onClick={() => { setIsCreatingZone(false); setNewZoneIsBlocked(false); setNewZoneShape('rect'); }} variant="admin-secondary" className="flex-1">
                   Cancelar
                 </Button>
-                <Button onClick={handleCreateZone} variant="admin-primary" className="flex-1">
-                  Crear
+                <Button onClick={handleCreateZone} variant={newZoneIsBlocked ? 'admin-danger' : 'admin-primary'} className="flex-1">
+                  {newZoneIsBlocked ? 'Crear Bloqueada' : 'Crear Zona'}
                 </Button>
               </div>
             </div>
@@ -879,17 +987,21 @@ export const VisualZoneEditor = ({
                   onClick={() => setSelectedZoneId(zone.id)}
                   className={`p-3 rounded-lg border cursor-pointer transition-all ${
                     selectedZoneId === zone.id
-                      ? 'border-orange-500 bg-orange-50 shadow-sm'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
+                      ? (zone.isBlocked ? 'border-red-500 bg-red-50' : 'border-orange-500 bg-orange-50 shadow-sm')
+                      : (zone.isBlocked ? 'border-red-200 bg-red-25 hover:border-red-300' : 'border-gray-200 bg-white hover:border-gray-300')
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <div
-                        className="w-4 h-4 rounded"
-                        style={{ backgroundColor: getBorderColor(zone) }}
-                      />
-                      <span className="font-medium text-sm">{zone.name}</span>
+                      {zone.isBlocked ? (
+                        <Ban className="w-4 h-4 text-red-500" />
+                      ) : (
+                        <div
+                          className="w-4 h-4 rounded"
+                          style={{ backgroundColor: getBorderColor(zone) }}
+                        />
+                      )}
+                      <span className={`font-medium text-sm ${zone.isBlocked ? 'text-red-700' : ''}`}>{zone.name}</span>
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteZone(zone.id); }}
@@ -898,10 +1010,15 @@ export const VisualZoneEditor = ({
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    <span className="inline-block px-1.5 py-0.5 bg-gray-100 rounded mr-2">
-                      {zone.zoneType?.name || 'Sin tipo'}
+                  <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                    <span className={`inline-block px-1.5 py-0.5 rounded ${zone.isBlocked ? 'bg-red-100 text-red-700' : 'bg-gray-100'}`}>
+                      {zone.isBlocked ? 'Bloqueada' : zone.zoneType?.name || 'Sin tipo'}
                     </span>
+                    {zone.shape && zone.shape !== 'rect' && (
+                      <span className="inline-block px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded capitalize">
+                        {zone.shape === 'polygon' ? 'triángulo' : zone.shape}
+                      </span>
+                    )}
                     <span className="font-medium text-gray-700">
                       {percentToCm(zone.maxWidth, true)} × {percentToCm(zone.maxHeight, false)} cm
                     </span>
@@ -1017,6 +1134,12 @@ export const VisualZoneEditor = ({
             </div>
           )}
 
+          {/* Nota informativa */}
+          <div className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+            <p className="mb-1"><strong>Zonas normales:</strong> Donde se puede colocar diseño</p>
+            <p><strong className="text-red-600">Zonas bloqueadas:</strong> Donde NO se puede colocar diseño (costuras, logos, etc.)</p>
+          </div>
+
           {/* Input oculto para subir archivos */}
           <input
             ref={fileInputRef}
@@ -1051,6 +1174,109 @@ export const VisualZoneEditor = ({
             {/* Solo mostrar la zona seleccionada con proporciones correctas */}
             {imageLoaded && showZones && selectedZone && filteredZones.some(z => z.id === selectedZone.id) && (() => {
               const displayDimensions = getZoneDisplayDimensions(selectedZone);
+              const borderColor = getBorderColor(selectedZone);
+              const fillColor = getZoneColor(selectedZone);
+
+              // Renderizado para TRIÁNGULO (polygon)
+              if (selectedZone.shape === 'polygon') {
+                return (
+                  <div
+                    key={selectedZone.id}
+                    className="absolute cursor-move transition-shadow shadow-lg z-10"
+                    style={{
+                      left: displayDimensions.left,
+                      top: displayDimensions.top,
+                      width: displayDimensions.width,
+                      height: displayDimensions.height,
+                    }}
+                    onMouseDown={(e) => handleZoneMouseDown(e, selectedZone)}
+                  >
+                    <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <polygon
+                        points="50,0 100,100 0,100"
+                        fill={fillColor}
+                        stroke={borderColor}
+                        strokeWidth={3}
+                      />
+                    </svg>
+                    <div
+                      className="absolute -top-6 left-0 px-2 py-0.5 text-xs font-medium text-white rounded-t whitespace-nowrap"
+                      style={{ backgroundColor: borderColor }}
+                    >
+                      {selectedZone.name}
+                    </div>
+                    {/* Handles para triángulo - solo esquinas inferiores */}
+                    <div
+                      className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 rounded-sm cursor-sw-resize"
+                      style={{ borderColor }}
+                      onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'sw')}
+                    />
+                    <div
+                      className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border-2 rounded-sm cursor-se-resize"
+                      style={{ borderColor }}
+                      onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'se')}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-50" style={{ paddingTop: '25%' }}>
+                      <Move className="w-6 h-6 text-gray-800" />
+                    </div>
+                  </div>
+                );
+              }
+
+              // Renderizado para CÍRCULO
+              if (selectedZone.shape === 'circle') {
+                return (
+                  <div
+                    key={selectedZone.id}
+                    className="absolute cursor-move transition-shadow shadow-lg z-10"
+                    style={{
+                      left: displayDimensions.left,
+                      top: displayDimensions.top,
+                      width: displayDimensions.width,
+                      height: displayDimensions.height,
+                      backgroundColor: fillColor,
+                      borderColor: borderColor,
+                      borderWidth: '2px',
+                      borderStyle: 'solid',
+                      borderRadius: '50%',
+                    }}
+                    onMouseDown={(e) => handleZoneMouseDown(e, selectedZone)}
+                  >
+                    <div
+                      className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 text-xs font-medium text-white rounded-t whitespace-nowrap"
+                      style={{ backgroundColor: borderColor }}
+                    >
+                      {selectedZone.name}
+                    </div>
+                    {/* Handles para círculo - 4 esquinas del bounding box */}
+                    <div
+                      className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 rounded-sm cursor-nw-resize"
+                      style={{ borderColor }}
+                      onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'nw')}
+                    />
+                    <div
+                      className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 rounded-sm cursor-ne-resize"
+                      style={{ borderColor }}
+                      onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'ne')}
+                    />
+                    <div
+                      className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 rounded-sm cursor-sw-resize"
+                      style={{ borderColor }}
+                      onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'sw')}
+                    />
+                    <div
+                      className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border-2 rounded-sm cursor-se-resize"
+                      style={{ borderColor }}
+                      onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'se')}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-50">
+                      <Move className="w-6 h-6 text-gray-800" />
+                    </div>
+                  </div>
+                );
+              }
+
+              // Renderizado para RECTÁNGULO (default)
               return (
               <div
                 key={selectedZone.id}
@@ -1060,15 +1286,15 @@ export const VisualZoneEditor = ({
                   top: displayDimensions.top,
                   width: displayDimensions.width,
                   height: displayDimensions.height,
-                  backgroundColor: getZoneColor(selectedZone),
-                  borderColor: getBorderColor(selectedZone),
+                  backgroundColor: fillColor,
+                  borderColor: borderColor,
                   borderStyle: 'solid',
                 }}
                 onMouseDown={(e) => handleZoneMouseDown(e, selectedZone)}
               >
                 <div
                   className="absolute -top-6 left-0 px-2 py-0.5 text-xs font-medium text-white rounded-t whitespace-nowrap"
-                  style={{ backgroundColor: getBorderColor(selectedZone) }}
+                  style={{ backgroundColor: borderColor }}
                 >
                   {selectedZone.name}
                 </div>
@@ -1076,42 +1302,42 @@ export const VisualZoneEditor = ({
                 {/* Handles de redimensionamiento */}
                 <div
                   className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 rounded-sm cursor-nw-resize"
-                  style={{ borderColor: getBorderColor(selectedZone) }}
+                  style={{ borderColor }}
                   onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'nw')}
                 />
                 <div
                   className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 rounded-sm cursor-ne-resize"
-                  style={{ borderColor: getBorderColor(selectedZone) }}
+                  style={{ borderColor }}
                   onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'ne')}
                 />
                 <div
                   className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 rounded-sm cursor-sw-resize"
-                  style={{ borderColor: getBorderColor(selectedZone) }}
+                  style={{ borderColor }}
                   onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'sw')}
                 />
                 <div
                   className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border-2 rounded-sm cursor-se-resize"
-                  style={{ borderColor: getBorderColor(selectedZone) }}
+                  style={{ borderColor }}
                   onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'se')}
                 />
                 <div
                   className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-2 bg-white border-2 rounded-sm cursor-n-resize"
-                  style={{ borderColor: getBorderColor(selectedZone) }}
+                  style={{ borderColor }}
                   onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'n')}
                 />
                 <div
                   className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-2 bg-white border-2 rounded-sm cursor-s-resize"
-                  style={{ borderColor: getBorderColor(selectedZone) }}
+                  style={{ borderColor }}
                   onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 's')}
                 />
                 <div
                   className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-3 bg-white border-2 rounded-sm cursor-w-resize"
-                  style={{ borderColor: getBorderColor(selectedZone) }}
+                  style={{ borderColor }}
                   onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'w')}
                 />
                 <div
                   className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-3 bg-white border-2 rounded-sm cursor-e-resize"
-                  style={{ borderColor: getBorderColor(selectedZone) }}
+                  style={{ borderColor }}
                   onMouseDown={(e) => handleZoneMouseDown(e, selectedZone, 'e')}
                 />
 

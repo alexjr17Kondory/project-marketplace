@@ -107,6 +107,13 @@ model Product {
   // Formato: { "front": "url/base64", "back": "url/base64", ... }
   zoneTypeImages Json?
 
+  // Zonas de diseño (habilitadas y bloqueadas) para personalización (solo para templates)
+  // Formato: { "front": [{ type: "allowed|blocked", shape: "rect|circle|polygon", x, y, width, height, ... }], ... }
+  designZones Json?
+
+  // @deprecated - usar designZones
+  exclusionZones Json?
+
   // Relaciones many-to-many con colores y tallas
   productColors ProductColor[]
   productSizes  ProductSize[]
@@ -348,22 +355,35 @@ model TemplateZone {
   name        String // "Frente Regular (18x25cm)"
   description String? @db.Text
 
-  // Dimensiones máximas de la zona (en píxeles, 1px = 0.1cm)
-  maxWidth  Int // 180px = 18cm
-  maxHeight Int // 250px = 25cm
+  // Forma de la zona: rect, circle, polygon
+  shape String @default("rect") // 'rect' | 'circle' | 'polygon'
 
-  // Posición en el canvas
-  positionX Int // Coordenada X
-  positionY Int // Coordenada Y
+  // Dimensiones máximas de la zona (en porcentaje 0-100)
+  maxWidth  Int // Ancho en %
+  maxHeight Int // Alto en %
+
+  // Posición en el canvas (en porcentaje 0-100)
+  positionX Int // Coordenada X en %
+  positionY Int // Coordenada Y en %
+
+  // Para círculos (radio en %)
+  radius Int? // Solo para shape='circle'
+
+  // Para polígonos (puntos relativos 0-100 dentro del bounding box)
+  // Formato JSON: [{"x": 50, "y": 0}, {"x": 100, "y": 100}, {"x": 0, "y": 100}]
+  points Json?
 
   // Control de usuario
   isEditable Boolean @default(true) // Si el usuario puede modificar esta zona
   isRequired Boolean @default(false) // Si es obligatorio que el usuario agregue diseño
 
+  // NUEVO: Si es zona bloqueada (donde NO se puede poner diseño)
+  isBlocked Boolean @default(false) // true = zona bloqueada (roja), false = zona de diseño (normal)
+
   sortOrder Int     @default(0)
   isActive  Boolean @default(true)
 
-  // Una zona puede tener UN insumo predefinido
+  // Una zona puede tener UN insumo predefinido (solo para zonas no bloqueadas)
   zoneInput ZoneInput?
 
   createdAt DateTime @default(now())

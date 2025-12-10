@@ -48,6 +48,23 @@ const templateInclude = {
   },
 };
 
+// Zona de diseño (puede ser habilitada o bloqueada)
+export interface DesignZone {
+  id: string;
+  type: 'allowed' | 'blocked'; // 'allowed' = donde SÍ se puede poner diseño, 'blocked' = donde NO
+  shape: 'rect' | 'circle' | 'polygon';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  radius?: number;
+  points?: Array<{ x: number; y: number }>;
+  name?: string;
+}
+
+// Alias para compatibilidad
+export type ExclusionZone = DesignZone;
+
 export interface TemplateResponse {
   id: number;
   sku: string;
@@ -63,6 +80,8 @@ export interface TemplateResponse {
   basePrice: number;
   images: { front: string; back?: string; side?: string };
   zoneTypeImages: Record<string, string> | null; // { "front": "url", "back": "url" }
+  designZones: Record<string, DesignZone[]> | null; // Zonas habilitadas y bloqueadas por vista
+  exclusionZones: Record<string, ExclusionZone[]> | null; // @deprecated - usar designZones
   colors: Array<{ id: number; name: string; slug: string; hexCode: string }>;
   sizes: Array<{ id: number; name: string; abbreviation: string }>;
   tags: string[];
@@ -87,6 +106,8 @@ function formatTemplateResponse(template: any): TemplateResponse {
     basePrice: Number(template.basePrice),
     images: template.images || { front: '' },
     zoneTypeImages: template.zoneTypeImages || null,
+    designZones: template.designZones || null,
+    exclusionZones: template.exclusionZones || null, // @deprecated
     colors: template.productColors?.map((pc: any) => ({
       id: pc.color.id,
       name: pc.color.name,
@@ -184,6 +205,8 @@ export async function createTemplate(data: {
   basePrice: number;
   images: { front: string; back?: string; side?: string };
   zoneTypeImages?: Record<string, string>;
+  designZones?: Record<string, DesignZone[]>;
+  exclusionZones?: Record<string, ExclusionZone[]>; // @deprecated
   tags?: string[];
   colorIds?: number[];
   sizeIds?: number[];
@@ -199,6 +222,8 @@ export async function createTemplate(data: {
       basePrice: data.basePrice,
       images: data.images,
       zoneTypeImages: jsonNullOrValue(data.zoneTypeImages || null),
+      designZones: jsonNullOrValue(data.designZones || null),
+      exclusionZones: jsonNullOrValue(data.exclusionZones || null), // @deprecated
       tags: data.tags || [],
       isTemplate: true, // Marcar como template
       isActive: true,
@@ -234,6 +259,8 @@ export async function updateTemplate(
     basePrice?: number;
     images?: { front: string; back?: string; side?: string };
     zoneTypeImages?: Record<string, string> | null;
+    designZones?: Record<string, DesignZone[]> | null;
+    exclusionZones?: Record<string, ExclusionZone[]> | null; // @deprecated
     tags?: string[];
     isActive?: boolean;
     colorIds?: number[];
@@ -291,6 +318,8 @@ export async function updateTemplate(
       basePrice: data.basePrice,
       images: data.images,
       zoneTypeImages: data.zoneTypeImages !== undefined ? jsonNullOrValue(data.zoneTypeImages) : undefined,
+      designZones: data.designZones !== undefined ? jsonNullOrValue(data.designZones) : undefined,
+      exclusionZones: data.exclusionZones !== undefined ? jsonNullOrValue(data.exclusionZones) : undefined, // @deprecated
       tags: data.tags,
       isActive: data.isActive,
     },
