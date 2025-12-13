@@ -10,6 +10,7 @@ import { ColorPicker } from '../components/customizer/ColorPicker';
 import { ImageUploader, type ImageUploadData } from '../components/customizer/ImageUploader';
 import { DesignControls } from '../components/customizer/DesignControls';
 import { SizeGuideModal } from '../components/customizer/SizeGuideModal';
+import { ImageCarousel } from '../components/customizer/ImageCarousel';
 import { applyColorToImage } from '../utils/imageColorizer';
 import { exportDesignsToZip } from '../utils/designExporter';
 import { detectPngBounds, clampPositionToBounds, type PngBounds } from '../utils/pngBoundsDetector';
@@ -68,6 +69,7 @@ export const CustomizerPage = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [designStartPos, setDesignStartPos] = useState({ x: 0, y: 0 });
+
 
   // Ref para la imagen del template y el contenedor
   const templateImageRef = useRef<HTMLImageElement>(null);
@@ -781,7 +783,17 @@ export const CustomizerPage = () => {
 
     setIsUploading(true);
 
-    // Tamaño inicial: 30% del template (se puede ajustar con controles)
+    // Calcular tamaño inicial basado en la zona más grande disponible (o 30% por defecto)
+    let initialWidth = 30;
+    let initialHeight = 30;
+    if (availableZones.length > 0) {
+      const maxZoneWidth = Math.max(...availableZones.map(z => z.widthPercent));
+      const maxZoneHeight = Math.max(...availableZones.map(z => z.heightPercent));
+      // Usar el 70% del tamaño de la zona más grande como tamaño inicial
+      initialWidth = Math.min(maxZoneWidth * 0.7, 50);
+      initialHeight = Math.min(maxZoneHeight * 0.7, 50);
+    }
+
     const newDesign: Design = {
       id: `design-${currentZoneType}-${Date.now()}`,
       zoneId: `view-${currentZoneType}` as PrintZone,
@@ -796,10 +808,10 @@ export const CustomizerPage = () => {
         x: 50,
         y: 50,
       },
-      // Tamaño como porcentaje del template
+      // Tamaño inicial basado en la zona
       size: {
-        width: 30,  // 30% del ancho del template
-        height: 30, // 30% del alto del template
+        width: initialWidth,
+        height: initialHeight,
       },
       rotation: 0,
       opacity: 1,
@@ -807,6 +819,13 @@ export const CustomizerPage = () => {
 
     setDesigns(prev => new Map(prev).set(currentZoneType, newDesign));
     setIsUploading(false);
+  };
+
+  // Manejar selección de imagen desde el carrusel de prediseñados
+  // thumbnailUrl: imagen pequeña para preview en el personalizador
+  // fullUrl: URL de alta calidad para guardar en el pedido
+  const handlePresetImageSelect = (thumbnailUrl: string, fullUrl: string, imageName: string) => {
+    handleImageUpload(thumbnailUrl, { original: fullUrl, fileName: imageName, fileSize: 0 });
   };
 
   // Funciones de Drag & Drop para mover el diseño libremente
@@ -1115,11 +1134,60 @@ export const CustomizerPage = () => {
 
     setIsExporting(true);
     try {
+      // Construir mapa de imágenes del template por vista
+      const templateImages = new Map<string, string>();
+      const colorizedImages = new Map<string, string>();
+
+      // Para cada diseño, obtener la imagen del template correspondiente
+      for (const [viewType] of designs) {
+        // Obtener imagen del template para esta vista
+        let imageUrl: string | undefined;
+
+        if (selectedTemplate?.zoneTypeImages && viewType) {
+          imageUrl = selectedTemplate.zoneTypeImages[viewType];
+        }
+        if (!imageUrl && selectedTemplate?.images) {
+          if (viewType === 'back') {
+            imageUrl = selectedTemplate.images.back || selectedTemplate.images.front;
+          } else {
+            imageUrl = selectedTemplate.images.front;
+          }
+        }
+
+        if (imageUrl) {
+          templateImages.set(viewType, imageUrl);
+
+          // Si hay un color seleccionado y no es blanco, colorizar TODAS las vistas
+          const needsColorization = selectedColor &&
+            selectedColor.toUpperCase() !== '#FFFFFF' &&
+            selectedColor.toUpperCase() !== '#FFF';
+
+          if (needsColorization) {
+            // Si es la vista actual y ya tenemos la imagen colorizada, usarla
+            if (viewType === currentZoneType && colorizedTemplateImage) {
+              colorizedImages.set(viewType, colorizedTemplateImage);
+            } else {
+              // Colorizar esta vista
+              try {
+                console.log(`Colorizando vista ${viewType} con color ${selectedColor}...`);
+                const colorized = await applyColorToImage(imageUrl, selectedColor);
+                colorizedImages.set(viewType, colorized);
+              } catch (err) {
+                console.warn(`No se pudo colorizar vista ${viewType}:`, err);
+                // Continuar sin colorizar esta vista
+              }
+            }
+          }
+        }
+      }
+
       await exportDesignsToZip(designs, {
         templateName: selectedTemplate?.name || 'diseño',
         selectedColor: selectedColor,
         selectedSize: selectedSize,
         includeOriginal: true,
+        templateImages,
+        colorizedTemplateImages: colorizedImages.size > 0 ? colorizedImages : undefined,
       });
     } catch (error) {
       console.error('Error al exportar:', error);
@@ -1705,7 +1773,7 @@ export const CustomizerPage = () => {
           {/* Right: Controles de Diseño */}
           <aside className="lg:col-span-3 space-y-6">
             <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Subir Imagen</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Tu Imagen</h3>
               {selectedTemplate && currentZoneType ? (
                 <>
                   <ImageUploader onImageUpload={handleImageUpload} isUploading={isUploading} />
@@ -1714,6 +1782,19 @@ export const CustomizerPage = () => {
                       Subir una nueva imagen reemplazará la actual
                     </p>
                   )}
+
+                  {/* Separador */}
+                  <div className="flex items-center gap-3 my-4">
+                    <div className="flex-1 h-px bg-gray-200"></div>
+                    <span className="text-xs text-gray-400">o elige uno</span>
+                    <div className="flex-1 h-px bg-gray-200"></div>
+                  </div>
+
+                  {/* Carrusel de imágenes prediseñadas */}
+                  <ImageCarousel
+                    onImageSelect={handlePresetImageSelect}
+                    isLoading={isUploading}
+                  />
                 </>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">
@@ -1728,7 +1809,13 @@ export const CustomizerPage = () => {
                 design={currentDesign || null}
                 onUpdate={handleDesignUpdate}
                 onDelete={handleDesignDelete}
-                zoneConfig={null}
+                maxZoneSize={(() => {
+                  // Calcular el tamaño máximo basado en la zona más grande disponible
+                  if (availableZones.length === 0) return null;
+                  const maxWidth = Math.max(...availableZones.map(z => z.widthPercent));
+                  const maxHeight = Math.max(...availableZones.map(z => z.heightPercent));
+                  return { width: maxWidth, height: maxHeight };
+                })()}
               />
             </div>
           </aside>

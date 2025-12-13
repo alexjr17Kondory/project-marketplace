@@ -28,6 +28,7 @@ import {
   FolderTree,
   LayoutTemplate,
   Scissors,
+  Image,
 } from 'lucide-react';
 import type { Permission } from '../../types/roles';
 
@@ -89,6 +90,7 @@ const menuWithSubmenus: {
     basePath: '/admin-panel/zone',
     submenu: [
       { path: '/admin-panel/zone-types', label: 'Tipos de Zona', icon: Layers, permission: 'products.view' },
+      { path: '/admin-panel/design-images', label: 'Imágenes de Diseño', icon: Image, permission: 'products.view' },
     ],
   },
   // 4. INVENTARIO - Insumos y materiales

@@ -1,24 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Move, Maximize2, RotateCw, Trash2, Link, Unlink, Palette, Loader2 } from 'lucide-react';
+import { Maximize2, Trash2, Link, Unlink } from 'lucide-react';
 import type { Design } from '../../types/design';
-import { DESIGN_COLORS, applyColorToImage } from '../../utils/imageColorizer';
 
 interface DesignControlsProps {
   design: Design | null;
   onUpdate: (updates: Partial<Design>) => void;
   onDelete: () => void;
-  zoneConfig?: {
-    position: { x: number; y: number };
-    maxWidth: number;
-    maxHeight: number;
+  maxZoneSize?: {
+    width: number;
+    height: number;
   } | null;
 }
 
-export const DesignControls = ({ design, onUpdate, onDelete }: DesignControlsProps) => {
+export const DesignControls = ({ design, onUpdate, onDelete, maxZoneSize }: DesignControlsProps) => {
   // Estado para mantener la proporción y la relación de aspecto
   const [keepAspectRatio, setKeepAspectRatio] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<number>(1);
-  const [isColorizing, setIsColorizing] = useState(false);
 
   // Calcular la relación de aspecto cuando el diseño cambie
   useEffect(() => {
@@ -28,35 +25,6 @@ export const DesignControls = ({ design, onUpdate, onDelete }: DesignControlsPro
     }
   }, [design?.id]); // Solo recalcular cuando cambie el diseño (nueva imagen)
 
-  // Manejar cambio de color del diseño
-  const handleColorChange = async (color: string) => {
-    if (!design || !design.imageData) return;
-
-    // Si es vacío, restaurar imagen original
-    if (!color) {
-      onUpdate({
-        tintColor: undefined,
-        colorizedImageData: undefined,
-      });
-      return;
-    }
-
-    setIsColorizing(true);
-    try {
-      // Usar siempre la imagen original para aplicar el nuevo color
-      const sourceImage = design.originalImageData || design.imageData;
-      const colorizedImage = await applyColorToImage(sourceImage, color);
-      onUpdate({
-        tintColor: color,
-        colorizedImageData: colorizedImage,
-      });
-    } catch (error) {
-      console.error('Error al aplicar color:', error);
-    } finally {
-      setIsColorizing(false);
-    }
-  };
-
   if (!design) {
     return (
       <div className="p-6 text-center text-gray-500">
@@ -65,86 +33,53 @@ export const DesignControls = ({ design, onUpdate, onDelete }: DesignControlsPro
     );
   }
 
-  // Tamaños ahora son porcentajes del template (5% a 80%)
+  // Tamaños: mínimo 5%, máximo = tamaño de la zona más grande o 80% por defecto
   const minSize = 5;
-  const maxSize = 80;
+  const maxWidth = maxZoneSize?.width || 80;
+  const maxHeight = maxZoneSize?.height || 80;
 
-  // Manejar cambio de ancho manteniendo proporción (ahora en porcentaje)
+  // Manejar cambio de ancho manteniendo proporción
   const handleWidthChange = (newWidth: number) => {
+    // Limitar al máximo permitido por la zona
+    const clampedWidth = Math.min(newWidth, maxWidth);
+
     if (keepAspectRatio) {
-      const newHeight = Math.round(newWidth / aspectRatio);
-      onUpdate({ size: { width: newWidth, height: Math.min(newHeight, maxSize) } });
+      let newHeight = Math.round(clampedWidth / aspectRatio);
+      // También limitar la altura al máximo
+      if (newHeight > maxHeight) {
+        newHeight = maxHeight;
+        const adjustedWidth = Math.round(newHeight * aspectRatio);
+        onUpdate({ size: { width: Math.min(adjustedWidth, maxWidth), height: newHeight } });
+      } else {
+        onUpdate({ size: { width: clampedWidth, height: newHeight } });
+      }
     } else {
-      onUpdate({ size: { ...design.size, width: newWidth } });
+      onUpdate({ size: { ...design.size, width: clampedWidth } });
     }
   };
 
-  // Manejar cambio de alto manteniendo proporción (ahora en porcentaje)
+  // Manejar cambio de alto manteniendo proporción
   const handleHeightChange = (newHeight: number) => {
+    // Limitar al máximo permitido por la zona
+    const clampedHeight = Math.min(newHeight, maxHeight);
+
     if (keepAspectRatio) {
-      const newWidth = Math.round(newHeight * aspectRatio);
-      onUpdate({ size: { width: Math.min(newWidth, maxSize), height: newHeight } });
+      let newWidth = Math.round(clampedHeight * aspectRatio);
+      // También limitar el ancho al máximo
+      if (newWidth > maxWidth) {
+        newWidth = maxWidth;
+        const adjustedHeight = Math.round(newWidth / aspectRatio);
+        onUpdate({ size: { width: newWidth, height: Math.min(adjustedHeight, maxHeight) } });
+      } else {
+        onUpdate({ size: { width: newWidth, height: clampedHeight } });
+      }
     } else {
-      onUpdate({ size: { ...design.size, height: newHeight } });
+      onUpdate({ size: { ...design.size, height: clampedHeight } });
     }
-  };
-
-  // position.x/y son porcentajes directos (0-100) donde 50 = centrado
-  const handlePositionXChange = (percent: number) => {
-    onUpdate({ position: { ...design.position, x: percent } });
-  };
-
-  const handlePositionYChange = (percent: number) => {
-    onUpdate({ position: { ...design.position, y: percent } });
   };
 
   return (
-    <div className="space-y-6">
-      {/* Position Controls - Porcentaje del template (0-100) */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Move className="w-4 h-4" />
-          <span>Posición</span>
-        </div>
-        <p className="text-xs text-gray-500">También puedes arrastrar la imagen directamente</p>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-gray-600 mb-1 block">Horizontal</label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={design.position.x}
-              onChange={(e) => handlePositionXChange(Number(e.target.value))}
-              className="w-full accent-purple-600"
-            />
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-400">Izq</span>
-              <span className="text-xs text-gray-500 font-medium">{Math.round(design.position.x)}%</span>
-              <span className="text-xs text-gray-400">Der</span>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-600 mb-1 block">Vertical</label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={design.position.y}
-              onChange={(e) => handlePositionYChange(Number(e.target.value))}
-              className="w-full accent-purple-600"
-            />
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-400">Arriba</span>
-              <span className="text-xs text-gray-500 font-medium">{Math.round(design.position.y)}%</span>
-              <span className="text-xs text-gray-400">Abajo</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-5">
       {/* Size Controls - Porcentaje del template */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -174,22 +109,30 @@ export const DesignControls = ({ design, onUpdate, onDelete }: DesignControlsPro
             )}
           </button>
         </div>
+
+        {/* Indicador de límite máximo */}
+        {maxZoneSize && (
+          <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded flex items-center gap-1">
+            <span>Máximo: {Math.round(maxZoneSize.width)}% x {Math.round(maxZoneSize.height)}%</span>
+          </p>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-gray-600 mb-1 block">Ancho</label>
             <input
               type="range"
               min={minSize}
-              max={maxSize}
+              max={maxWidth}
               step="1"
-              value={design.size.width}
+              value={Math.min(design.size.width, maxWidth)}
               onChange={(e) => handleWidthChange(Number(e.target.value))}
               className="w-full accent-purple-600"
             />
             <div className="flex justify-between items-center">
               <span className="text-xs text-gray-400">{minSize}%</span>
               <span className="text-xs text-gray-500 font-medium">{Math.round(design.size.width)}%</span>
-              <span className="text-xs text-gray-400">{maxSize}%</span>
+              <span className="text-xs text-gray-400">{Math.round(maxWidth)}%</span>
             </div>
           </div>
           <div>
@@ -197,16 +140,16 @@ export const DesignControls = ({ design, onUpdate, onDelete }: DesignControlsPro
             <input
               type="range"
               min={minSize}
-              max={maxSize}
+              max={maxHeight}
               step="1"
-              value={design.size.height}
+              value={Math.min(design.size.height, maxHeight)}
               onChange={(e) => handleHeightChange(Number(e.target.value))}
               className="w-full accent-purple-600"
             />
             <div className="flex justify-between items-center">
               <span className="text-xs text-gray-400">{minSize}%</span>
               <span className="text-xs text-gray-500 font-medium">{Math.round(design.size.height)}%</span>
-              <span className="text-xs text-gray-400">{maxSize}%</span>
+              <span className="text-xs text-gray-400">{Math.round(maxHeight)}%</span>
             </div>
           </div>
         </div>
@@ -218,96 +161,10 @@ export const DesignControls = ({ design, onUpdate, onDelete }: DesignControlsPro
         )}
       </div>
 
-      {/* Rotation Control */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <RotateCw className="w-4 h-4" />
-          <span>Rotación</span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="360"
-          value={design.rotation}
-          onChange={(e) => onUpdate({ rotation: Number(e.target.value) })}
-          className="w-full accent-purple-600"
-        />
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>0°</span>
-          <span className="font-semibold text-gray-900">{design.rotation}°</span>
-          <span>360°</span>
-        </div>
-      </div>
-
-      {/* Opacity Control */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <span>Opacidad</span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.1"
-          value={design.opacity}
-          onChange={(e) => onUpdate({ opacity: Number(e.target.value) })}
-          className="w-full accent-purple-600"
-        />
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>0%</span>
-          <span className="font-semibold text-gray-900">{Math.round(design.opacity * 100)}%</span>
-          <span>100%</span>
-        </div>
-      </div>
-
-      {/* Color del Diseño - Solo para PNG */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <Palette className="w-4 h-4" />
-            <span>Color del diseño</span>
-          </div>
-          {isColorizing && (
-            <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
-          )}
-        </div>
-        <div className="grid grid-cols-6 gap-2">
-          {DESIGN_COLORS.map((colorOption) => (
-            <button
-              key={colorOption.value || 'original'}
-              onClick={() => handleColorChange(colorOption.value)}
-              disabled={isColorizing}
-              className={`relative w-8 h-8 rounded-full border-2 transition-all hover:scale-110 disabled:opacity-50 ${
-                (design.tintColor || '') === colorOption.value
-                  ? 'border-purple-600 ring-2 ring-purple-200'
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-              style={{
-                backgroundColor: colorOption.value || 'transparent',
-                backgroundImage: !colorOption.value
-                  ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%)'
-                  : undefined,
-                backgroundSize: !colorOption.value ? '8px 8px' : undefined,
-                backgroundPosition: !colorOption.value ? '0 0, 4px 4px' : undefined,
-              }}
-              title={colorOption.name}
-            >
-              {(design.tintColor || '') === colorOption.value && (
-                <span className="absolute inset-0 flex items-center justify-center text-xs">
-                  {colorOption.value === '#FFFFFF' || !colorOption.value ? '✓' : (
-                    <span className="text-white drop-shadow-md">✓</span>
-                  )}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500">
-          {design.tintColor
-            ? `Color aplicado: ${DESIGN_COLORS.find(c => c.value === design.tintColor)?.name || design.tintColor}`
-            : 'Selecciona un color para aplicar al diseño'}
-        </p>
-      </div>
+      {/* Tip para mover */}
+      <p className="text-xs text-gray-500 text-center">
+        Arrastra la imagen en el canvas para moverla
+      </p>
 
       {/* Delete Button */}
       <button

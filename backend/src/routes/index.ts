@@ -14,6 +14,7 @@ import templateZonesRoutes from './template-zones.routes';
 import inputTypesRoutes from './input-types.routes';
 import inputsRoutes from './inputs.routes';
 import inputBatchesRoutes from './input-batches.routes';
+import designImagesRoutes from './design-images.routes';
 
 const router = Router();
 
@@ -97,5 +98,8 @@ router.use('/inputs', inputsRoutes);
 
 // Rutas de lotes de insumo
 router.use('/input-batches', inputBatchesRoutes);
+
+// Rutas de imágenes de diseño (catálogo para el personalizador)
+router.use('/design-images', designImagesRoutes);
 
 export default router;

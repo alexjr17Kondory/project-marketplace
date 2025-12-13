@@ -39,6 +39,7 @@ import InputTypesPage from './pages/admin/InputTypesPage';
 import InputTypeDetailPage from './pages/admin/InputTypeDetailPage';
 import InputsPage from './pages/admin/InputsPage';
 import InputDetailPage from './pages/admin/InputDetailPage';
+import DesignImagesPage from './pages/admin/DesignImagesPage';
 import { OrdersPage } from './pages/admin/OrdersPage';
 import { OrderDetailPage } from './pages/admin/OrderDetailPage';
 import { ShippingPage } from './pages/admin/ShippingPage';
@@ -284,6 +285,16 @@ function App() {
                                       element={
                                         <PermissionRoute permission="products.view">
                                           <TemplatesPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Imágenes de Diseño (catálogo para personalizador) */}
+                                    <Route
+                                      path="/design-images"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <DesignImagesPage />
                                         </PermissionRoute>
                                       }
                                     />

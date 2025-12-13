@@ -561,3 +561,30 @@ enum MovementType {
   DEVOLUCION // Devolución
   MERMA // Pérdida/merma
 }
+
+// ==================== CATÁLOGO DE IMÁGENES DE DISEÑO ====================
+
+// Imágenes prediseñadas para el personalizador
+model DesignImage {
+  id          Int     @id @default(autoincrement())
+  name        String // Nombre descriptivo
+  description String? @db.Text
+
+  // URLs de las imágenes
+  thumbnailUrl String @db.LongText // Base64 o URL de imagen pequeña/comprimida (para preview)
+  fullUrl      String @db.VarChar(500) // URL de imagen original/alta calidad (para pedido)
+
+  // Metadatos
+  category String? // Categoría: "iconos", "logos", "textos", "decorativos", etc.
+  tags     Json? // Array de etiquetas para búsqueda: ["corazón", "amor", "rojo"]
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@map("design_images")
+}
