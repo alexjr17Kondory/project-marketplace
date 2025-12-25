@@ -2,10 +2,10 @@
 
 ## ESTADO GENERAL
 
-**Fecha:** 2025-12-02
+**Fecha:** 2025-12-13
 **Deploy Frontend:** https://project-marketplace.vercel.app
 **Backend Local:** http://localhost:3001/api
-**Progreso Total:** 96%
+**Progreso Total:** 98%
 
 ---
 
@@ -114,7 +114,7 @@
 
 ## FASE 7: BACKEND + BASE DE DATOS ✅
 
-**Estado:** 96% Completado
+**Estado:** 98% Completado
 **Documentacion:** [BACKEND_ROADMAP.md](./BACKEND_ROADMAP.md)
 
 ### Stack
@@ -139,6 +139,7 @@
 | Input Types | CRUD + filtros | ✅ |
 | Inputs | CRUD + stock + filtros | ✅ |
 | Template Zones | CRUD + zone inputs | ✅ |
+| Design Images | CRUD + categories + filtros | ✅ |
 
 ### Integracion Frontend ✅
 
@@ -173,6 +174,7 @@
 | TemplateZones | 5 |
 | InputTypes | 6 |
 | Inputs | 6 |
+| DesignImages | variable |
 | Settings | 4 |
 
 ### Usuarios de Prueba (1 por rol)
@@ -274,6 +276,54 @@ docker exec marketplace-backend npx prisma studio
 
 ## CHANGELOG RECIENTE
 
+### v5.6 (2025-12-13)
+- ✅ **Catálogo de Imágenes de Diseño**
+  - Nueva tabla `DesignImages` con thumbnailUrl (LongText base64) y fullUrl
+  - API CRUD completa para gestión de imágenes prediseñadas
+  - Página admin `/admin-panel/design-images` con grid, filtros y modal CRUD
+  - Carrusel actualizado para cargar imágenes desde API (DesignImagesService)
+  - Sistema de doble URL: thumbnail para preview, fullUrl para pedido
+  - Compresión automática de imágenes a PNG (máx 300px, transparencia preservada)
+  - Sin límite de tamaño de entrada (se redimensiona automáticamente)
+- ✅ **Exportación de Mockups Mejorada**
+  - Generación de imágenes compuestas (template + diseño) como mockups
+  - Solo descarga mockups (no imágenes sueltas del diseño)
+  - Colorización automática de todas las vistas al exportar
+  - Canvas rendering con soporte CORS y fallback
+  - Mockups en PNG de 1200px manteniendo aspect ratio
+- ✅ **Limpieza de código**
+  - Eliminado Fabric.js (no se usará)
+  - Eliminado ImageEditor component
+  - Simplificado flujo del personalizador
+
+### v5.5 (2025-12-12)
+- ✅ **Personalizador Avanzado**
+  - Sistema de máscaras SVG para zonas bloqueadas
+  - Colorización dinámica de templates PNG
+  - Exportación ZIP de diseños personalizados
+  - Transparencia PNG y toggle de zonas
+  - Modo edición mejorado y estabilidad
+  - Valores parametrizables en página de personalización
+- ✅ **Mejoras de UI/UX**
+  - Visualización mejorada de imagen en carrito
+  - Ajustes en personalización de la página
+
+### v5.4 (2025-12-03)
+- ✅ **Sistema de Templates y Zonas** (completado)
+  - Gestión completa de templates/modelos con páginas admin
+  - Sistema de zonas de template con inventario
+  - Filtrado de tallas por tipo de producto
+  - Relación tipo de producto - tallas
+- ✅ **Refactorización de Base de Datos**
+  - Migración de colores y tallas a tablas relacionales
+  - Productos con foreign keys para categorías y tipos
+  - Campo images cambiado de array a estructura objeto
+  - Eliminación de columnas JSON en favor de tablas relacionales
+- ✅ **Frontend Adaptado**
+  - Selectores de catálogo para colores y tallas en ProductForm
+  - Manejo del nuevo formato objeto para colores/tallas
+  - Frontend adaptado a estructura de foreign keys del backend
+
 ### v5.3 (2025-12-02)
 - ✅ Sistema de Templates y Zonas Personalizables
   - API de Zone Types (tipos de zona: Frente, Espalda, Mangas, etc.)
@@ -338,5 +388,5 @@ docker exec marketplace-backend npx prisma studio
 
 ---
 
-**Ultima actualizacion:** 2025-12-02
-**Version:** 5.3
+**Ultima actualizacion:** 2025-12-13
+**Version:** 5.6
