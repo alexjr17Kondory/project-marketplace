@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
+import { usePayments } from '../context/PaymentsContext';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +47,7 @@ export const CheckoutPage = () => {
   const navigate = useNavigate();
   const { cart, clearCart } = useCart();
   const { createOrder, changeOrderStatus } = useOrders();
+  const { createPayment } = usePayments();
   const { settings } = useSettings();
   const { showToast } = useToast();
   const { user } = useAuth();
@@ -224,6 +226,18 @@ export const CheckoutPage = () => {
       // Crear pedido con estado pagado
       const order = await createOrderFromCart('paid', transactionId);
 
+      // Crear registro de pago APROBADO
+      await createPayment({
+        orderId: Number(order.id),
+        transactionId: transactionId,
+        paymentMethod: 'wompi',
+        amount: cart.total,
+        currency: settings.general.currency || 'COP',
+        payerName: formData.customerName,
+        payerEmail: formData.customerEmail,
+        payerPhone: formData.customerPhone,
+      });
+
       // Limpiar carrito
       clearCart();
 
@@ -258,6 +272,18 @@ export const CheckoutPage = () => {
     try {
       // Crear pedido pendiente
       const order = await createOrderFromCart('pending');
+
+      // Crear registro de pago PENDIENTE para verificación manual
+      await createPayment({
+        orderId: Number(order.id),
+        transactionId: paymentReference, // Usar referencia generada
+        paymentMethod: selectedMethod?.type || 'transfer',
+        amount: cart.total,
+        currency: settings.general.currency || 'COP',
+        payerName: formData.customerName,
+        payerEmail: formData.customerEmail,
+        payerPhone: formData.customerPhone,
+      });
 
       clearCart();
 

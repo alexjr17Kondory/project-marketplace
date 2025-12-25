@@ -16,29 +16,70 @@ import {
   Banknote,
 } from 'lucide-react';
 import { useOrders } from '../context/OrdersContext';
+import { usePayments } from '../context/PaymentsContext';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/shared/Button';
 import type { Order } from '../types/order';
+import type { Payment } from '../services/payments.service';
 
 export const OrderConfirmationPage = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
   const { getOrderByNumber } = useOrders();
+  const { getMyOrderPayments, updateMyPayment } = usePayments();
   const { settings } = useSettings();
   const { showToast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   useEffect(() => {
     if (orderNumber) {
       const foundOrder = getOrderByNumber(orderNumber);
       if (foundOrder) {
         setOrder(foundOrder);
+        // Cargar pagos del pedido
+        loadPayments(Number(foundOrder.id));
       } else {
         navigate('/');
       }
     }
   }, [orderNumber, getOrderByNumber, navigate]);
+
+  const loadPayments = async (orderId: number) => {
+    try {
+      const orderPayments = await getMyOrderPayments(orderId);
+      setPayments(orderPayments);
+    } catch (error) {
+      console.error('Error al cargar pagos:', error);
+    }
+  };
+
+  const handleReceiptUpload = async (paymentId: number, file: File) => {
+    setUploadingReceipt(true);
+    try {
+      // Convertir imagen a base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        await updateMyPayment(paymentId, {
+          receiptData: base64,
+          notes: `Comprobante subido el ${new Date().toLocaleString('es-CO')}`,
+        });
+        showToast('Comprobante subido correctamente', 'success');
+        // Recargar pagos
+        if (order) {
+          await loadPayments(Number(order.id));
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      showToast('Error al subir comprobante', 'error');
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -130,6 +171,109 @@ export const OrderConfirmationPage = () => {
             </span>
           </div>
         </div>
+
+        {/* Payment Information */}
+        {payments.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-purple-600" />
+              Información de Pago
+            </h2>
+
+            {payments.map((payment) => (
+              <div key={payment.id} className="border border-gray-200 rounded-lg p-4 mb-4 last:mb-0">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm text-gray-500">Referencia de Pago</p>
+                    <p className="text-lg font-bold text-purple-600">
+                      {payment.transactionId || `PAY-${payment.id}`}
+                    </p>
+                  </div>
+                  <div>
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                        payment.status === 'APPROVED'
+                          ? 'bg-green-100 text-green-700'
+                          : payment.status === 'PENDING'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : payment.status === 'DECLINED' || payment.status === 'FAILED'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {payment.statusLabel}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                  <div>
+                    <p className="text-gray-500">Monto</p>
+                    <p className="font-medium">{formatCurrency(payment.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Método</p>
+                    <p className="font-medium capitalize">{payment.paymentMethod}</p>
+                  </div>
+                </div>
+
+                {/* Upload receipt button for pending/manual payments */}
+                {payment.status === 'PENDING' &&
+                  (payment.paymentMethod === 'transfer' ||
+                    payment.paymentMethod === 'nequi' ||
+                    payment.paymentMethod === 'daviplata') && (
+                    <div className="border-t pt-3 mt-3">
+                      {payment.receiptData || payment.receiptUrl ? (
+                        <div className="flex items-center gap-2 text-sm text-green-600">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Comprobante enviado - En verificación</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm text-gray-600 mb-2">
+                            Sube tu comprobante de pago para verificación:
+                          </p>
+                          <label className="cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploadingReceipt}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleReceiptUpload(payment.id, file);
+                                }
+                              }}
+                            />
+                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                              {uploadingReceipt ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                  <span>Subiendo...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CreditCard className="w-4 h-4" />
+                                  <span>Subir Comprobante</span>
+                                </>
+                              )}
+                            </div>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                {payment.notes && (
+                  <div className="border-t pt-3 mt-3">
+                    <p className="text-xs text-gray-500">Nota: {payment.notes}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Payment Instructions (if transfer) */}
         {order.paymentMethod === 'transfer' && paymentMethod?.bankInfo && (
