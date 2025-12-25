@@ -15,6 +15,7 @@ import inputTypesRoutes from './input-types.routes';
 import inputsRoutes from './inputs.routes';
 import inputBatchesRoutes from './input-batches.routes';
 import designImagesRoutes from './design-images.routes';
+import paymentsRoutes from './payments.routes';
 
 const router = Router();
 
@@ -65,6 +66,9 @@ router.use('/products', productsRoutes);
 
 // Rutas de pedidos
 router.use('/orders', ordersRoutes);
+
+// Rutas de pagos
+router.use('/payments', paymentsRoutes);
 
 // Rutas de catálogos
 router.use('/catalogs', catalogsRoutes);

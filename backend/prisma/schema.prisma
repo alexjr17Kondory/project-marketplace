@@ -258,8 +258,8 @@ model Order {
   total        Decimal @db.Decimal(10, 2)
 
   status        OrderStatus @default(PENDING)
-  paymentMethod String
-  paymentRef    String?
+  paymentMethod String // Método preferido (puede cambiar con cada intento)
+  paymentRef    String? // Referencia del último pago exitoso
 
   shipping       Json
   trackingNumber String?
@@ -267,6 +267,9 @@ model Order {
   notes          String? @db.Text
 
   statusHistory Json
+
+  // Relación con pagos (un pedido puede tener múltiples intentos de pago)
+  payments Payment[]
 
   paidAt      DateTime?
   shippedAt   DateTime?
@@ -307,6 +310,78 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+}
+
+// ==================== PAGOS ====================
+
+model Payment {
+  id          Int    @id @default(autoincrement())
+  orderId     Int
+  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Información de la transacción
+  transactionId String? @unique // ID de la pasarela de pago (Wompi, MercadoPago, etc.)
+  paymentMethod String           // "wompi", "mercadopago", "transferencia", "efectivo", etc.
+
+  // Montos
+  amount   Decimal @db.Decimal(10, 2)
+  currency String  @default("COP")
+
+  // Estado del pago
+  status PaymentStatus @default(PENDING)
+
+  // Comprobantes
+  receiptUrl  String? @db.VarChar(500) // URL del comprobante de pago
+  receiptData String? @db.LongText     // Comprobante en base64 (si se sube imagen)
+
+  // Información adicional del pago
+  payerName     String? // Nombre del pagador
+  payerEmail    String? // Email del pagador
+  payerPhone    String? // Teléfono del pagador
+  payerDocument String? // Documento del pagador
+
+  // Razón de fallo/cancelación
+  failureReason String? @db.Text
+  failureCode   String? // Código de error de la pasarela
+
+  // Verificación manual
+  verifiedBy Int? // ID del usuario admin que verificó manualmente
+  verifiedAt DateTime? // Cuando se verificó el pago
+  notes      String? @db.Text // Notas del admin sobre el pago
+
+  // Reembolsos
+  refundedAmount Decimal @default(0) @db.Decimal(10, 2)
+  refundedAt     DateTime?
+  refundReason   String? @db.Text
+
+  // Timestamps importantes
+  initiatedAt DateTime @default(now()) // Cuando se inició el intento de pago
+  paidAt      DateTime? // Cuando se confirmó el pago
+  failedAt    DateTime? // Cuando falló el pago
+  cancelledAt DateTime? // Cuando se canceló
+  expiredAt   DateTime? // Cuando expiró el intento
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([transactionId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([initiatedAt])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING       // Pago iniciado, esperando confirmación
+  PROCESSING    // En proceso de verificación
+  APPROVED      // Pago aprobado y confirmado
+  DECLINED      // Pago rechazado por el banco/pasarela
+  FAILED        // Pago fallido (error técnico)
+  CANCELLED     // Pago cancelado por el usuario
+  EXPIRED       // Intento de pago expirado
+  REFUNDED      // Pago reembolsado completamente
+  PARTIAL_REFUND // Reembolso parcial
 }
 
 // ==================== CONFIGURACION ====================

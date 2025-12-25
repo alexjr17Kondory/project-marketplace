@@ -140,6 +140,7 @@
 | Inputs | CRUD + stock + filtros | ✅ |
 | Template Zones | CRUD + zone inputs | ✅ |
 | Design Images | CRUD + categories + filtros | ✅ |
+| Payments | CRUD + verify + refund + stats | ✅ |
 
 ### Integracion Frontend ✅
 
@@ -175,6 +176,7 @@
 | InputTypes | 6 |
 | Inputs | 6 |
 | DesignImages | variable |
+| Payments | 0 (nuevo) |
 | Settings | 4 |
 
 ### Usuarios de Prueba (1 por rol)
@@ -275,6 +277,20 @@ docker exec marketplace-backend npx prisma studio
 ---
 
 ## CHANGELOG RECIENTE
+
+### v5.7 (2025-12-25)
+- ✅ **Sistema de Trazabilidad de Pagos**
+  - Nueva tabla `Payment` con modelo relacional completo
+  - Enum `PaymentStatus` con 9 estados (PENDING, PROCESSING, APPROVED, DECLINED, FAILED, CANCELLED, EXPIRED, REFUNDED, PARTIAL_REFUND)
+  - Relación uno-a-muchos: un pedido puede tener múltiples intentos de pago
+  - Campos para rastrear transacciones, métodos de pago, comprobantes y verificación manual
+  - API completa de pagos con endpoints para crear, listar, verificar, reembolsar y cancelar
+  - Estadísticas de pagos por estado y método
+  - Soporte para verificación manual por parte de administradores
+  - Sin campos JSON para optimizar consultas rápidas
+  - Timestamps completos: initiatedAt, paidAt, failedAt, cancelledAt, expiredAt
+  - Sistema de reembolsos parciales y completos
+  - Integrado con sistema de pedidos para actualización automática de estados
 
 ### v5.6 (2025-12-13)
 - ✅ **Catálogo de Imágenes de Diseño**
@@ -388,5 +404,5 @@ docker exec marketplace-backend npx prisma studio
 
 ---
 
-**Ultima actualizacion:** 2025-12-13
-**Version:** 5.6
+**Ultima actualizacion:** 2025-12-25
+**Version:** 5.7
