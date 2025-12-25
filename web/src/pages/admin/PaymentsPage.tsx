@@ -1,587 +1,428 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  useReactTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  flexRender,
-  createColumnHelper,
-  type SortingState,
-} from '@tanstack/react-table';
-import { useOrders } from '../../context/OrdersContext';
-import { useSettings } from '../../context/SettingsContext';
-import { Input } from '../../components/shared/Input';
-import type { Order, PaymentMethod } from '../../types/order';
-import { PAYMENT_METHOD_LABELS } from '../../types/order';
+import { useState, useEffect } from 'react';
+import { usePayments } from '../../context/PaymentsContext';
+import type { Payment, PaymentStatus } from '../../services/payments.service';
 import {
   CreditCard,
   Search,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown,
-  Eye,
-  DollarSign,
-  Clock,
+  Filter,
   CheckCircle,
   XCircle,
-  Zap,
-  Building2,
-  Banknote,
-  Store,
+  Clock,
+  AlertCircle,
+  Ban,
+  RefreshCw,
+  Eye,
+  DollarSign,
   TrendingUp,
   Calendar,
-  Filter,
 } from 'lucide-react';
+import { Input } from '../../components/shared/Input';
+import { Button } from '../../components/shared/Button';
 
-const columnHelper = createColumnHelper<Order>();
-
-// Iconos según método de pago
-const getPaymentIcon = (method: PaymentMethod) => {
-  switch (method) {
-    case 'wompi':
-      return <Zap className="w-4 h-4" />;
-    case 'transfer':
-      return <Building2 className="w-4 h-4" />;
-    case 'cash':
-      return <Banknote className="w-4 h-4" />;
-    case 'pickup':
-      return <Store className="w-4 h-4" />;
-    default:
-      return <CreditCard className="w-4 h-4" />;
-  }
+// Mapeo de estados a colores y etiquetas
+const STATUS_CONFIG: Record<
+  PaymentStatus,
+  { color: string; bg: string; label: string; icon: React.ReactNode }
+> = {
+  PENDING: {
+    color: 'text-yellow-700',
+    bg: 'bg-yellow-100',
+    label: 'Pendiente',
+    icon: <Clock className="w-4 h-4" />,
+  },
+  PROCESSING: {
+    color: 'text-blue-700',
+    bg: 'bg-blue-100',
+    label: 'Procesando',
+    icon: <RefreshCw className="w-4 h-4" />,
+  },
+  APPROVED: {
+    color: 'text-green-700',
+    bg: 'bg-green-100',
+    label: 'Aprobado',
+    icon: <CheckCircle className="w-4 h-4" />,
+  },
+  DECLINED: {
+    color: 'text-red-700',
+    bg: 'bg-red-100',
+    label: 'Rechazado',
+    icon: <XCircle className="w-4 h-4" />,
+  },
+  FAILED: {
+    color: 'text-red-700',
+    bg: 'bg-red-100',
+    label: 'Fallido',
+    icon: <AlertCircle className="w-4 h-4" />,
+  },
+  CANCELLED: {
+    color: 'text-gray-700',
+    bg: 'bg-gray-100',
+    label: 'Cancelado',
+    icon: <Ban className="w-4 h-4" />,
+  },
+  EXPIRED: {
+    color: 'text-orange-700',
+    bg: 'bg-orange-100',
+    label: 'Expirado',
+    icon: <Clock className="w-4 h-4" />,
+  },
+  REFUNDED: {
+    color: 'text-purple-700',
+    bg: 'bg-purple-100',
+    label: 'Reembolsado',
+    icon: <RefreshCw className="w-4 h-4" />,
+  },
+  PARTIAL_REFUND: {
+    color: 'text-purple-700',
+    bg: 'bg-purple-100',
+    label: 'Reembolso Parcial',
+    icon: <RefreshCw className="w-4 h-4" />,
+  },
 };
 
-// Color del estado de pago
-const getPaymentStatusInfo = (order: Order) => {
-  if (order.status === 'cancelled') {
-    return { label: 'Cancelado', color: 'bg-red-100 text-red-700', icon: XCircle };
-  }
-  if (order.status === 'pending') {
-    return { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700', icon: Clock };
-  }
-  return { label: 'Pagado', color: 'bg-green-100 text-green-700', icon: CheckCircle };
-};
+export function PaymentsPage() {
+  const { payments, isLoading, pagination, listPayments, setPage, setFilters } = usePayments();
 
-export const PaymentsPage = () => {
-  const navigate = useNavigate();
-  const { orders } = useOrders();
-  const { settings } = useSettings();
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState<PaymentMethod | 'all'>('all');
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'pending' | 'paid' | 'cancelled'>('all');
-  const [dateRange, setDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<PaymentStatus | ''>('');
+  const [methodFilter, setMethodFilter] = useState('');
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
-  // Filtrar órdenes
-  const filteredOrders = useMemo(() => {
-    let result = orders;
+  // Cargar pagos al montar
+  useEffect(() => {
+    listPayments();
+  }, []);
 
-    // Filtro por método de pago
-    if (paymentMethodFilter !== 'all') {
-      result = result.filter((o) => o.paymentMethod === paymentMethodFilter);
-    }
-
-    // Filtro por estado de pago
-    if (paymentStatusFilter !== 'all') {
-      if (paymentStatusFilter === 'pending') {
-        result = result.filter((o) => o.status === 'pending');
-      } else if (paymentStatusFilter === 'paid') {
-        result = result.filter((o) => o.status !== 'pending' && o.status !== 'cancelled');
-      } else if (paymentStatusFilter === 'cancelled') {
-        result = result.filter((o) => o.status === 'cancelled');
-      }
-    }
-
-    // Filtro por rango de fecha
-    if (dateRange !== 'all') {
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-      if (dateRange === 'today') {
-        result = result.filter((o) => new Date(o.createdAt) >= startOfDay);
-      } else if (dateRange === 'week') {
-        const weekAgo = new Date(startOfDay);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        result = result.filter((o) => new Date(o.createdAt) >= weekAgo);
-      } else if (dateRange === 'month') {
-        const monthAgo = new Date(startOfDay);
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        result = result.filter((o) => new Date(o.createdAt) >= monthAgo);
-      }
-    }
-
-    return result;
-  }, [orders, paymentMethodFilter, paymentStatusFilter, dateRange]);
-
-  // Estadísticas
-  const stats = useMemo(() => {
-    const paid = orders.filter((o) => o.status !== 'pending' && o.status !== 'cancelled');
-    const pending = orders.filter((o) => o.status === 'pending');
-    const cancelled = orders.filter((o) => o.status === 'cancelled');
-
-    const totalRevenue = paid.reduce((sum, o) => sum + o.total, 0);
-    const pendingRevenue = pending.reduce((sum, o) => sum + o.total, 0);
-
-    // Por método de pago
-    const byMethod: Record<string, { count: number; total: number }> = {};
-    orders.forEach((o) => {
-      if (!byMethod[o.paymentMethod]) {
-        byMethod[o.paymentMethod] = { count: 0, total: 0 };
-      }
-      byMethod[o.paymentMethod].count++;
-      if (o.status !== 'pending' && o.status !== 'cancelled') {
-        byMethod[o.paymentMethod].total += o.total;
-      }
+  // Aplicar filtros
+  const handleApplyFilters = () => {
+    setFilters({
+      search: search || undefined,
+      status: statusFilter || undefined,
+      paymentMethod: methodFilter || undefined,
     });
+  };
 
-    return {
-      totalOrders: orders.length,
-      paidOrders: paid.length,
-      pendingOrders: pending.length,
-      cancelledOrders: cancelled.length,
-      totalRevenue,
-      pendingRevenue,
-      byMethod,
-    };
-  }, [orders]);
-
-  const handleViewOrder = (order: Order) => {
-    navigate(`/admin-panel/orders/${order.id}`);
+  // Limpiar filtros
+  const handleClearFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    setMethodFilter('');
+    setFilters({});
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
-      currency: settings.general.currency || 'COP',
+      currency: 'COP',
       minimumFractionDigits: 0,
     }).format(amount);
   };
 
-  const columns = useMemo(
-    () => [
-      columnHelper.accessor('orderNumber', {
-        header: ({ column }) => (
-          <button
-            onClick={() => column.toggleSorting()}
-            className="flex items-center gap-1 hover:text-gray-900"
-          >
-            Referencia
-            <ArrowUpDown className="w-4 h-4" />
-          </button>
-        ),
-        cell: (info) => (
-          <div
-            className="flex items-center gap-3 cursor-pointer"
-            onClick={() => handleViewOrder(info.row.original)}
-          >
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="font-medium text-gray-900 hover:text-green-600 transition-colors">
-                {info.getValue()}
-              </div>
-              <div className="text-sm text-gray-500">
-                {info.row.original.paymentReference || 'Sin referencia'}
-              </div>
-            </div>
-          </div>
-        ),
-      }),
-      columnHelper.accessor('paymentMethod', {
-        header: 'Método',
-        cell: (info) => {
-          const method = info.getValue();
-          return (
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-gray-100 rounded-lg">
-                {getPaymentIcon(method)}
-              </div>
-              <span className="text-sm font-medium text-gray-700">
-                {PAYMENT_METHOD_LABELS[method]}
-              </span>
-            </div>
-          );
-        },
-      }),
-      columnHelper.accessor('userName', {
-        header: 'Cliente',
-        cell: (info) => (
-          <div>
-            <div className="font-medium text-gray-900">{info.getValue()}</div>
-            <div className="text-sm text-gray-500">{info.row.original.userEmail}</div>
-          </div>
-        ),
-      }),
-      columnHelper.accessor('total', {
-        header: ({ column }) => (
-          <button
-            onClick={() => column.toggleSorting()}
-            className="flex items-center gap-1 hover:text-gray-900"
-          >
-            Monto
-            <ArrowUpDown className="w-4 h-4" />
-          </button>
-        ),
-        cell: (info) => (
-          <span className="font-bold text-gray-900">
-            {formatCurrency(info.getValue())}
-          </span>
-        ),
-      }),
-      columnHelper.accessor('status', {
-        header: 'Estado Pago',
-        cell: (info) => {
-          const statusInfo = getPaymentStatusInfo(info.row.original);
-          const Icon = statusInfo.icon;
-          return (
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {statusInfo.label}
-            </span>
-          );
-        },
-      }),
-      columnHelper.accessor('createdAt', {
-        header: ({ column }) => (
-          <button
-            onClick={() => column.toggleSorting()}
-            className="flex items-center gap-1 hover:text-gray-900"
-          >
-            Fecha
-            <ArrowUpDown className="w-4 h-4" />
-          </button>
-        ),
-        cell: (info) => (
-          <span className="text-gray-600 text-sm">
-            {new Date(info.getValue()).toLocaleDateString('es-ES', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </span>
-        ),
-      }),
-      columnHelper.display({
-        id: 'actions',
-        header: () => <div className="text-right">Acciones</div>,
-        cell: (info) => (
-          <div className="flex justify-end">
-            <button
-              onClick={() => handleViewOrder(info.row.original)}
-              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Ver detalles"
-            >
-              <Eye className="w-4 h-4" />
-            </button>
-          </div>
-        ),
-      }),
-    ],
-    [navigate, settings.general.currency]
-  );
-
-  const table = useReactTable({
-    data: filteredOrders,
-    columns,
-    state: {
-      sorting,
-      globalFilter,
-    },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: 10,
-      },
-    },
-  });
-
-  // Métodos de pago activos
-  const activePaymentMethods = settings.payment.methods.filter((m) => m.isActive);
+  const formatDate = (date: string | null) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Pagos</h1>
-          <p className="text-gray-600 mt-1 text-sm">Gestión de transacciones y pagos</p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Gestión de Pagos</h1>
+        <p className="text-gray-600">
+          Administra todos los pagos e intentos de pago de los pedidos
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Ingresos Totales</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">
-                {formatCurrency(stats.totalRevenue)}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">{stats.paidOrders} pagos confirmados</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-xl">
-              <TrendingUp className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
+      {/* Filtros */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="w-5 h-5 text-gray-500" />
+          <h2 className="text-lg font-semibold">Filtros</h2>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Pagos Pendientes</p>
-              <p className="text-2xl font-bold text-yellow-600 mt-1">
-                {formatCurrency(stats.pendingRevenue)}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">{stats.pendingOrders} órdenes</p>
-            </div>
-            <div className="p-3 bg-yellow-50 rounded-xl">
-              <Clock className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Pagos Confirmados</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{stats.paidOrders}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {stats.totalOrders > 0
-                  ? `${Math.round((stats.paidOrders / stats.totalOrders) * 100)}% del total`
-                  : '0%'}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-xl">
-              <CheckCircle className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Cancelados</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">{stats.cancelledOrders}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {stats.totalOrders > 0
-                  ? `${Math.round((stats.cancelledOrders / stats.totalOrders) * 100)}% del total`
-                  : '0%'}
-              </p>
-            </div>
-            <div className="p-3 bg-red-50 rounded-xl">
-              <XCircle className="w-6 h-6 text-red-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Resumen por Método de Pago */}
-      <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 mb-6">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-          <CreditCard className="w-4 h-4" />
-          Resumen por Método de Pago
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {activePaymentMethods.map((method) => {
-            const methodStats = stats.byMethod[method.type] || { count: 0, total: 0 };
-            return (
-              <div
-                key={method.id}
-                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-              >
-                <div className="p-2 bg-white rounded-lg shadow-sm">
-                  {getPaymentIcon(method.type as PaymentMethod)}
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">{method.name}</p>
-                  <p className="font-bold text-gray-900">{methodStats.count}</p>
-                  <p className="text-xs text-green-600">{formatCurrency(methodStats.total)}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Búsqueda */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar
+            </label>
             <Input
               type="text"
-              placeholder="Buscar por referencia, cliente..."
-              value={globalFilter ?? ''}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              className="pl-10"
+              placeholder="Orden, transacción, email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              icon={<Search className="w-4 h-4" />}
             />
           </div>
 
-          {/* Filtro por método de pago */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
             <select
-              value={paymentMethodFilter}
-              onChange={(e) => setPaymentMethodFilter(e.target.value as PaymentMethod | 'all')}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | '')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
-              <option value="all">Todos los métodos</option>
-              {activePaymentMethods.map((method) => (
-                <option key={method.id} value={method.type}>
-                  {method.name}
-                </option>
-              ))}
+              <option value="">Todos</option>
+              <option value="PENDING">Pendiente</option>
+              <option value="PROCESSING">Procesando</option>
+              <option value="APPROVED">Aprobado</option>
+              <option value="DECLINED">Rechazado</option>
+              <option value="FAILED">Fallido</option>
+              <option value="CANCELLED">Cancelado</option>
+              <option value="EXPIRED">Expirado</option>
+              <option value="REFUNDED">Reembolsado</option>
+              <option value="PARTIAL_REFUND">Reembolso Parcial</option>
             </select>
           </div>
 
-          {/* Filtro por estado */}
-          <select
-            value={paymentStatusFilter}
-            onChange={(e) => setPaymentStatusFilter(e.target.value as 'all' | 'pending' | 'paid' | 'cancelled')}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="pending">Pendientes</option>
-            <option value="paid">Pagados</option>
-            <option value="cancelled">Cancelados</option>
-          </select>
-
-          {/* Filtro por fecha */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Método</label>
             <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as 'all' | 'today' | 'week' | 'month')}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
-              <option value="all">Todo el tiempo</option>
-              <option value="today">Hoy</option>
-              <option value="week">Última semana</option>
-              <option value="month">Último mes</option>
+              <option value="">Todos</option>
+              <option value="wompi">Wompi</option>
+              <option value="transfer">Transferencia</option>
+              <option value="cash">Efectivo</option>
+              <option value="nequi">Nequi</option>
+              <option value="daviplata">Daviplata</option>
             </select>
+          </div>
+
+          <div className="flex items-end gap-2">
+            <Button onClick={handleApplyFilters} className="flex-1">
+              Aplicar
+            </Button>
+            <Button onClick={handleClearFilters} variant="secondary">
+              Limpiar
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      {/* Tabla de Pagos */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ID / Orden
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Método
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Monto
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pagador
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {table.getRowModel().rows.length > 0 ? (
-                table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 text-sm">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
+            <tbody className="bg-white divide-y divide-gray-200">
+              {isLoading ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-12">
-                    <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      {globalFilter || paymentMethodFilter !== 'all' || paymentStatusFilter !== 'all'
-                        ? 'No se encontraron pagos'
-                        : 'No hay pagos registrados'}
-                    </h3>
-                    <p className="text-gray-500">
-                      {globalFilter || paymentMethodFilter !== 'all' || paymentStatusFilter !== 'all'
-                        ? 'Intenta con otros filtros'
-                        : 'Los pagos aparecerán aquí cuando los clientes realicen compras'}
-                    </p>
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                    Cargando...
                   </td>
                 </tr>
+              ) : payments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                    No hay pagos registrados
+                  </td>
+                </tr>
+              ) : (
+                payments.map((payment) => {
+                  const statusConfig = STATUS_CONFIG[payment.status];
+                  return (
+                    <tr key={payment.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">#{payment.id}</div>
+                        <div className="text-sm text-gray-500">{payment.orderNumber}</div>
+                        {payment.transactionId && (
+                          <div className="text-xs text-gray-400">{payment.transactionId}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.color}`}
+                        >
+                          {statusConfig.icon}
+                          {statusConfig.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900 capitalize">
+                          {payment.paymentMethod}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatCurrency(payment.amount)}
+                        </div>
+                        {payment.refundedAmount > 0 && (
+                          <div className="text-xs text-purple-600">
+                            Reembolsado: {formatCurrency(payment.refundedAmount)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{payment.payerName || '-'}</div>
+                        <div className="text-xs text-gray-500">{payment.payerEmail || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatDate(payment.initiatedAt)}
+                        </div>
+                        {payment.paidAt && (
+                          <div className="text-xs text-green-600">
+                            Pagado: {formatDate(payment.paidAt)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => setSelectedPayment(payment)}
+                          className="text-purple-600 hover:text-purple-900 inline-flex items-center gap-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Ver Detalles
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
-        {table.getRowModel().rows.length > 0 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-gray-700">
-              Mostrando{' '}
-              <span className="font-medium">
-                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
-              </span>{' '}
-              a{' '}
-              <span className="font-medium">
-                {Math.min(
-                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                  table.getFilteredRowModel().rows.length
-                )}
-              </span>{' '}
-              de <span className="font-medium">{table.getFilteredRowModel().rows.length}</span> pagos
+        {/* Paginación */}
+        {pagination.totalPages > 1 && (
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setPage(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                Anterior
+              </button>
+              <button
+                onClick={() => setPage(pagination.page + 1)}
+                disabled={pagination.page === pagination.totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                Siguiente
+              </button>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-
-              <div className="flex gap-1">
-                {Array.from({ length: Math.min(table.getPageCount(), 5) }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => table.setPageIndex(page - 1)}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      table.getState().pagination.pageIndex === page - 1
-                        ? 'bg-green-500 text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Mostrando{' '}
+                  <span className="font-medium">
+                    {(pagination.page - 1) * pagination.limit + 1}
+                  </span>{' '}
+                  a{' '}
+                  <span className="font-medium">
+                    {Math.min(pagination.page * pagination.limit, pagination.total)}
+                  </span>{' '}
+                  de <span className="font-medium">{pagination.total}</span> resultados
+                </p>
               </div>
-
-              <button
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                  <button
+                    onClick={() => setPage(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    onClick={() => setPage(pagination.page + 1)}
+                    disabled={pagination.page === pagination.totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Siguiente
+                  </button>
+                </nav>
+              </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* TODO: Modal de detalles del pago */}
+      {selectedPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Detalles del Pago #{selectedPayment.id}</h3>
+              <div className="space-y-4">
+                <div>
+                  <strong>Estado:</strong>{' '}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                      STATUS_CONFIG[selectedPayment.status].bg
+                    } ${STATUS_CONFIG[selectedPayment.status].color}`}
+                  >
+                    {STATUS_CONFIG[selectedPayment.status].icon}
+                    {STATUS_CONFIG[selectedPayment.status].label}
+                  </span>
+                </div>
+                <div>
+                  <strong>Orden:</strong> {selectedPayment.orderNumber}
+                </div>
+                <div>
+                  <strong>Monto:</strong> {formatCurrency(selectedPayment.amount)}
+                </div>
+                <div>
+                  <strong>Método:</strong> {selectedPayment.paymentMethod}
+                </div>
+                {selectedPayment.transactionId && (
+                  <div>
+                    <strong>ID Transacción:</strong> {selectedPayment.transactionId}
+                  </div>
+                )}
+                {selectedPayment.notes && (
+                  <div>
+                    <strong>Notas:</strong> {selectedPayment.notes}
+                  </div>
+                )}
+                {selectedPayment.failureReason && (
+                  <div className="text-red-600">
+                    <strong>Razón de fallo:</strong> {selectedPayment.failureReason}
+                  </div>
+                )}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <Button onClick={() => setSelectedPayment(null)} variant="secondary">
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}

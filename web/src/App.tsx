@@ -8,6 +8,7 @@ import { CartProvider } from './context/CartContext';
 import { ToastProvider } from './context/ToastContext';
 import { UsersProvider } from './context/UsersContext';
 import { OrdersProvider } from './context/OrdersContext';
+import { PaymentsProvider } from './context/PaymentsContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { HomePage } from './pages/HomePage';
 import { CatalogPage } from './pages/CatalogPage';
@@ -99,8 +100,9 @@ function App() {
               <CatalogsProvider>
                 <UsersProvider>
                   <OrdersProvider>
-                    <SettingsProvider>
-                      <CartProvider>
+                    <PaymentsProvider>
+                      <SettingsProvider>
+                        <CartProvider>
                         <Routes>
                           {/* Admin Panel Routes - Con AdminLayout */}
                           <Route
@@ -428,8 +430,9 @@ function App() {
                             }
                           />
                         </Routes>
-                      </CartProvider>
-                    </SettingsProvider>
+                        </CartProvider>
+                      </SettingsProvider>
+                    </PaymentsProvider>
                   </OrdersProvider>
                 </UsersProvider>
               </CatalogsProvider>
