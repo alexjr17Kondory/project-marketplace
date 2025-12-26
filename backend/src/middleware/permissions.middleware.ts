@@ -22,8 +22,8 @@ export function requirePermission(permission: string) {
       const userId = req.user.userId;
       const roleId = req.user.roleId;
 
-      // SuperAdmin (roleId 1) siempre tiene acceso total
-      if (roleId === 1) {
+      // SuperAdmin (roleId 0 o 1) siempre tiene acceso total
+      if (roleId === 0 || roleId === 1) {
         return next();
       }
 
@@ -80,8 +80,8 @@ export function requireAnyPermission(...permissions: string[]) {
 
       const roleId = req.user.roleId;
 
-      // SuperAdmin (roleId 1) siempre tiene acceso total
-      if (roleId === 1) {
+      // SuperAdmin (roleId 0 o 1) siempre tiene acceso total
+      if (roleId === 0 || roleId === 1) {
         return next();
       }
 
@@ -143,8 +143,8 @@ export function requireAllPermissions(...permissions: string[]) {
 
       const roleId = req.user.roleId;
 
-      // SuperAdmin (roleId 1) siempre tiene acceso total
-      if (roleId === 1) {
+      // SuperAdmin (roleId 0 o 1) siempre tiene acceso total
+      if (roleId === 0 || roleId === 1) {
         return next();
       }
 

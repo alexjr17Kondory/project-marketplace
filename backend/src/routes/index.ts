@@ -21,6 +21,9 @@ import barcodeRoutes from './barcode.routes';
 import cashRegisterRoutes from './cash-register.routes';
 import posRoutes from './pos.routes';
 import labelTemplatesRoutes from './label-templates.routes';
+import suppliersRoutes from './suppliers.routes';
+import purchaseOrdersRoutes from './purchase-orders.routes';
+import inventoryRoutes from './inventory.routes';
 
 const router = Router();
 
@@ -125,5 +128,14 @@ router.use('/design-images', designImagesRoutes);
 
 // Rutas de plantillas de etiquetas
 router.use('/label-templates', labelTemplatesRoutes);
+
+// Rutas de proveedores
+router.use('/suppliers', suppliersRoutes);
+
+// Rutas de órdenes de compra
+router.use('/purchase-orders', purchaseOrdersRoutes);
+
+// Rutas de inventario (movimientos, ajustes)
+router.use('/inventory', inventoryRoutes);
 
 export default router;

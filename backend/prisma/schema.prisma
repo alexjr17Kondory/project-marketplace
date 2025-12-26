@@ -231,7 +231,9 @@ model ProductVariant {
   updatedAt DateTime @updatedAt
 
   // Relaciones
-  orderItems OrderItem[]
+  orderItems         OrderItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+  movements          VariantMovement[]
 
   @@index([productId])
   @@index([barcode])
@@ -675,9 +677,10 @@ model Input {
   isActive Boolean @default(true)
 
   // Relaciones
-  batches    InputBatch[] // Lotes de este insumo
-  movements  InputBatchMovement[] // Movimientos de inventario
-  zoneInputs ZoneInput[] // Zonas que usan este insumo
+  batches            InputBatch[] // Lotes de este insumo
+  movements          InputBatchMovement[] // Movimientos de inventario
+  zoneInputs         ZoneInput[] // Zonas que usan este insumo
+  purchaseOrderItems PurchaseOrderItem[] // Items de órdenes de compra
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -883,4 +886,185 @@ enum LabelZoneType {
   SKU          // SKU
   PRICE        // Precio
   CUSTOM_TEXT  // Texto personalizado
+}
+
+// ==================== PROVEEDORES Y COMPRAS ====================
+
+// Proveedor
+model Supplier {
+  id   Int    @id @default(autoincrement())
+  code String @unique // Código único del proveedor (ej: PROV-001)
+  name String // Razón social
+
+  // Identificación fiscal
+  taxId     String? // NIT/RUT/RUC
+  taxIdType String? // "NIT", "RUT", "RUC", "DNI", etc.
+
+  // Contacto
+  contactName  String? // Nombre del contacto principal
+  email        String?
+  phone        String?
+  altPhone     String? // Teléfono alternativo
+  website      String?
+
+  // Dirección
+  address    String?
+  city       String?
+  department String? // Estado/Provincia/Departamento
+  postalCode String?
+  country    String @default("Colombia")
+
+  // Información comercial
+  paymentTerms    String? // "Contado", "30 días", "60 días"
+  paymentMethod   String? // Método de pago preferido
+  bankName        String?
+  bankAccountType String? // "Ahorro", "Corriente"
+  bankAccount     String?
+  notes           String? @db.Text
+
+  // Control
+  isActive Boolean @default(true)
+
+  // Relaciones
+  purchaseOrders PurchaseOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([taxId])
+  @@map("suppliers")
+}
+
+// Orden de Compra
+model PurchaseOrder {
+  id          Int    @id @default(autoincrement())
+  orderNumber String @unique // Número de OC (ej: OC-2025-0001)
+
+  supplierId Int
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  // Estado
+  status PurchaseOrderStatus @default(DRAFT)
+
+  // Montos
+  subtotal Decimal @db.Decimal(10, 2)
+  tax      Decimal @default(0) @db.Decimal(10, 2)
+  discount Decimal @default(0) @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+
+  // Fechas
+  orderDate    DateTime  @default(now()) // Fecha de la OC
+  expectedDate DateTime? // Fecha esperada de entrega
+  receivedDate DateTime? // Fecha de recepción completa
+
+  // Referencias
+  supplierInvoice String? // Número de factura del proveedor
+  notes           String? @db.Text
+
+  // Usuario que creó la OC
+  createdById Int?
+
+  // Items
+  items PurchaseOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+  @@map("purchase_orders")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT     // Borrador
+  SENT      // Enviada al proveedor
+  CONFIRMED // Confirmada por proveedor
+  PARTIAL   // Recepción parcial
+  RECEIVED  // Recibida completamente
+  CANCELLED // Cancelada
+}
+
+// Item de Orden de Compra
+model PurchaseOrderItem {
+  id              Int           @id @default(autoincrement())
+  purchaseOrderId Int
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  // Puede ser una variante de producto O un insumo
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  inputId Int?
+  input   Input? @relation(fields: [inputId], references: [id])
+
+  // Descripción (para items no relacionados o referencia)
+  description String?
+
+  // Cantidades
+  quantity         Decimal @db.Decimal(10, 2) // Cantidad pedida
+  quantityReceived Decimal @default(0) @db.Decimal(10, 2) // Cantidad recibida
+
+  // Precios
+  unitCost Decimal @db.Decimal(10, 2) // Costo unitario
+  subtotal Decimal @db.Decimal(10, 2) // quantity * unitCost
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([variantId])
+  @@index([inputId])
+  @@map("purchase_order_items")
+}
+
+// Movimiento de Inventario de Variantes
+model VariantMovement {
+  id        Int            @id @default(autoincrement())
+  variantId Int
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  // Tipo de movimiento
+  movementType VariantMovementType
+
+  // Cantidad (positiva para entradas, negativa para salidas)
+  quantity      Int // Cantidad del movimiento
+  previousStock Int // Stock antes del movimiento
+  newStock      Int // Stock después del movimiento
+
+  // Referencias
+  referenceType String? // "purchase_order", "sale", "adjustment", "transfer", "return"
+  referenceId   Int? // ID de la referencia
+
+  // Detalles
+  reason String? @db.Text // Razón del movimiento
+  notes  String? @db.Text
+
+  // Usuario que realizó el movimiento
+  userId Int?
+
+  // Costo unitario (para entradas de compra)
+  unitCost Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([variantId])
+  @@index([movementType])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+  @@map("variant_movements")
+}
+
+enum VariantMovementType {
+  PURCHASE    // Entrada por compra
+  SALE        // Salida por venta
+  ADJUSTMENT  // Ajuste de inventario
+  TRANSFER_IN // Entrada por transferencia
+  TRANSFER_OUT // Salida por transferencia
+  RETURN      // Devolución de cliente
+  DAMAGE      // Daño/merma
+  INITIAL     // Stock inicial
 }

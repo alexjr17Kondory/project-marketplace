@@ -48,6 +48,9 @@ import { ShippingPage } from './pages/admin/ShippingPage';
 import { PaymentsPage } from './pages/admin/PaymentsPage';
 import CashRegistersPage from './pages/admin/CashRegistersPage';
 import BarcodePrintPage from './pages/admin/BarcodePrintPage';
+import SuppliersPage from './pages/admin/SuppliersPage';
+import PurchaseOrdersPage from './pages/admin/PurchaseOrdersPage';
+import InventoryMovementsPage from './pages/admin/InventoryMovementsPage';
 import {
   SettingsGeneralPage,
   SettingsAppearancePage,
@@ -407,6 +410,32 @@ function App() {
                                       element={
                                         <PermissionRoute permission="pos.cash_register">
                                           <CashRegistersPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Compras e Inventario */}
+                                    <Route
+                                      path="/suppliers"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <SuppliersPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/purchase-orders"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <PurchaseOrdersPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/inventory-movements"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <InventoryMovementsPage />
                                         </PermissionRoute>
                                       }
                                     />

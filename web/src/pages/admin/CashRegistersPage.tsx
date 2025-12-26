@@ -1,11 +1,23 @@
-import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Power, PowerOff, Monitor, MapPin, Users } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+  type SortingState,
+} from '@tanstack/react-table';
+import { Plus, Edit, Trash2, Power, PowerOff, Monitor, MapPin, Users, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { Modal } from '../../components/shared/Modal';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import * as cashRegisterService from '../../services/cash-register.service';
 import type { CashRegister, CashSession } from '../../services/cash-register.service';
+
+const columnHelper = createColumnHelper<CashRegister>();
 
 export default function CashRegistersPage() {
   const { showToast } = useToast();
@@ -15,6 +27,8 @@ export default function CashRegistersPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingRegister, setEditingRegister] = useState<CashRegister | null>(null);
   const [deletingRegister, setDeletingRegister] = useState<CashRegister | null>(null);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = useState('');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -151,6 +165,163 @@ export default function CashRegistersPage() {
     return null;
   };
 
+  // Stats
+  const stats = useMemo(() => ({
+    total: cashRegisters.length,
+    active: cashRegisters.filter((r) => r.isActive).length,
+    inUse: cashRegisters.filter((r) => r.cashSessions && r.cashSessions.length > 0).length,
+  }), [cashRegisters]);
+
+  // Table columns
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('name', {
+        header: ({ column }) => (
+          <button
+            onClick={() => column.toggleSorting()}
+            className="flex items-center gap-1 hover:text-gray-900"
+          >
+            Caja
+            <ArrowUpDown className="w-4 h-4" />
+          </button>
+        ),
+        cell: (info) => {
+          const register = info.row.original;
+          return (
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                register.isActive ? 'bg-indigo-100' : 'bg-gray-100'
+              }`}>
+                <Monitor className={`w-5 h-5 ${
+                  register.isActive ? 'text-indigo-600' : 'text-gray-400'
+                }`} />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-900">{register.name}</div>
+                <div className="text-xs text-gray-500 font-mono">{register.code}</div>
+              </div>
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor('location', {
+        header: 'Ubicacion',
+        cell: (info) => (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <MapPin className="w-4 h-4 text-gray-400" />
+            {info.getValue()}
+          </div>
+        ),
+      }),
+      columnHelper.accessor('isActive', {
+        header: 'Estado',
+        cell: (info) => {
+          const isActive = info.getValue();
+          return (
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${
+                isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                isActive ? 'bg-green-500' : 'bg-gray-400'
+              }`} />
+              {isActive ? 'Activa' : 'Inactiva'}
+            </span>
+          );
+        },
+      }),
+      columnHelper.display({
+        id: 'session',
+        header: 'Sesion Activa',
+        cell: ({ row }) => {
+          const activeSession = getActiveSession(row.original);
+          if (activeSession) {
+            return (
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <Users className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {activeSession.seller?.name || 'Usuario'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Desde {new Date(activeSession.openedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          return <span className="text-sm text-gray-400">Sin sesion</span>;
+        },
+      }),
+      columnHelper.display({
+        id: 'actions',
+        header: () => <div className="text-right">Acciones</div>,
+        cell: ({ row }) => {
+          const register = row.original;
+          const activeSession = getActiveSession(register);
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <button
+                onClick={() => handleEdit(register)}
+                className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                title="Editar"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleToggleActive(register)}
+                className={`p-2 rounded-lg transition-colors ${
+                  register.isActive
+                    ? 'text-amber-600 hover:bg-amber-50'
+                    : 'text-green-600 hover:bg-green-50'
+                }`}
+                title={register.isActive ? 'Desactivar' : 'Activar'}
+              >
+                {register.isActive ? (
+                  <PowerOff className="w-4 h-4" />
+                ) : (
+                  <Power className="w-4 h-4" />
+                )}
+              </button>
+              <button
+                onClick={() => handleDeleteClick(register)}
+                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Eliminar"
+                disabled={!!activeSession}
+              >
+                <Trash2 className={`w-4 h-4 ${activeSession ? 'opacity-30' : ''}`} />
+              </button>
+            </div>
+          );
+        },
+      }),
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: cashRegisters,
+    columns,
+    state: {
+      sorting,
+      globalFilter,
+    },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -163,59 +334,48 @@ export default function CashRegistersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <Monitor className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Cajas Registradoras</h1>
-            <p className="text-gray-600 mt-1">
-              Gestiona las cajas registradoras del punto de venta
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Cajas Registradoras</h1>
+          <p className="text-gray-600 mt-1 text-sm">Gestiona las cajas registradoras del punto de venta</p>
         </div>
-        <Button onClick={handleCreate} className="flex items-center gap-2">
-          <Plus className="w-5 h-5" />
+        <Button onClick={handleCreate} variant="admin-primary">
+          <Plus className="w-5 h-5 mr-2" />
           Nueva Caja
         </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Cajas</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{cashRegisters.length}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
             </div>
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
               <Monitor className="w-5 h-5 text-blue-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Activas</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">
-                {cashRegisters.filter((r) => r.isActive).length}
-              </p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{stats.active}</p>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
               <Power className="w-5 h-5 text-green-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">En Uso</p>
-              <p className="text-2xl font-bold text-indigo-600 mt-1">
-                {cashRegisters.filter((r) => r.cashSessions && r.cashSessions.length > 0).length}
-              </p>
+              <p className="text-2xl font-bold text-indigo-600 mt-1">{stats.inUse}</p>
             </div>
             <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
               <Users className="w-5 h-5 text-indigo-600" />
@@ -224,149 +384,130 @@ export default function CashRegistersPage() {
         </div>
       </div>
 
-      {/* Table */}
-      {cashRegisters.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Monitor className="w-8 h-8 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No hay cajas registradoras
-          </h3>
-          <p className="text-gray-600 mb-6">
-            Crea tu primera caja registradora para comenzar a usar el sistema POS
-          </p>
-          <Button onClick={handleCreate} className="inline-flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Crear Caja Registradora
-          </Button>
+      {/* Search Bar */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Buscar cajas..."
+            value={globalFilter ?? ''}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="pl-10"
+          />
         </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Caja
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ubicacion
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Sesion Activa
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {cashRegisters.map((register) => {
-                const activeSession = getActiveSession(register);
-                return (
-                  <tr key={register.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          register.isActive ? 'bg-indigo-100' : 'bg-gray-100'
-                        }`}>
-                          <Monitor className={`w-5 h-5 ${
-                            register.isActive ? 'text-indigo-600' : 'text-gray-400'
-                          }`} />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {register.name}
-                          </div>
-                          <div className="text-xs text-gray-500 font-mono">
-                            {register.code}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <MapPin className="w-4 h-4 text-gray-400" />
-                        {register.location}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${
-                          register.isActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          register.isActive ? 'bg-green-500' : 'bg-gray-400'
-                        }`} />
-                        {register.isActive ? 'Activa' : 'Inactiva'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {activeSession ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                            <Users className="w-4 h-4 text-indigo-600" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {activeSession.seller?.name || 'Usuario'}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Desde {new Date(activeSession.openedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">Sin sesion</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleEdit(register)}
-                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Editar"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleActive(register)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            register.isActive
-                              ? 'text-amber-600 hover:bg-amber-50'
-                              : 'text-green-600 hover:bg-green-50'
-                          }`}
-                          title={register.isActive ? 'Desactivar' : 'Activar'}
-                        >
-                          {register.isActive ? (
-                            <PowerOff className="w-4 h-4" />
-                          ) : (
-                            <Power className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(register)}
-                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Eliminar"
-                          disabled={!!activeSession}
-                        >
-                          <Trash2 className={`w-4 h-4 ${activeSession ? 'opacity-30' : ''}`} />
-                        </button>
-                      </div>
-                    </td>
+            <tbody className="divide-y divide-gray-200">
+              {table.getRowModel().rows.length > 0 ? (
+                table.getRowModel().rows.map((row) => (
+                  <tr key={row.id} className="hover:bg-gray-50">
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-6 py-4 text-sm">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
-                );
-              })}
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={columns.length} className="text-center py-12">
+                    <Monitor className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {globalFilter ? 'No se encontraron cajas' : 'No hay cajas registradoras'}
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      {globalFilter
+                        ? 'Intenta con otra busqueda'
+                        : 'Crea tu primera caja registradora para comenzar'}
+                    </p>
+                    {!globalFilter && (
+                      <Button onClick={handleCreate} variant="admin-primary">
+                        <Plus className="w-5 h-5 mr-2" />
+                        Nueva Caja
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-      )}
+
+        {/* Pagination */}
+        {table.getRowModel().rows.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-700">
+              Mostrando{' '}
+              <span className="font-medium">
+                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
+              </span>{' '}
+              a{' '}
+              <span className="font-medium">
+                {Math.min(
+                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )}
+              </span>{' '}
+              de <span className="font-medium">{table.getFilteredRowModel().rows.length}</span> cajas
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              <div className="flex gap-1">
+                {Array.from({ length: table.getPageCount() }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => table.setPageIndex(page - 1)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                      table.getState().pagination.pageIndex === page - 1
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Create/Edit Modal */}
       <Modal

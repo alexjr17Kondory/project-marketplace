@@ -40,7 +40,10 @@ export type Permission =
   | 'settings.catalog'
   | 'settings.shipping'
   | 'settings.payment'
-  | 'settings.legal';
+  | 'settings.legal'
+  // Inventario
+  | 'inventory.view'
+  | 'inventory.manage';
 
 // Módulos del panel administrativo
 export type AdminModule =
@@ -51,7 +54,8 @@ export type AdminModule =
   | 'users'
   | 'admins'
   | 'roles'
-  | 'settings';
+  | 'settings'
+  | 'inventory';
 
 // Interfaz de Rol
 export interface Role {
@@ -81,6 +85,7 @@ export const SYSTEM_ROLES: Role[] = [
       'roles.view', 'roles.create', 'roles.edit', 'roles.delete',
       'settings.general', 'settings.appearance', 'settings.home',
       'settings.catalog', 'settings.shipping', 'settings.payment', 'settings.legal',
+      'inventory.view', 'inventory.manage',
     ],
     isSystem: true,
     isActive: true,
@@ -179,6 +184,14 @@ export const PERMISSION_GROUPS: {
       { id: 'settings.shipping', label: 'Envíos', description: 'Zonas y tarifas' },
       { id: 'settings.payment', label: 'Pagos', description: 'Métodos de pago' },
       { id: 'settings.legal', label: 'Legal', description: 'Términos y políticas' },
+    ],
+  },
+  {
+    module: 'inventory',
+    label: 'Inventario',
+    permissions: [
+      { id: 'inventory.view', label: 'Ver inventario', description: 'Proveedores, OCs, movimientos' },
+      { id: 'inventory.manage', label: 'Gestionar inventario', description: 'Crear, editar y ajustar stock' },
     ],
   },
 ];

@@ -5,7 +5,7 @@
 **Fecha:** 2025-12-26
 **Deploy Frontend:** https://project-marketplace.vercel.app
 **Backend Local:** http://localhost:3001/api
-**Progreso Total:** 98%
+**Progreso Total:** 99%
 
 ---
 
@@ -21,7 +21,7 @@
 | 6 | Configuracion General | ✅ | 100% |
 | 7 | Backend + Base de Datos | ✅ | 95% |
 | 8 | Punto de Venta (POS) | ✅ | 100% |
-| 9 | Compras e Inventario | 🟡 | 0% |
+| 9 | Compras e Inventario | 🟡 | 70% |
 | 10 | App Movil | ⚪ | Futuro |
 
 ---
@@ -143,6 +143,11 @@
 | Template Zones | CRUD + zone inputs | ✅ |
 | Design Images | CRUD + categories + filtros | ✅ |
 | Payments | CRUD + verify + refund + stats | ✅ |
+| Suppliers | CRUD + stats + generate-code | ✅ |
+| Purchase Orders | CRUD + status + receive + stats | ✅ |
+| Inventory | movements + bulk-adjustment + stats + low-stock | ✅ |
+| Variants | CRUD + stock + barcode | ✅ |
+| Cash Registers | CRUD + sessions | ✅ |
 
 ### Integracion Frontend ✅
 
@@ -238,66 +243,86 @@
 
 ## FASE 9: COMPRAS E INVENTARIO
 
-**Estado:** No iniciada (Próxima fase)
+**Estado:** 70% Completado
 
-### Backend Pendiente
-- [ ] **Modelo Supplier (Proveedores)**
-  - id, name, ruc/nit, email, phone, address
-  - contactPerson, paymentTerms, notes
-  - isActive, createdAt, updatedAt
+### Backend Completado ✅
+- [x] **Modelo Supplier (Proveedores)**
+  - id, code, name, taxId, email, phone, address
+  - city, contactName, contactPhone, contactEmail
+  - paymentTerms, notes, isActive
+  - createdAt, updatedAt
 
-- [ ] **Modelo PurchaseOrder (Órdenes de Compra)**
+- [x] **Modelo PurchaseOrder (Órdenes de Compra)**
   - id, supplierId, orderNumber
   - status: DRAFT, SENT, CONFIRMED, PARTIAL, RECEIVED, CANCELLED
   - subtotal, tax, discount, total
-  - expectedDate, receivedDate
-  - notes, createdBy, createdAt, updatedAt
+  - orderDate, expectedDate, receivedDate, supplierInvoice
+  - notes, createdById, createdAt, updatedAt
 
-- [ ] **Modelo PurchaseOrderItem (Items de OC)**
+- [x] **Modelo PurchaseOrderItem (Items de OC)**
   - id, purchaseOrderId, variantId/inputId
-  - quantity, unitCost, subtotal
-  - quantityReceived, notes
+  - description, quantity, quantityReceived
+  - unitCost, subtotal, notes
 
-- [ ] **Modelo InventoryMovement (Movimientos de Inventario)**
-  - id, type: IN, OUT, ADJUSTMENT, TRANSFER
-  - variantId/inputId, quantity
-  - reason, reference, notes
-  - userId, createdAt
+- [x] **Modelo VariantMovement (Movimientos de Inventario)**
+  - id, variantId, movementType (PURCHASE, SALE, ADJUSTMENT, etc.)
+  - quantity, previousStock, newStock
+  - referenceType, referenceId, reason, notes
+  - unitCost, userId, createdAt
 
-- [ ] **API de Proveedores**
-  - CRUD completo
-  - Listado con filtros y paginación
-  - Historial de compras por proveedor
+- [x] **API de Proveedores** `/api/suppliers`
+  - CRUD completo con respuestas estandarizadas
+  - Filtros: search, isActive, city
+  - Generación automática de código
+  - Estadísticas
 
-- [ ] **API de Órdenes de Compra**
+- [x] **API de Órdenes de Compra** `/api/purchase-orders`
   - CRUD completo
   - Cambio de estados
   - Recepción parcial/completa
-  - Afecta stock automáticamente al recibir
+  - Generación de número de orden
+  - Estadísticas
 
-- [ ] **API de Movimientos de Inventario**
-  - Registro manual de entradas/salidas
-  - Ajustes de inventario
-  - Historial con filtros
+- [x] **API de Movimientos de Inventario** `/api/inventory`
+  - Historial de movimientos con filtros
+  - Ajuste masivo de stock
+  - Estadísticas de inventario
+  - Alertas de stock bajo
+
+### Frontend Completado ✅
+- [x] **Página de Proveedores** `/admin-panel/suppliers`
+  - DataTable estandarizado con CRUD
+  - Filtros y búsqueda
+  - Stats cards
+  - 10 items por página
+
+- [x] **Página de Movimientos** `/admin-panel/inventory-movements`
+  - Historial de movimientos (solo lectura)
+  - Filtros por tipo, fecha, variante
+  - Sin creación manual (movimientos vienen de compras/ventas)
+
+- [x] **Página de Variantes** `/admin-panel/variants`
+  - DataTable estandarizado como ProductsPage
+  - Stats cards (total, stock bajo, sin stock)
+  - Paginación con 10 items
+  - Filtro de stock bajo
+
+- [x] **Página de Cajas Registradoras** `/admin-panel/cash-registers`
+  - DataTable estandarizado con TanStack Table
+  - Paginación con 10 items
+  - Stats cards
 
 ### Frontend Pendiente
-- [ ] **Página de Proveedores** `/admin-panel/suppliers`
-  - DataTable con CRUD
-  - Vista detalle con historial de compras
-
 - [ ] **Página de Órdenes de Compra** `/admin-panel/purchase-orders`
   - Lista de OCs con filtros por estado
-  - Crear/Editar OC con items
+  - Crear/Editar OC con selector de items (PurchaseItemSelector)
   - Recepción de mercancía
+  - Vista detalle
 
-- [ ] **Página de Movimientos** `/admin-panel/inventory-movements`
-  - Historial de movimientos
-  - Formulario de ajuste manual
-
-### Integración con Módulos Existentes
-- [ ] Vincular Variants con movimientos de stock
+### Integración Pendiente
+- [ ] Vincular Variants con movimientos de stock automáticos
 - [ ] Vincular Inputs con movimientos de stock
-- [ ] Alertas de stock bajo
+- [ ] Alertas de stock bajo (notificaciones)
 - [ ] Reportes de inventario
 
 ---
@@ -382,6 +407,23 @@ docker exec marketplace-backend npx prisma studio
 ---
 
 ## CHANGELOG RECIENTE
+
+### v5.9 (2025-12-26)
+- ✅ **Módulo de Compras e Inventario (70%)**
+  - Backend completo: Suppliers, PurchaseOrders, InventoryMovements
+  - Modelos Prisma: Supplier, PurchaseOrder, PurchaseOrderItem, VariantMovement
+  - APIs estandarizadas con formato `{ success: true, data: [...] }`
+  - Página de Proveedores con CRUD completo y seed de 5 proveedores
+  - Página de Movimientos de Inventario (solo lectura)
+  - Permisos configurados para SuperAdmin
+- ✅ **Estandarización de UI Admin**
+  - VariantsPage rediseñada con patrón ProductsPage
+  - CashRegistersPage con TanStack React Table
+  - Paginación unificada: 10 items por página
+  - Botones de paginación numerados con estilo naranja activo
+  - Headers simplificados sin iconos decorativos
+  - Stats cards con padding y border-radius consistentes
+  - Barras de búsqueda en tarjetas blancas separadas
 
 ### v5.8 (2025-12-26)
 - ✅ **Sistema de Punto de Venta (POS) Completo**
@@ -533,4 +575,4 @@ docker exec marketplace-backend npx prisma studio
 ---
 
 **Ultima actualizacion:** 2025-12-26
-**Version:** 5.8
+**Version:** 5.9

@@ -18,7 +18,6 @@ import type { ProductVariant } from '../../services/variants.service';
 import * as variantsService from '../../services/variants.service';
 import * as barcodeService from '../../services/barcode.service';
 import {
-  LayoutGrid,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -321,7 +320,7 @@ export default function VariantsPage() {
     getPaginationRowModel: getPaginationRowModel(),
     initialState: {
       pagination: {
-        pageSize: 20,
+        pageSize: 10,
       },
     },
   });
@@ -338,19 +337,12 @@ export default function VariantsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <LayoutGrid className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Variantes de Productos</h1>
-            <p className="text-gray-600 mt-1">
-              Gestiona variantes, codigos de barras y stock
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Variantes de Productos</h1>
+          <p className="text-gray-600 mt-1 text-sm">Gestiona variantes, codigos de barras y stock</p>
         </div>
         <Button variant="outline" onClick={loadVariants} className="flex items-center gap-2">
           <RefreshCw className="w-4 h-4" />
@@ -359,8 +351,8 @@ export default function VariantsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Variantes</p>
@@ -371,7 +363,7 @@ export default function VariantsPage() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Stock Bajo</p>
@@ -382,7 +374,7 @@ export default function VariantsPage() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Sin Stock</p>
@@ -395,34 +387,36 @@ export default function VariantsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Buscar por SKU, producto, color..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-10"
-          />
+      {/* Search Bar */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder="Buscar por SKU, producto, color..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <label className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+            <input
+              type="checkbox"
+              checked={filterLowStock}
+              onChange={(e) => setFilterLowStock(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+            <span className="text-sm text-gray-700">Solo Stock Bajo</span>
+          </label>
         </div>
-        <label className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-          <input
-            type="checkbox"
-            checked={filterLowStock}
-            onChange={(e) => setFilterLowStock(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <AlertTriangle className="w-4 h-4 text-amber-500" />
-          <span className="text-sm text-gray-700">Solo Stock Bajo</span>
-        </label>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
@@ -438,26 +432,28 @@ export default function VariantsPage() {
                 </tr>
               ))}
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200">
               {table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center">
-                      <Package className="w-12 h-12 text-gray-300 mb-4" />
-                      <p className="text-gray-500">No se encontraron variantes</p>
-                      {filterLowStock && (
-                        <p className="text-sm text-gray-400 mt-1">
-                          Desactiva el filtro de stock bajo para ver todas
-                        </p>
-                      )}
-                    </div>
+                  <td colSpan={columns.length} className="text-center py-12">
+                    <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {globalFilter ? 'No se encontraron variantes' : 'No hay variantes'}
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      {globalFilter
+                        ? 'Intenta con otra busqueda'
+                        : filterLowStock
+                        ? 'Desactiva el filtro de stock bajo para ver todas'
+                        : 'Genera variantes desde el modulo de productos'}
+                    </p>
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={row.id} className="hover:bg-gray-50">
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
+                      <td key={cell.id} className="px-6 py-4 text-sm">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -469,39 +465,58 @@ export default function VariantsPage() {
         </div>
 
         {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-700">
-              Mostrando {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} a{' '}
-              {Math.min(
-                (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                table.getFilteredRowModel().rows.length
-              )}{' '}
-              de {table.getFilteredRowModel().rows.length} variantes
-            </span>
+        {table.getRowModel().rows.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-700">
+              Mostrando{' '}
+              <span className="font-medium">
+                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
+              </span>{' '}
+              a{' '}
+              <span className="font-medium">
+                {Math.min(
+                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )}
+              </span>{' '}
+              de <span className="font-medium">{table.getFilteredRowModel().rows.length}</span> variantes
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              <div className="flex gap-1">
+                {Array.from({ length: table.getPageCount() }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => table.setPageIndex(page - 1)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                      table.getState().pagination.pageIndex === page - 1
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <span className="text-sm text-gray-700 px-2">
-              Pagina {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Modal - Ver Codigo de Barras */}

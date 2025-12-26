@@ -32,6 +32,9 @@ import {
   LayoutGrid,
   ShoppingCart,
   Printer,
+  ArrowDownUp,
+  ClipboardList,
+  Building2,
 } from 'lucide-react';
 import type { Permission } from '../../types/roles';
 import AppSwitcher from '../common/AppSwitcher';
@@ -119,7 +122,19 @@ const menuWithSubmenus: {
       { path: '/admin-panel/input-types', label: 'Tipos de Insumo', icon: Layers, permission: 'products.view' },
     ],
   },
-  // 6. USUARIOS - Gestión de usuarios y roles
+  // 6. COMPRAS - Proveedores y órdenes de compra
+  {
+    id: 'purchases',
+    label: 'Compras',
+    icon: ClipboardList,
+    basePath: '/admin-panel/suppliers',
+    submenu: [
+      { path: '/admin-panel/suppliers', label: 'Proveedores', icon: Building2, permission: 'inventory.view' },
+      { path: '/admin-panel/purchase-orders', label: 'Órdenes de Compra', icon: ClipboardList, permission: 'inventory.view' },
+      { path: '/admin-panel/inventory-movements', label: 'Movimientos', icon: ArrowDownUp, permission: 'inventory.view' },
+    ],
+  },
+  // 7. USUARIOS - Gestión de usuarios y roles
   {
     id: 'users',
     label: 'Usuarios',
@@ -131,7 +146,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/roles', label: 'Roles y Permisos', icon: Key, permission: 'roles.view' },
     ],
   },
-  // 7. CONFIGURACIÓN - Ajustes del sistema
+  // 8. CONFIGURACIÓN - Ajustes del sistema
   {
     id: 'settings',
     label: 'Configuración',
@@ -177,6 +192,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     catalog: false,
     production: false,
     inventory: false,
+    purchases: false,
     users: false,
     settings: false,
   });

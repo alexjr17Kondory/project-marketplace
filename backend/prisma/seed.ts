@@ -1529,6 +1529,123 @@ async function main() {
 
   console.log('  ✅ Insumos de ejemplo creados');
 
+  // ==================== PROVEEDORES ====================
+  console.log('\n🚚 Creando proveedores...');
+
+  const suppliers = [
+    {
+      code: 'PROV-001',
+      name: 'TextiPro Colombia',
+      taxId: '900123456-7',
+      taxIdType: 'NIT',
+      contactName: 'Juan Pérez',
+      email: 'ventas@textipro.co',
+      phone: '+57 301 234 5678',
+      address: 'Calle 45 #23-45, Zona Industrial',
+      city: 'Medellín',
+      department: 'Antioquia',
+      country: 'Colombia',
+      paymentTerms: '30 días',
+      paymentMethod: 'Transferencia bancaria',
+      bankName: 'Bancolombia',
+      bankAccountType: 'Corriente',
+      bankAccount: '789456123',
+      notes: 'Proveedor principal de telas y camisetas',
+      isActive: true,
+    },
+    {
+      code: 'PROV-002',
+      name: 'Insumos Sublimación SAS',
+      taxId: '901234567-8',
+      taxIdType: 'NIT',
+      contactName: 'María García',
+      email: 'compras@insumossub.com',
+      phone: '+57 315 987 6543',
+      address: 'Carrera 12 #56-78',
+      city: 'Bogotá',
+      department: 'Cundinamarca',
+      country: 'Colombia',
+      paymentTerms: '15 días',
+      paymentMethod: 'Transferencia bancaria',
+      bankName: 'Davivienda',
+      bankAccountType: 'Ahorros',
+      bankAccount: '123456789',
+      notes: 'Proveedor de tintas y papeles de sublimación',
+      isActive: true,
+    },
+    {
+      code: 'PROV-003',
+      name: 'DTF Express',
+      taxId: '902345678-9',
+      taxIdType: 'NIT',
+      contactName: 'Carlos López',
+      email: 'pedidos@dtfexpress.co',
+      phone: '+57 320 111 2222',
+      address: 'Av. El Dorado #85-90',
+      city: 'Bogotá',
+      department: 'Cundinamarca',
+      country: 'Colombia',
+      paymentTerms: 'Contado',
+      paymentMethod: 'Nequi',
+      notes: 'Proveedor de insumos DTF y films',
+      isActive: true,
+    },
+    {
+      code: 'PROV-004',
+      name: 'Cerámicas del Valle',
+      taxId: '903456789-0',
+      taxIdType: 'NIT',
+      contactName: 'Ana Martínez',
+      email: 'ventas@ceramicasvalle.com',
+      phone: '+57 318 333 4444',
+      address: 'Calle 80 #12-34',
+      city: 'Cali',
+      department: 'Valle del Cauca',
+      country: 'Colombia',
+      paymentTerms: '45 días',
+      paymentMethod: 'Transferencia bancaria',
+      bankName: 'Banco de Bogotá',
+      bankAccountType: 'Corriente',
+      bankAccount: '456789123',
+      notes: 'Proveedor de tazas y productos cerámicos',
+      isActive: true,
+    },
+    {
+      code: 'PROV-005',
+      name: 'Termo Import',
+      taxId: '904567890-1',
+      taxIdType: 'NIT',
+      contactName: 'Roberto Sánchez',
+      email: 'importaciones@termoimport.co',
+      phone: '+57 312 555 6666',
+      address: 'Zona Franca Lote 45',
+      city: 'Barranquilla',
+      department: 'Atlántico',
+      country: 'Colombia',
+      paymentTerms: '60 días',
+      paymentMethod: 'Transferencia bancaria',
+      bankName: 'BBVA',
+      bankAccountType: 'Corriente',
+      bankAccount: '789123456',
+      notes: 'Importador de termos y vasos térmicos',
+      isActive: true,
+    },
+  ];
+
+  for (const supplier of suppliers) {
+    await prisma.supplier.upsert({
+      where: { code: supplier.code },
+      update: {
+        name: supplier.name,
+        contactName: supplier.contactName,
+        email: supplier.email,
+        phone: supplier.phone,
+      },
+      create: supplier,
+    });
+    console.log(`  ✅ Proveedor: ${supplier.name} (${supplier.code})`);
+  }
+
   console.log('\n✨ Seed completado exitosamente!\n');
   console.log('📊 Resumen:');
   console.log(`   - ${products.length} productos`);
@@ -1540,6 +1657,7 @@ async function main() {
   console.log(`   - ${zoneTypes.length} tipos de zona`);
   console.log(`   - ${inputTypes.length} tipos de insumo`);
   console.log(`   - 6 insumos de ejemplo`);
+  console.log(`   - ${suppliers.length} proveedores`);
   // ==================== LABEL TEMPLATES ====================
   await seedLabelTemplates();
 
