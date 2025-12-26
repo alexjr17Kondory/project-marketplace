@@ -1239,15 +1239,15 @@ export const CustomizerPage = () => {
                   <p className="text-gray-500 text-sm">No hay modelos disponibles</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto">
+                <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2">
                   {templates.map((template) => (
                     <button
                       key={template.id}
                       onClick={() => handleTemplateSelect(template)}
-                      className={`relative rounded-lg border-2 overflow-hidden transition-all hover:scale-105 ${
+                      className={`relative rounded-lg border-2 overflow-hidden transition-all ${
                         selectedTemplate?.id === template.id
-                          ? 'border-purple-600 ring-2 ring-purple-200'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-purple-600 ring-2 ring-purple-200 shadow-lg'
+                          : 'border-gray-200 hover:border-purple-400 hover:shadow-md'
                       }`}
                     >
                       {template.images?.front && (

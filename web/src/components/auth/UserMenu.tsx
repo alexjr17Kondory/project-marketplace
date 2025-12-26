@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
-import { User, Package, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { User, Package, LogOut, ChevronDown } from 'lucide-react';
 
 interface UserMenuProps {
   onLoginClick: () => void;
@@ -11,9 +11,6 @@ interface UserMenuProps {
 
 export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
   const { user, isAuthenticated, logout } = useAuth();
-
-  // Cliente (roleId 2) NUNCA es admin, sin importar permisos
-  const isAdminUser = user && user.roleId !== 2;
   const { settings } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -123,11 +120,6 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
           <div className="px-4 py-3 border-b border-gray-100">
             <p className="text-sm font-medium text-gray-900">{user.name}</p>
             <p className="text-xs text-gray-500 mt-1">{user.email}</p>
-            {isAdminUser && (
-              <span className="inline-block mt-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded">
-                Administrador
-              </span>
-            )}
           </div>
 
           <Link
@@ -147,20 +139,6 @@ export const UserMenu = ({ onLoginClick, onRegisterClick }: UserMenuProps) => {
             <Package className="w-4 h-4" />
             Mis Pedidos
           </Link>
-
-          {isAdminUser && (
-            <>
-              <div className="my-2 border-t border-gray-100"></div>
-              <Link
-                to="/admin-panel"
-                onClick={() => setIsOpen(false)}
-                className="w-full px-4 py-2.5 text-left text-sm text-orange-700 hover:bg-orange-50 transition-colors flex items-center gap-2 font-medium"
-              >
-                <Settings className="w-4 h-4" />
-                Panel de Administración
-              </Link>
-            </>
-          )}
 
           <div className="my-2 border-t border-gray-100"></div>
 

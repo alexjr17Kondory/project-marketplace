@@ -7,6 +7,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { UserMenu } from '../auth/UserMenu';
 import { LoginModal } from '../auth/LoginModal';
 import { MobileUserMenu } from '../auth/MobileUserMenu';
+import AppSwitcher from '../common/AppSwitcher';
 
 export const Header = () => {
   const location = useLocation();
@@ -232,6 +233,9 @@ export const Header = () => {
                   </span>
                 )}
               </Link>
+
+              {/* App Switcher */}
+              <AppSwitcher />
 
               {/* User Menu */}
               <UserMenu

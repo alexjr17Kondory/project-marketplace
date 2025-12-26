@@ -30,6 +30,10 @@ model User {
   addresses Address[]
   orders    Order[]
 
+  // Relación para ventas POS (como vendedor/cajero)
+  salesAsSeller  Order[]       @relation("SellerOrders")
+  cashSessions   CashSession[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -118,6 +122,9 @@ model Product {
   productColors ProductColor[]
   productSizes  ProductSize[]
 
+  // Relación con variantes (cada combinación color+talla)
+  variants ProductVariant[]
+
   rating       Decimal? @db.Decimal(2, 1)
   reviewsCount Int?
 
@@ -141,6 +148,7 @@ model Size {
 
   productSizes     ProductSize[]
   productTypeSizes ProductTypeSize[]
+  variants         ProductVariant[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -156,6 +164,7 @@ model Color {
   isActive Boolean @default(true)
 
   productColors ProductColor[]
+  variants      ProductVariant[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -189,6 +198,46 @@ model ProductSize {
 
   @@unique([productId, sizeId])
   @@map("product_sizes")
+}
+
+// Variante de producto (combinación única de producto + color + talla)
+// Ahora soporta productos sin colores o tallas (variante única)
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  colorId Int?
+  color   Color? @relation(fields: [colorId], references: [id])
+
+  sizeId Int?
+  size   Size? @relation(fields: [sizeId], references: [id])
+
+  // Códigos únicos
+  sku     String  @unique // SKU específico (ej: "CAM-001-M-ROJO")
+  barcode String? @unique // Código de barras EAN-13/UPC/Code128
+
+  // Stock individual por variante
+  stock    Int @default(0)
+  minStock Int @default(0) // Stock mínimo para alertas
+
+  // Precio puede variar por variante (opcional)
+  priceAdjustment Decimal? @db.Decimal(10, 2)
+
+  // Control
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@index([barcode])
+  @@index([sku])
+  @@index([productId, colorId, sizeId])
+  @@map("product_variants")
 }
 
 // Tabla intermedia para tipos de producto y tallas
@@ -233,6 +282,7 @@ model ProductType {
 
   products         Product[]
   productTypeSizes ProductTypeSize[]
+  labelTemplates   LabelTemplateProductType[] // Many-to-many con plantillas de etiquetas
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -246,22 +296,34 @@ model Order {
   id          Int    @id @default(autoincrement())
   orderNumber String @unique
 
-  userId Int
-  user   User @relation(fields: [userId], references: [id])
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
+  // Datos del cliente para ventas POS sin usuario registrado
+  customerName  String?
+  customerEmail String?
+  customerPhone String?
 
   items OrderItem[]
 
   subtotal     Decimal @db.Decimal(10, 2)
-  shippingCost Decimal @db.Decimal(10, 2)
+  shippingCost Decimal @default(0) @db.Decimal(10, 2)
   discount     Decimal @default(0) @db.Decimal(10, 2)
-  tax          Decimal @db.Decimal(10, 2)
+  tax          Decimal @default(0) @db.Decimal(10, 2)
   total        Decimal @db.Decimal(10, 2)
 
   status        OrderStatus @default(PENDING)
   paymentMethod String // Método preferido (puede cambiar con cada intento)
   paymentRef    String? // Referencia del último pago exitoso
 
-  shipping       Json
+  // NUEVOS CAMPOS POS:
+  saleChannel    SaleChannel @default(ONLINE)
+  sellerId       Int?
+  seller         User?         @relation("SellerOrders", fields: [sellerId], references: [id])
+  cashRegisterId Int?
+  cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id])
+
+  shipping       Json? // Opcional (NULL para ventas POS)
   trackingNumber String?
   trackingUrl    String?
   notes          String? @db.Text
@@ -291,6 +353,10 @@ model OrderItem {
   productName  String
   productImage String
 
+  // NUEVO: Relación con variante (para control de stock por variante)
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
   size      String
   color     String
   quantity  Int
@@ -310,6 +376,11 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+}
+
+enum SaleChannel {
+  ONLINE
+  POS
 }
 
 // ==================== PAGOS ====================
@@ -382,6 +453,60 @@ enum PaymentStatus {
   EXPIRED       // Intento de pago expirado
   REFUNDED      // Pago reembolsado completamente
   PARTIAL_REFUND // Reembolso parcial
+}
+
+// ==================== PUNTO DE VENTA (POS) ====================
+
+model CashRegister {
+  id       Int     @id @default(autoincrement())
+  name     String
+  location String
+  code     String  @unique
+  isActive Boolean @default(true)
+
+  orders       Order[]
+  cashSessions CashSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cash_registers")
+}
+
+model CashSession {
+  id             Int          @id @default(autoincrement())
+  cashRegisterId Int
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id])
+
+  sellerId Int
+  seller   User @relation(fields: [sellerId], references: [id])
+
+  openedAt DateTime  @default(now())
+  closedAt DateTime?
+
+  initialCash  Decimal  @db.Decimal(10, 2)
+  finalCash    Decimal? @db.Decimal(10, 2)
+  expectedCash Decimal? @db.Decimal(10, 2)
+  difference   Decimal? @db.Decimal(10, 2)
+
+  salesCount Int     @default(0)
+  totalSales Decimal @default(0) @db.Decimal(10, 2)
+
+  notes  String?       @db.Text
+  status SessionStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cashRegisterId])
+  @@index([sellerId])
+  @@index([status])
+  @@map("cash_sessions")
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
 }
 
 // ==================== CONFIGURACION ====================
@@ -662,4 +787,100 @@ model DesignImage {
   @@index([category])
   @@index([isActive])
   @@map("design_images")
+}
+
+// ==================== SISTEMA DE ETIQUETAS PERSONALIZABLES ====================
+
+// Plantilla de etiqueta (con imagen de fondo opcional y zonas posicionables)
+model LabelTemplate {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  // Imagen de fondo (opcional) - si no hay imagen, fondo blanco
+  backgroundImage String? @db.LongText // Base64 de la imagen de fondo
+
+  // Dimensiones fijas de la etiqueta (en puntos, 72 DPI)
+  // 6 cm × 9 cm = 170.08 × 255.12 puntos
+  width  Float @default(170.08) // 6 cm
+  height Float @default(255.12) // 9 cm
+
+  // Configuración
+  isDefault Boolean @default(false) // Plantilla por defecto global
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  zones        LabelZone[]
+  productTypes LabelTemplateProductType[] // Many-to-many con tipos de producto
+
+  @@index([isDefault])
+  @@map("label_templates")
+}
+
+// Tabla intermedia: Plantilla de etiqueta ↔ Tipo de producto (Many-to-Many)
+model LabelTemplateProductType {
+  id              Int           @id @default(autoincrement())
+  labelTemplateId Int
+  labelTemplate   LabelTemplate @relation(fields: [labelTemplateId], references: [id], onDelete: Cascade)
+  productTypeId   Int
+  productType     ProductType   @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([labelTemplateId, productTypeId])
+  @@index([labelTemplateId])
+  @@index([productTypeId])
+  @@map("label_template_product_types")
+}
+
+// Zona/elemento de información en la etiqueta
+model LabelZone {
+  id              Int           @id @default(autoincrement())
+  labelTemplateId Int
+  labelTemplate   LabelTemplate @relation(fields: [labelTemplateId], references: [id], onDelete: Cascade)
+
+  // Tipo de zona (qué información muestra)
+  zoneType LabelZoneType
+
+  // Posición y dimensiones (en puntos, coordenadas desde esquina superior izquierda)
+  x      Float
+  y      Float
+  width  Float
+  height Float
+
+  // Estilo de texto
+  fontSize   Int    @default(10)
+  fontWeight String @default("normal") // normal, bold
+  textAlign  String @default("center") // left, center, right
+  fontColor  String @default("#000000") // Color hexadecimal
+
+  // Mostrar label/prefijo (ej: "Talla:", "Color:", "SKU:")
+  showLabel Boolean @default(true)
+
+  // Rotación (en grados, 0-360)
+  rotation Int @default(0)
+
+  // Orden de renderizado (z-index)
+  zIndex Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([labelTemplateId])
+  @@index([zoneType])
+  @@map("label_zones")
+}
+
+// Tipos de zona de etiqueta
+enum LabelZoneType {
+  PRODUCT_NAME // Nombre del producto
+  SIZE         // Talla
+  COLOR        // Color
+  BARCODE      // Código de barras (imagen)
+  BARCODE_TEXT // Número del código de barras
+  SKU          // SKU
+  PRICE        // Precio
+  CUSTOM_TEXT  // Texto personalizado
 }

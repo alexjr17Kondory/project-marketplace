@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Clock, CheckCircle2, Truck, XCircle, ChevronRight, ShoppingBag, Search, Filter, Eye, MapPin, Calendar, CreditCard, Loader2 } from 'lucide-react';
+import { Package, Clock, CheckCircle2, Truck, XCircle, ChevronRight, ShoppingBag, Search, Filter, Eye, MapPin, Calendar, CreditCard, Loader2, AlertCircle, Ban, RefreshCw, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrdersContext';
+import { usePayments } from '../context/PaymentsContext';
 import { ORDER_STATUS_USER_LABELS, ORDER_STATUS_COLORS } from '../types/order';
 import type { Order, OrderStatus } from '../types/order';
+import type { Payment, PaymentStatus } from '../services/payments.service';
 
 const STATUS_ICONS: Record<OrderStatus, React.ReactNode> = {
   pending: <Clock className="w-4 h-4" />,
@@ -15,14 +17,77 @@ const STATUS_ICONS: Record<OrderStatus, React.ReactNode> = {
   cancelled: <XCircle className="w-4 h-4" />,
 };
 
+const PAYMENT_STATUS_CONFIG: Record<
+  PaymentStatus,
+  { color: string; bg: string; label: string; icon: React.ReactNode }
+> = {
+  PENDING: {
+    color: 'text-yellow-700',
+    bg: 'bg-yellow-100',
+    label: 'Pendiente',
+    icon: <Clock className="w-4 h-4" />,
+  },
+  PROCESSING: {
+    color: 'text-blue-700',
+    bg: 'bg-blue-100',
+    label: 'Procesando',
+    icon: <RefreshCw className="w-4 h-4" />,
+  },
+  APPROVED: {
+    color: 'text-green-700',
+    bg: 'bg-green-100',
+    label: 'Aprobado',
+    icon: <CheckCircle2 className="w-4 h-4" />,
+  },
+  DECLINED: {
+    color: 'text-red-700',
+    bg: 'bg-red-100',
+    label: 'Rechazado',
+    icon: <XCircle className="w-4 h-4" />,
+  },
+  FAILED: {
+    color: 'text-red-700',
+    bg: 'bg-red-100',
+    label: 'Fallido',
+    icon: <AlertCircle className="w-4 h-4" />,
+  },
+  CANCELLED: {
+    color: 'text-gray-700',
+    bg: 'bg-gray-100',
+    label: 'Cancelado',
+    icon: <Ban className="w-4 h-4" />,
+  },
+  EXPIRED: {
+    color: 'text-orange-700',
+    bg: 'bg-orange-100',
+    label: 'Expirado',
+    icon: <Clock className="w-4 h-4" />,
+  },
+  REFUNDED: {
+    color: 'text-purple-700',
+    bg: 'bg-purple-100',
+    label: 'Reembolsado',
+    icon: <RefreshCw className="w-4 h-4" />,
+  },
+  PARTIAL_REFUND: {
+    color: 'text-purple-700',
+    bg: 'bg-purple-100',
+    label: 'Reembolso Parcial',
+    icon: <RefreshCw className="w-4 h-4" />,
+  },
+};
+
 export const MyOrdersPage = () => {
   const { user } = useAuth();
   const { getMyOrders } = useOrders();
+  const { getMyOrderPayments } = usePayments();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orderPayments, setOrderPayments] = useState<Payment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
 
   // Cargar pedidos del usuario al montar
   useEffect(() => {
@@ -40,6 +105,27 @@ export const MyOrdersPage = () => {
     };
     loadMyOrders();
   }, [user, getMyOrders]);
+
+  // Cargar pagos cuando se selecciona un pedido
+  useEffect(() => {
+    const loadPayments = async () => {
+      if (!selectedOrder) {
+        setOrderPayments([]);
+        return;
+      }
+      setLoadingPayments(true);
+      try {
+        const payments = await getMyOrderPayments(Number(selectedOrder.id));
+        setOrderPayments(payments);
+      } catch (error) {
+        console.error('Error loading payments:', error);
+        setOrderPayments([]);
+      } finally {
+        setLoadingPayments(false);
+      }
+    };
+    loadPayments();
+  }, [selectedOrder, getMyOrderPayments]);
 
   if (!user) {
     return (
@@ -128,7 +214,15 @@ export const MyOrdersPage = () => {
                 )}
                 <div className="p-4">
                   <div className="flex items-center gap-4 overflow-x-auto pb-2">
-                    {order.items.slice(0, 4).map((item) => (<img key={item.id} src={item.productImage} alt={item.productName} className="w-16 h-16 object-cover rounded-lg border border-gray-200 flex-shrink-0" />))}
+                    {order.items.slice(0, 4).map((item) => (
+                      item.productImage ? (
+                        <img key={item.id} src={item.productImage} alt={item.productName} className="w-16 h-16 object-cover rounded-lg border border-gray-200 flex-shrink-0" />
+                      ) : (
+                        <div key={item.id} className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Package className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )
+                    ))}
                     {order.items.length > 4 && (<div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0"><span className="text-sm font-medium text-gray-600">+{order.items.length - 4}</span></div>)}
                     <div className="flex-1 min-w-0 pl-2">
                       <p className="text-sm text-gray-600 truncate">{order.items.length === 1 ? order.items[0].productName : `${order.items.length} productos`}</p>
@@ -155,6 +249,79 @@ export const MyOrdersPage = () => {
             <div className="p-6 space-y-6">
               <div className="flex items-center gap-3">
                 <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full font-medium ${ORDER_STATUS_COLORS[selectedOrder.status]}`}>{STATUS_ICONS[selectedOrder.status]}{ORDER_STATUS_USER_LABELS[selectedOrder.status]}</span>
+              </div>
+
+              {/* Sección de Pago */}
+              <div className="p-4 bg-gray-100 rounded-xl">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Información de Pago
+                </h4>
+                {loadingPayments ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-6 h-6 text-violet-600 animate-spin" />
+                  </div>
+                ) : !orderPayments || orderPayments.length === 0 ? (
+                  <div className="text-sm text-gray-500">
+                    <p className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-gray-400" />
+                      No hay información de pago disponible
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {orderPayments.map((payment) => {
+                      const statusConfig = PAYMENT_STATUS_CONFIG[payment.status];
+                      return (
+                        <div key={payment.id} className="bg-white rounded-lg p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Estado del Pago</span>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.color}`}
+                            >
+                              {statusConfig.icon}
+                              {statusConfig.label}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                            <span className="text-sm text-gray-600">Método</span>
+                            <span className="font-medium text-gray-900 capitalize">{payment.paymentMethod}</span>
+                          </div>
+
+                          {payment.transactionId && (
+                            <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                              <span className="text-sm text-gray-600">Referencia</span>
+                              <span className="font-mono font-bold text-violet-600 text-sm">{payment.transactionId}</span>
+                            </div>
+                          )}
+
+                          {payment.receiptData && (
+                            <div className="flex items-center gap-2 border-t border-gray-100 pt-2 text-green-600">
+                              <FileText className="w-4 h-4" />
+                              <span className="text-sm font-medium">Comprobante subido</span>
+                            </div>
+                          )}
+
+                          {payment.status === 'PENDING' && !payment.receiptData && (
+                            <div className="flex items-center gap-2 border-t border-gray-100 pt-2 text-yellow-600">
+                              <AlertCircle className="w-4 h-4" />
+                              <span className="text-sm">Pendiente de comprobante</span>
+                            </div>
+                          )}
+
+                          {payment.failureReason && (
+                            <div className="border-t border-gray-100 pt-2">
+                              <p className="text-sm text-red-600">
+                                <strong>Razón:</strong> {payment.failureReason}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Sección de Tracking */}
@@ -204,7 +371,13 @@ export const MyOrdersPage = () => {
                 <div className="space-y-3">
                   {selectedOrder.items.map((item) => (
                     <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                      <img src={item.productImage} alt={item.productName} className="w-16 h-16 object-cover rounded-lg" />
+                      {item.productImage ? (
+                        <img src={item.productImage} alt={item.productName} className="w-16 h-16 object-cover rounded-lg" />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                          <Package className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900">{item.productName}</p>
                         <p className="text-sm text-gray-500">Talla: {item.size} | Color: {item.color} | Cant: {item.quantity}</p>

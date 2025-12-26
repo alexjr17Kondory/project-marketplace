@@ -17,7 +17,9 @@ import { Modal } from '../../components/shared/Modal';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import type { Product } from '../../types/product';
-import { Settings, Plus, Package, ArrowLeft, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Settings, Plus, Package, ArrowLeft, Search, ChevronLeft, ChevronRight, ArrowUpDown, Grid3x3, Printer } from 'lucide-react';
+import * as variantsService from '../../services/variants.service';
+import { useNavigate } from 'react-router-dom';
 
 type ViewMode = 'list' | 'add' | 'edit';
 
@@ -26,12 +28,16 @@ const columnHelper = createColumnHelper<Product>();
 export const ProductsPage = () => {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
   const toast = useToast();
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [generatingVariantsFor, setGeneratingVariantsFor] = useState<Product | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [productsWithVariants, setProductsWithVariants] = useState<Set<string>>(new Set());
 
   // Definir columnas
   const columns = useMemo(
@@ -120,20 +126,42 @@ export const ProductsPage = () => {
       columnHelper.display({
         id: 'actions',
         header: () => <div className="text-right">Acciones</div>,
-        cell: (info) => (
-          <div className="flex justify-end">
-            <button
-              onClick={() => startEdit(info.row.original)}
-              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Editar"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          </div>
-        ),
+        cell: (info) => {
+          const product = info.row.original;
+          const hasVariants = productsWithVariants.has(product.id);
+
+          return (
+            <div className="flex justify-end gap-2">
+              {hasVariants ? (
+                <button
+                  onClick={() => handlePrintBarcodes(product)}
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  title="Imprimir Códigos de Barras"
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setGeneratingVariantsFor(product)}
+                  className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                  title="Generar Variantes"
+                >
+                  <Grid3x3 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={() => startEdit(product)}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Editar"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        },
       }),
     ],
-    []
+    [productsWithVariants]
   );
 
   const table = useReactTable({
@@ -186,6 +214,61 @@ export const ProductsPage = () => {
   const cancelEdit = () => {
     setViewMode('list');
     setSelectedProduct(null);
+  };
+
+  // Verificar qué productos tienen variantes
+  const checkProductVariants = async () => {
+    const productIds = new Set<string>();
+    for (const product of products) {
+      try {
+        const variants = await variantsService.getVariants({ productId: parseInt(product.id) });
+        if (variants.length > 0) {
+          productIds.add(product.id);
+        }
+      } catch (error) {
+        console.error(`Error checking variants for product ${product.id}:`, error);
+      }
+    }
+    setProductsWithVariants(productIds);
+  };
+
+  // Cargar información de variantes al montar o cuando cambian los productos
+  useMemo(() => {
+    if (products.length > 0 && viewMode === 'list') {
+      checkProductVariants();
+    }
+  }, [products, viewMode]);
+
+  const handleGenerateVariants = async () => {
+    if (!generatingVariantsFor) return;
+
+    try {
+      setIsGenerating(true);
+      const result = await variantsService.generateVariantsForProduct(
+        parseInt(generatingVariantsFor.id),
+        0 // Stock inicial
+      );
+
+      if (result.created > 0) {
+        toast.success(`${result.created} variantes creadas exitosamente`);
+        // Actualizar lista de productos con variantes
+        setProductsWithVariants(prev => new Set(prev).add(generatingVariantsFor.id));
+      }
+
+      if (result.errors && result.errors.length > 0) {
+        toast.error(`${result.errors.length} errores al crear variantes`);
+      }
+
+      setGeneratingVariantsFor(null);
+    } catch (error: any) {
+      toast.error('Error al generar variantes: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handlePrintBarcodes = (product: Product) => {
+    navigate(`/admin-panel/barcodes/print/${product.id}`);
   };
 
   if (viewMode === 'add') {
@@ -433,6 +516,63 @@ export const ProductsPage = () => {
                 onClick={() => handleDeleteProduct(deleteConfirmId)}
               >
                 Eliminar
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Generate Variants Modal */}
+      {generatingVariantsFor && (
+        <Modal
+          isOpen={true}
+          onClose={() => !isGenerating && setGeneratingVariantsFor(null)}
+          title="Generar Variantes"
+        >
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Grid3x3 className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-medium text-blue-900 mb-1">
+                    {generatingVariantsFor.name}
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    Se generarán todas las combinaciones de colores y tallas configuradas para este producto con códigos de barras únicos.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-sm text-gray-600">
+              <p className="flex items-center gap-2">
+                <span className="font-medium">•</span>
+                Cada variante tendrá un código de barras EAN-13 único
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="font-medium">•</span>
+                El stock inicial será 0 (puedes ajustarlo después)
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="font-medium">•</span>
+                Las variantes existentes no se duplicarán
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="admin-secondary"
+                onClick={() => setGeneratingVariantsFor(null)}
+                disabled={isGenerating}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="admin-primary"
+                onClick={handleGenerateVariants}
+                disabled={isGenerating}
+              >
+                {isGenerating ? 'Generando...' : 'Generar Variantes'}
               </Button>
             </div>
           </div>

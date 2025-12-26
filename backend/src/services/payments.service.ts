@@ -180,19 +180,18 @@ export async function createPayment(data: CreatePaymentInput): Promise<PaymentRe
 
 // Listar pagos
 export async function listPayments(query: ListPaymentsQuery): Promise<PaginatedPayments> {
-  const {
-    page = 1,
-    limit = 20,
-    status,
-    paymentMethod,
-    orderId,
-    transactionId,
-    startDate,
-    endDate,
-    search,
-    sortBy = 'initiatedAt',
-    sortOrder = 'desc',
-  } = query;
+  // Convertir strings a números (vienen de req.query como strings)
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 20;
+  const status = query.status;
+  const paymentMethod = query.paymentMethod;
+  const orderId = query.orderId ? Number(query.orderId) : undefined;
+  const transactionId = query.transactionId;
+  const startDate = query.startDate;
+  const endDate = query.endDate;
+  const search = query.search;
+  const sortBy = query.sortBy || 'initiatedAt';
+  const sortOrder = query.sortOrder || 'desc';
 
   const skip = (page - 1) * limit;
 

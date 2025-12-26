@@ -5,3 +5,4 @@ export { SettingsPaymentPage } from './SettingsPaymentPage';
 export { SettingsLegalPage } from './SettingsLegalPage';
 export { SettingsHomePage } from './SettingsHomePage';
 export { SettingsCatalogPage } from './SettingsCatalogPage';
+export { default as LabelTemplatesPage } from './LabelTemplatesPage';

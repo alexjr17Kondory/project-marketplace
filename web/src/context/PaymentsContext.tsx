@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import paymentsService, {
   type Payment,
   type PaymentStatus,
@@ -66,6 +66,15 @@ export function PaymentsProvider({ children }: PaymentsProviderProps) {
   });
   const [filters, setFiltersState] = useState<Partial<ListPaymentsQuery>>({});
 
+  // Debug: Log payments state changes
+  useEffect(() => {
+    console.log('[PaymentsContext] payments state updated:', payments);
+  }, [payments]);
+
+  useEffect(() => {
+    console.log('[PaymentsContext] pagination state updated:', pagination);
+  }, [pagination]);
+
   // ==================== MÉTODOS DE USUARIO ====================
 
   const createPayment = useCallback(
@@ -132,25 +141,41 @@ export function PaymentsProvider({ children }: PaymentsProviderProps) {
   const listPayments = useCallback(
     async (query?: ListPaymentsQuery): Promise<void> => {
       try {
+        console.log('[PaymentsContext] listPayments called with query:', query);
         setIsLoading(true);
         setError(null);
+
+        // Leer valores actuales del estado usando función updater
+        let currentPage = 1;
+        let currentLimit = 20;
+        setPagination((prev) => {
+          currentPage = prev.page;
+          currentLimit = prev.limit;
+          return prev;
+        });
+
+        console.log('[PaymentsContext] Calling API with filters:', filters, 'page:', currentPage, 'limit:', currentLimit);
         const result = await paymentsService.listPayments({
           ...filters,
           ...query,
-          page: pagination.page,
-          limit: pagination.limit,
+          page: query?.page ?? currentPage,
+          limit: query?.limit ?? currentLimit,
         });
+        console.log('[PaymentsContext] API returned:', result);
+        console.log('[PaymentsContext] Setting payments data:', result.data);
+        console.log('[PaymentsContext] Setting pagination meta:', result.meta);
         setPayments(result.data);
         setPagination(result.meta);
       } catch (err: any) {
         const errorMessage = err.response?.data?.message || 'Error al listar pagos';
         setError(errorMessage);
         showToast(errorMessage, 'error');
+        console.error('[PaymentsContext] Error listing payments:', err);
       } finally {
         setIsLoading(false);
       }
     },
-    [filters, pagination.page, pagination.limit, showToast]
+    [filters, showToast]
   );
 
   const getOrderPayments = useCallback(

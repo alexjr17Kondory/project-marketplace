@@ -88,10 +88,19 @@ export function PaymentsPage() {
   const [methodFilter, setMethodFilter] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
+  // Debug: Log payments when they change
+  useEffect(() => {
+    console.log('[PaymentsPage] payments changed:', payments);
+    console.log('[PaymentsPage] payments length:', payments?.length);
+    console.log('[PaymentsPage] isLoading:', isLoading);
+    console.log('[PaymentsPage] pagination:', pagination);
+  }, [payments, isLoading, pagination]);
+
   // Cargar pagos al montar
   useEffect(() => {
+    console.log('[PaymentsPage] Component mounted, calling listPayments');
     listPayments();
-  }, []);
+  }, [listPayments]);
 
   // Aplicar filtros
   const handleApplyFilters = () => {
@@ -100,6 +109,8 @@ export function PaymentsPage() {
       status: statusFilter || undefined,
       paymentMethod: methodFilter || undefined,
     });
+    // Recargar inmediatamente después de aplicar filtros
+    setTimeout(() => listPayments(), 100);
   };
 
   // Limpiar filtros
@@ -243,7 +254,7 @@ export function PaymentsPage() {
                     Cargando...
                   </td>
                 </tr>
-              ) : payments.length === 0 ? (
+              ) : !payments || payments.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                     No hay pagos registrados
@@ -316,7 +327,7 @@ export function PaymentsPage() {
         </div>
 
         {/* Paginación */}
-        {pagination.totalPages > 1 && (
+        {pagination && pagination.totalPages > 1 && (
           <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
             <div className="flex-1 flex justify-between sm:hidden">
               <button

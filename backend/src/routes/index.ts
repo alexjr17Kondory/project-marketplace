@@ -16,6 +16,11 @@ import inputsRoutes from './inputs.routes';
 import inputBatchesRoutes from './input-batches.routes';
 import designImagesRoutes from './design-images.routes';
 import paymentsRoutes from './payments.routes';
+import variantsRoutes from './variants.routes';
+import barcodeRoutes from './barcode.routes';
+import cashRegisterRoutes from './cash-register.routes';
+import posRoutes from './pos.routes';
+import labelTemplatesRoutes from './label-templates.routes';
 
 const router = Router();
 
@@ -64,6 +69,18 @@ router.use('/users', usersRoutes);
 // Rutas de productos
 router.use('/products', productsRoutes);
 
+// Rutas de variantes de productos
+router.use('/variants', variantsRoutes);
+
+// Rutas de códigos de barras
+router.use('/barcodes', barcodeRoutes);
+
+// Rutas de cajas registradoras
+router.use('/cash-registers', cashRegisterRoutes);
+
+// Rutas de POS (Punto de Venta)
+router.use('/pos', posRoutes);
+
 // Rutas de pedidos
 router.use('/orders', ordersRoutes);
 
@@ -105,5 +122,8 @@ router.use('/input-batches', inputBatchesRoutes);
 
 // Rutas de imágenes de diseño (catálogo para el personalizador)
 router.use('/design-images', designImagesRoutes);
+
+// Rutas de plantillas de etiquetas
+router.use('/label-templates', labelTemplatesRoutes);
 
 export default router;

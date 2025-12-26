@@ -23,6 +23,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { DashboardPage } from './pages/admin/DashboardPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
+import { VariantsPage } from './pages/admin/VariantsPage';
 import { UsersPage } from './pages/admin/UsersPage';
 import { UserDetailPage } from './pages/admin/UserDetailPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
@@ -45,6 +46,8 @@ import { OrdersPage } from './pages/admin/OrdersPage';
 import { OrderDetailPage } from './pages/admin/OrderDetailPage';
 import { ShippingPage } from './pages/admin/ShippingPage';
 import { PaymentsPage } from './pages/admin/PaymentsPage';
+import CashRegistersPage from './pages/admin/CashRegistersPage';
+import BarcodePrintPage from './pages/admin/BarcodePrintPage';
 import {
   SettingsGeneralPage,
   SettingsAppearancePage,
@@ -53,8 +56,15 @@ import {
   SettingsLegalPage,
   SettingsHomePage,
   SettingsCatalogPage,
+  LabelTemplatesPage,
 } from './pages/admin/settings';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { POSProvider } from './context/POSContext';
+import POSLayout from './components/pos/POSLayout';
+import POSDashboard from './pages/pos/POSDashboard';
+import NewSalePage from './pages/pos/NewSalePage';
+import SalesHistoryPage from './pages/pos/SalesHistoryPage';
+import CashRegisterPage from './pages/pos/CashRegisterPage';
 import type { Permission } from './types/roles';
 
 // Protected route for admin access
@@ -90,6 +100,21 @@ const PermissionRoute = ({
   return hasPermission(permission) ? <>{children}</> : <>{fallback}</>;
 };
 
+// Protected route for POS access
+const POSRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAuthenticated, hasPermission } = useAuth();
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (!hasPermission('pos.access')) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <Router>
@@ -102,12 +127,31 @@ function App() {
                   <OrdersProvider>
                     <PaymentsProvider>
                       <SettingsProvider>
-                        <CartProvider>
-                        <Routes>
-                          {/* Admin Panel Routes - Con AdminLayout */}
-                          <Route
-                            path="/admin-panel/*"
-                            element={
+                        <POSProvider>
+                          <CartProvider>
+                          <Routes>
+                            {/* POS Routes - Con POSLayout */}
+                            <Route
+                              path="/pos/*"
+                              element={
+                                <POSRoute>
+                                  <POSLayout>
+                                    <Routes>
+                                      <Route path="/" element={<POSDashboard />} />
+                                      <Route path="/sale" element={<NewSalePage />} />
+                                      <Route path="/history" element={<SalesHistoryPage />} />
+                                      <Route path="/cash" element={<CashRegisterPage />} />
+                                      <Route path="*" element={<Navigate to="/pos" replace />} />
+                                    </Routes>
+                                  </POSLayout>
+                                </POSRoute>
+                              }
+                            />
+
+                            {/* Admin Panel Routes - Con AdminLayout */}
+                            <Route
+                              path="/admin-panel/*"
+                              element={
                               <AdminRoute>
                                 <AdminLayout>
                                   <Routes>
@@ -189,6 +233,16 @@ function App() {
                                       element={
                                         <PermissionRoute permission="products.view">
                                           <ProductsPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Variantes de Productos */}
+                                    <Route
+                                      path="/variants"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <VariantsPage />
                                         </PermissionRoute>
                                       }
                                     />
@@ -301,6 +355,16 @@ function App() {
                                       }
                                     />
 
+                                    {/* Imprimir Códigos de Barras */}
+                                    <Route
+                                      path="/barcodes/print/:productId"
+                                      element={
+                                        <PermissionRoute permission="products.view">
+                                          <BarcodePrintPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
                                     {/* Pedidos */}
                                     <Route
                                       path="/orders"
@@ -333,6 +397,16 @@ function App() {
                                       element={
                                         <PermissionRoute permission="settings.payment">
                                           <PaymentsPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Cajas Registradoras */}
+                                    <Route
+                                      path="/cash-registers"
+                                      element={
+                                        <PermissionRoute permission="pos.cash_register">
+                                          <CashRegistersPage />
                                         </PermissionRoute>
                                       }
                                     />
@@ -398,6 +472,14 @@ function App() {
                                         </PermissionRoute>
                                       }
                                     />
+                                    <Route
+                                      path="/settings/label-templates"
+                                      element={
+                                        <PermissionRoute permission="settings.general">
+                                          <LabelTemplatesPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
 
                                     <Route path="*" element={<NotFoundPage />} />
                                   </Routes>
@@ -430,7 +512,8 @@ function App() {
                             }
                           />
                         </Routes>
-                        </CartProvider>
+                          </CartProvider>
+                        </POSProvider>
                       </SettingsProvider>
                     </PaymentsProvider>
                   </OrdersProvider>

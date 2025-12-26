@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedLabelTemplates } from './seeds/label-templates.seed';
 
 const prisma = new PrismaClient();
 
@@ -32,21 +33,62 @@ async function main() {
   // Rol 1: SuperAdmin - Sistema, no modificable, acceso total
   const superAdminRole = await prisma.role.upsert({
     where: { id: 1 },
-    update: {},
+    update: {
+      permissions: [
+        // Dashboard
+        'dashboard.view',
+        // Products
+        'products.view', 'products.create', 'products.edit', 'products.delete', 'products.manage',
+        // Orders
+        'orders.view', 'orders.create', 'orders.edit', 'orders.delete', 'orders.manage',
+        // Users
+        'users.view', 'users.create', 'users.edit', 'users.delete',
+        // Admins
+        'admins.view', 'admins.create', 'admins.edit', 'admins.delete',
+        // Roles
+        'roles.view', 'roles.create', 'roles.edit', 'roles.delete',
+        // Settings
+        'settings.view', 'settings.edit',
+        'settings.general', 'settings.appearance', 'settings.home',
+        'settings.catalog', 'settings.shipping', 'settings.payment', 'settings.legal',
+        // Reports
+        'reports.view', 'reports.export',
+        // Catalogs
+        'catalogs.view', 'catalogs.create', 'catalogs.edit', 'catalogs.delete',
+        // POS
+        'pos.access', 'pos.create_sale', 'pos.view_sales', 'pos.cancel_sale',
+        'pos.cash_register', 'pos.open_close_session', 'pos.view_reports',
+      ],
+    },
     create: {
       id: 1,
       name: 'SuperAdmin',
       slug: 'superadmin',
       description: 'Administrador con acceso total al sistema',
       permissions: [
+        // Dashboard
         'dashboard.view',
-        'products.view', 'products.create', 'products.edit', 'products.delete',
-        'orders.view', 'orders.create', 'orders.edit', 'orders.delete',
+        // Products
+        'products.view', 'products.create', 'products.edit', 'products.delete', 'products.manage',
+        // Orders
+        'orders.view', 'orders.create', 'orders.edit', 'orders.delete', 'orders.manage',
+        // Users
         'users.view', 'users.create', 'users.edit', 'users.delete',
+        // Admins
+        'admins.view', 'admins.create', 'admins.edit', 'admins.delete',
+        // Roles
         'roles.view', 'roles.create', 'roles.edit', 'roles.delete',
+        // Settings
         'settings.view', 'settings.edit',
+        'settings.general', 'settings.appearance', 'settings.home',
+        'settings.catalog', 'settings.shipping', 'settings.payment', 'settings.legal',
+        // Reports
         'reports.view', 'reports.export',
+        // Catalogs
         'catalogs.view', 'catalogs.create', 'catalogs.edit', 'catalogs.delete',
+        // POS
+        'pos.access', 'pos.create_sale', 'pos.view_sales', 'pos.cancel_sale',
+        'pos.cash_register', 'pos.open_close_session', 'pos.view_reports',
       ],
       isSystem: true,
       isActive: true,
@@ -118,6 +160,41 @@ async function main() {
   });
   console.log(`  ✅ Rol creado: ${adminRole.name} (ID: 3, personalizable, con acceso admin)`);
 
+  // Rol 4: Cajero - Para usuarios del sistema POS
+  const cajeroRole = await prisma.role.upsert({
+    where: { id: 4 },
+    update: {
+      name: 'Cajero',
+      slug: 'cajero',
+      description: 'Cajero con acceso al sistema POS para ventas físicas',
+      permissions: [
+        'pos.access',
+        'pos.create_sale',
+        'pos.view_sales',
+        'pos.cash_register',
+        'pos.open_close_session',
+        'products.view',
+      ],
+    },
+    create: {
+      id: 4,
+      name: 'Cajero',
+      slug: 'cajero',
+      description: 'Cajero con acceso al sistema POS para ventas físicas',
+      permissions: [
+        'pos.access',
+        'pos.create_sale',
+        'pos.view_sales',
+        'pos.cash_register',
+        'pos.open_close_session',
+        'products.view',
+      ],
+      isSystem: false,
+      isActive: true,
+    },
+  });
+  console.log(`  ✅ Rol creado: ${cajeroRole.name} (ID: 4, cajero POS)`);
+
   // ==================== USUARIOS ====================
   console.log('\n👥 Creando usuarios...');
 
@@ -167,6 +244,22 @@ async function main() {
     },
   });
   console.log(`  ✅ Usuario creado: ${cliente.email} (Cliente, contraseña: cliente123)`);
+
+  // Cajero - roleId 4 (acceso al sistema POS)
+  const cajeroPassword = await hashPassword('cajero123');
+  const cajero = await prisma.user.upsert({
+    where: { email: 'cajero@marketplace.com' },
+    update: { roleId: 4 },
+    create: {
+      email: 'cajero@marketplace.com',
+      passwordHash: cajeroPassword,
+      name: 'Cajero POS',
+      phone: '+57 312 222 2222',
+      roleId: 4, // Cajero
+      status: 'ACTIVE',
+    },
+  });
+  console.log(`  ✅ Usuario creado: ${cajero.email} (Cajero, contraseña: cajero123)`);
 
   // ==================== CATEGORÍAS ====================
   console.log('\n📁 Creando categorías...');
@@ -962,6 +1055,33 @@ async function main() {
     console.log(`  ✅ Producto: ${product.name} (SKU: ${product.sku})`);
   }
 
+  // ==================== CAJAS REGISTRADORAS ====================
+  console.log('\n💰 Creando cajas registradoras...');
+
+  await prisma.cashRegister.upsert({
+    where: { code: 'CAJA-001' },
+    update: {},
+    create: {
+      name: 'Caja Principal',
+      code: 'CAJA-001',
+      location: 'Punto de Venta Principal',
+      isActive: true,
+    },
+  });
+  console.log('  ✅ Caja Principal (CAJA-001)');
+
+  await prisma.cashRegister.upsert({
+    where: { code: 'CAJA-002' },
+    update: {},
+    create: {
+      name: 'Caja Secundaria',
+      code: 'CAJA-002',
+      location: 'Punto de Venta Secundario',
+      isActive: true,
+    },
+  });
+  console.log('  ✅ Caja Secundaria (CAJA-002)');
+
   // ==================== CONFIGURACIÓN ====================
   console.log('\n⚙️ Creando configuración inicial...');
 
@@ -1420,13 +1540,19 @@ async function main() {
   console.log(`   - ${zoneTypes.length} tipos de zona`);
   console.log(`   - ${inputTypes.length} tipos de insumo`);
   console.log(`   - 6 insumos de ejemplo`);
+  // ==================== LABEL TEMPLATES ====================
+  await seedLabelTemplates();
+
   console.log('\n👤 Usuarios de prueba (1 por rol):');
   console.log('   📧 SuperAdmin: admin@marketplace.com / admin123 (roleId: 1)');
   console.log('   📧 Cliente: cliente@marketplace.com / cliente123 (roleId: 2)');
   console.log('   📧 Administrador: vendedor@marketplace.com / vendedor123 (roleId: 3)');
+  console.log('   📧 Cajero: cajero@marketplace.com / cajero123 (roleId: 4)');
   console.log('\n🔒 Roles del sistema (no editables): SuperAdmin (1), Cliente (2)');
-  console.log('✏️  Roles personalizables: Administrador (3+)');
+  console.log('✏️  Roles personalizables: Administrador (3), Cajero (4)');
   console.log('\n🎨 Templates disponibles en /admin-panel/templates');
+  console.log('🏷️  Plantillas de etiquetas disponibles en /admin-panel/settings/label-templates');
+  console.log('💰 Sistema POS disponible en /pos (login con cajero@marketplace.com)');
 }
 
 main()

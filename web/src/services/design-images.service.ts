@@ -1,4 +1,19 @@
-import api from './api.service';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+const getAuthHeader = () => {
+  const authData = localStorage.getItem('marketplace_auth');
+  if (authData) {
+    try {
+      const parsed = JSON.parse(authData);
+      return parsed.token ? { Authorization: `Bearer ${parsed.token}` } : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
 
 export interface DesignImage {
   id: number;
@@ -57,9 +72,9 @@ async function getAll(filters?: DesignImageFilters): Promise<DesignImage[]> {
   }
 
   const queryString = params.toString();
-  const url = queryString ? `/design-images?${queryString}` : '/design-images';
+  const url = queryString ? `${API_URL}/design-images?${queryString}` : `${API_URL}/design-images`;
 
-  const response = await api.get(url);
+  const response = await axios.get(url, { headers: getAuthHeader() });
   console.log('API response design-images:', response);
   // La respuesta viene en response.data (axios) y dentro tiene { success, data }
   const result = response.data?.data || response.data || [];
@@ -69,36 +84,48 @@ async function getAll(filters?: DesignImageFilters): Promise<DesignImage[]> {
 
 // Obtener imagen por ID
 async function getById(id: number): Promise<DesignImage> {
-  const response = await api.get(`/design-images/${id}`);
+  const response = await axios.get(`${API_URL}/design-images/${id}`, {
+    headers: getAuthHeader(),
+  });
   return response.data.data;
 }
 
 // Obtener categorías únicas
 async function getCategories(): Promise<string[]> {
-  const response = await api.get('/design-images/categories');
+  const response = await axios.get(`${API_URL}/design-images/categories`, {
+    headers: getAuthHeader(),
+  });
   return response.data.data;
 }
 
 // Crear imagen de diseño
 async function create(data: CreateDesignImageInput): Promise<DesignImage> {
-  const response = await api.post('/design-images', data);
+  const response = await axios.post(`${API_URL}/design-images`, data, {
+    headers: getAuthHeader(),
+  });
   return response.data.data;
 }
 
 // Actualizar imagen de diseño
 async function update(id: number, data: UpdateDesignImageInput): Promise<DesignImage> {
-  const response = await api.put(`/design-images/${id}`, data);
+  const response = await axios.put(`${API_URL}/design-images/${id}`, data, {
+    headers: getAuthHeader(),
+  });
   return response.data.data;
 }
 
 // Eliminar imagen de diseño (soft delete)
 async function remove(id: number, permanent = false): Promise<void> {
-  await api.delete(`/design-images/${id}${permanent ? '?permanent=true' : ''}`);
+  await axios.delete(`${API_URL}/design-images/${id}${permanent ? '?permanent=true' : ''}`, {
+    headers: getAuthHeader(),
+  });
 }
 
 // Actualizar orden de múltiples imágenes
 async function updateSortOrder(items: { id: number; sortOrder: number }[]): Promise<void> {
-  await api.put('/design-images/sort-order', { items });
+  await axios.put(`${API_URL}/design-images/sort-order`, { items }, {
+    headers: getAuthHeader(),
+  });
 }
 
 export const designImagesService = {

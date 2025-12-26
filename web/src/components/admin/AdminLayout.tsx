@@ -7,7 +7,6 @@ import {
   Users,
   BarChart3,
   Settings,
-  Home,
   Menu,
   User,
   LogOut,
@@ -29,8 +28,13 @@ import {
   LayoutTemplate,
   Scissors,
   Image,
+  Barcode,
+  LayoutGrid,
+  ShoppingCart,
+  Printer,
 } from 'lucide-react';
 import type { Permission } from '../../types/roles';
+import AppSwitcher from '../common/AppSwitcher';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -67,7 +71,18 @@ const menuWithSubmenus: {
       { path: '/admin-panel/orders/shipping', label: 'Despachos', icon: Truck, permission: 'orders.manage' },
     ],
   },
-  // 2. CATÁLOGO - Productos y clasificaciones
+  // 2. PUNTO DE VENTA - POS y códigos de barras
+  {
+    id: 'pos',
+    label: 'Punto de Venta',
+    icon: ShoppingCart,
+    basePath: '/admin-panel/cash-registers',
+    submenu: [
+      { path: '/admin-panel/variants', label: 'Variantes', icon: LayoutGrid, permission: 'products.view' },
+      { path: '/admin-panel/cash-registers', label: 'Cajas Registradoras', icon: DollarSign, permission: 'pos.cash_register' },
+    ],
+  },
+  // 3. CATÁLOGO - Productos y clasificaciones
   {
     id: 'catalog',
     label: 'Catálogo',
@@ -82,7 +97,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/catalogs/colors', label: 'Colores', icon: Palette, permission: 'catalogs.view' },
     ],
   },
-  // 3. PRODUCCIÓN - Zonas y personalización
+  // 4. PRODUCCIÓN - Zonas y personalización
   {
     id: 'production',
     label: 'Producción',
@@ -93,7 +108,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/design-images', label: 'Imágenes de Diseño', icon: Image, permission: 'products.view' },
     ],
   },
-  // 4. INVENTARIO - Insumos y materiales
+  // 5. INVENTARIO - Insumos y materiales
   {
     id: 'inventory',
     label: 'Inventario',
@@ -104,7 +119,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/input-types', label: 'Tipos de Insumo', icon: Layers, permission: 'products.view' },
     ],
   },
-  // 5. USUARIOS - Gestión de usuarios y roles
+  // 6. USUARIOS - Gestión de usuarios y roles
   {
     id: 'users',
     label: 'Usuarios',
@@ -116,7 +131,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/roles', label: 'Roles y Permisos', icon: Key, permission: 'roles.view' },
     ],
   },
-  // 6. CONFIGURACIÓN - Ajustes del sistema
+  // 7. CONFIGURACIÓN - Ajustes del sistema
   {
     id: 'settings',
     label: 'Configuración',
@@ -130,6 +145,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/settings/shipping', label: 'Envíos', permission: 'settings.shipping' },
       { path: '/admin-panel/settings/payment', label: 'Pagos', permission: 'settings.payment' },
       { path: '/admin-panel/settings/legal', label: 'Legal', permission: 'settings.legal' },
+      { path: '/admin-panel/settings/label-templates', label: 'Plantillas de Etiquetas', permission: 'settings.general' },
     ],
   },
 ];
@@ -208,13 +224,8 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
           {/* Right: User Menu */}
           <div className="flex items-center gap-4">
-            <Link
-              to="/"
-              className="hidden md:flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <Home className="w-4 h-4" />
-              <span>Ir al Sitio</span>
-            </Link>
+            {/* App Switcher */}
+            <AppSwitcher />
 
             {/* Profile Dropdown */}
             <div className="relative">
@@ -366,17 +377,6 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                 );
               })}
             </nav>
-
-            {/* Sidebar Footer */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
-              <Link
-                to="/"
-                className="flex items-center gap-2 px-4 py-3 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <Home className="w-4 h-4" />
-                Volver al Sitio
-              </Link>
-            </div>
           </div>
         </aside>
 
@@ -390,7 +390,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 overflow-x-hidden transition-all duration-300 w-full">
+        <main className="flex-1 overflow-x-hidden transition-all duration-300 w-full p-6">
           {children}
         </main>
       </div>

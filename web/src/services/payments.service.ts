@@ -154,12 +154,23 @@ class PaymentsService {
    * Listar todos los pagos (Admin)
    */
   async listPayments(query?: ListPaymentsQuery): Promise<PaginatedPayments> {
-    const response = await api.get<{ success: boolean } & PaginatedPayments>('/payments/all', {
-      params: query,
-    });
+    const response = await api.get<Payment[]>('/payments/all', query) as any;
+    console.log('[paymentsService] Raw response:', response);
+    console.log('[paymentsService] response.data:', response.data);
+    console.log('[paymentsService] response.meta:', response.meta);
+
+    // El backend retorna { success, data, meta }
+    // api.get() ya parsea esto, así que accedemos directamente
+    const meta = response.meta || response.pagination || {
+      page: 1,
+      limit: 20,
+      total: 0,
+      totalPages: 0,
+    };
+
     return {
-      data: response.data.data,
-      meta: response.data.meta,
+      data: response.data || [],
+      meta,
     };
   }
 

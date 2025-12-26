@@ -2,7 +2,7 @@
 
 ## ESTADO GENERAL
 
-**Fecha:** 2025-12-13
+**Fecha:** 2025-12-26
 **Deploy Frontend:** https://project-marketplace.vercel.app
 **Backend Local:** http://localhost:3001/api
 **Progreso Total:** 98%
@@ -20,7 +20,9 @@
 | 5 | Notificaciones + Emails | ⚪ | 0% |
 | 6 | Configuracion General | ✅ | 100% |
 | 7 | Backend + Base de Datos | ✅ | 95% |
-| 8 | App Movil | ⚪ | Futuro |
+| 8 | Punto de Venta (POS) | ✅ | 100% |
+| 9 | Compras e Inventario | 🟡 | 0% |
+| 10 | App Movil | ⚪ | Futuro |
 
 ---
 
@@ -197,7 +199,110 @@
 
 ---
 
-## FASE 8: APP MOVIL
+## FASE 8: PUNTO DE VENTA (POS) ✅
+
+**Estado:** 100% Completado
+
+### Completado
+- [x] Sistema de Cajas Registradoras (CRUD completo)
+- [x] Sesiones de Caja (apertura/cierre con conteo de efectivo)
+- [x] Sistema de Variantes de Producto (SKU, código de barras, stock)
+- [x] Generación de Códigos de Barras (Code128, EAN13, UPC)
+- [x] Plantillas de Etiquetas Personalizables
+- [x] Impresión de Etiquetas con Códigos de Barras
+- [x] App POS separada con navegación propia
+- [x] Dashboard POS con estadísticas de sesión
+- [x] Nueva Venta con scanner de código de barras
+- [x] Historial de Ventas con reimpresión de tickets
+- [x] Gestión de Caja (ver sesión activa, cerrar sesión)
+- [x] Componente OpenSessionPrompt reutilizable
+- [x] Impresión de tickets/facturas después de venta
+- [x] Permisos específicos: pos.access, pos.cash_register, pos.open_close_session
+
+### Estructura de la App POS
+```
+/pos                    → POSDashboard (requiere sesión abierta)
+/pos/new-sale          → Nueva Venta con scanner
+/pos/history           → Historial de Ventas
+/pos/cash-register     → Gestión de Caja Actual
+```
+
+### Páginas Admin Relacionadas
+```
+/admin-panel/variants        → Gestión de Variantes (SKU, stock)
+/admin-panel/cash-registers  → Gestión de Cajas Registradoras
+/admin-panel/settings/label-templates → Plantillas de Etiquetas
+```
+
+---
+
+## FASE 9: COMPRAS E INVENTARIO
+
+**Estado:** No iniciada (Próxima fase)
+
+### Backend Pendiente
+- [ ] **Modelo Supplier (Proveedores)**
+  - id, name, ruc/nit, email, phone, address
+  - contactPerson, paymentTerms, notes
+  - isActive, createdAt, updatedAt
+
+- [ ] **Modelo PurchaseOrder (Órdenes de Compra)**
+  - id, supplierId, orderNumber
+  - status: DRAFT, SENT, CONFIRMED, PARTIAL, RECEIVED, CANCELLED
+  - subtotal, tax, discount, total
+  - expectedDate, receivedDate
+  - notes, createdBy, createdAt, updatedAt
+
+- [ ] **Modelo PurchaseOrderItem (Items de OC)**
+  - id, purchaseOrderId, variantId/inputId
+  - quantity, unitCost, subtotal
+  - quantityReceived, notes
+
+- [ ] **Modelo InventoryMovement (Movimientos de Inventario)**
+  - id, type: IN, OUT, ADJUSTMENT, TRANSFER
+  - variantId/inputId, quantity
+  - reason, reference, notes
+  - userId, createdAt
+
+- [ ] **API de Proveedores**
+  - CRUD completo
+  - Listado con filtros y paginación
+  - Historial de compras por proveedor
+
+- [ ] **API de Órdenes de Compra**
+  - CRUD completo
+  - Cambio de estados
+  - Recepción parcial/completa
+  - Afecta stock automáticamente al recibir
+
+- [ ] **API de Movimientos de Inventario**
+  - Registro manual de entradas/salidas
+  - Ajustes de inventario
+  - Historial con filtros
+
+### Frontend Pendiente
+- [ ] **Página de Proveedores** `/admin-panel/suppliers`
+  - DataTable con CRUD
+  - Vista detalle con historial de compras
+
+- [ ] **Página de Órdenes de Compra** `/admin-panel/purchase-orders`
+  - Lista de OCs con filtros por estado
+  - Crear/Editar OC con items
+  - Recepción de mercancía
+
+- [ ] **Página de Movimientos** `/admin-panel/inventory-movements`
+  - Historial de movimientos
+  - Formulario de ajuste manual
+
+### Integración con Módulos Existentes
+- [ ] Vincular Variants con movimientos de stock
+- [ ] Vincular Inputs con movimientos de stock
+- [ ] Alertas de stock bajo
+- [ ] Reportes de inventario
+
+---
+
+## FASE 10: APP MOVIL
 
 **Estado:** Futuro
 
@@ -277,6 +382,29 @@ docker exec marketplace-backend npx prisma studio
 ---
 
 ## CHANGELOG RECIENTE
+
+### v5.8 (2025-12-26)
+- ✅ **Sistema de Punto de Venta (POS) Completo**
+  - App POS separada con layout y navegación propia
+  - Cajas registradoras con CRUD completo
+  - Sesiones de caja con apertura/cierre y conteo de efectivo
+  - Sistema de variantes de producto con SKU y código de barras
+  - Generación de códigos de barras (Code128, EAN13, UPC)
+  - Plantillas de etiquetas personalizables
+  - Impresión de etiquetas con códigos de barras
+  - Nueva venta con scanner de código de barras
+  - Historial de ventas con reimpresión de tickets
+  - Componente OpenSessionPrompt reutilizable en todas las vistas POS
+  - Permisos específicos: pos.access, pos.cash_register, pos.open_close_session
+- ✅ **Estandarización de Páginas Admin**
+  - CashRegistersPage con Modal, Button, Input compartidos
+  - VariantsPage con DataTable y stats cards
+  - AdminLayout con padding correcto en main (p-6)
+  - AppSwitcher para cambiar entre Admin Panel y POS
+- ✅ **Mejoras de UX**
+  - Todas las páginas POS muestran OpenSessionPrompt si no hay sesión activa
+  - Impresión automática de ticket después de completar venta
+  - Reimpresión desde historial de ventas
 
 ### v5.7 (2025-12-25)
 - ✅ **Sistema de Trazabilidad de Pagos**
@@ -404,5 +532,5 @@ docker exec marketplace-backend npx prisma studio
 
 ---
 
-**Ultima actualizacion:** 2025-12-25
-**Version:** 5.7
+**Ultima actualizacion:** 2025-12-26
+**Version:** 5.8
