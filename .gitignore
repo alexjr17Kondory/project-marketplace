@@ -33,3 +33,12 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Windows garbage files
+nul
+*.stackdump
+
+# Compiled TypeScript in prisma
+backend/prisma/*.js
+backend/prisma/*.d.ts
+backend/prisma/*.map
