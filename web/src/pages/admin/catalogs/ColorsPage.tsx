@@ -29,7 +29,7 @@ export const ColorsPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     hexCode: '#000000',
-    active: true,
+    isActive: true,
   });
 
   const columns = useMemo(
@@ -58,7 +58,7 @@ export const ColorsPage = () => {
           </div>
         ),
       }),
-      columnHelper.accessor('active', {
+      columnHelper.accessor('isActive', {
         header: 'Estado',
         cell: (info) => {
           const active = info.getValue();
@@ -113,7 +113,7 @@ export const ColorsPage = () => {
 
   const openAddModal = () => {
     setEditingColor(null);
-    setFormData({ name: '', hexCode: '#000000', active: true });
+    setFormData({ name: '', hexCode: '#000000', isActive: true });
     setIsModalOpen(true);
   };
 
@@ -122,7 +122,7 @@ export const ColorsPage = () => {
     setFormData({
       name: color.name,
       hexCode: color.hexCode,
-      active: color.active,
+      isActive: color.isActive,
     });
     setIsModalOpen(true);
   };
@@ -137,7 +137,7 @@ export const ColorsPage = () => {
       toast.success('Color creado correctamente');
     }
     setIsModalOpen(false);
-    setFormData({ name: '', hexCode: '#000000', active: true });
+    setFormData({ name: '', hexCode: '#000000', isActive: true });
   };
 
   const handleDelete = (id: string) => {
@@ -148,15 +148,15 @@ export const ColorsPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Colores</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Colores</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona los colores disponibles</p>
         </div>
-        <Button onClick={openAddModal} variant="admin-primary">
-          <Plus className="w-5 h-5 mr-2" />
+        <Button onClick={openAddModal} variant="admin-orange" size="sm">
+          <Plus className="w-4 h-4" />
           Agregar Color
         </Button>
       </div>
@@ -296,12 +296,12 @@ export const ColorsPage = () => {
           <div className="flex items-center">
             <input
               type="checkbox"
-              id="active"
-              checked={formData.active}
-              onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+              id="isActive"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <label htmlFor="active" className="ml-2 text-sm font-medium text-gray-700">
+            <label htmlFor="isActive" className="ml-2 text-sm font-medium text-gray-700">
               Activo
             </label>
           </div>

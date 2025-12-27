@@ -142,15 +142,15 @@ export const ProductTypesPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Tipos de Producto</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Tipos de Producto</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona los tipos de producto disponibles</p>
         </div>
-        <Button onClick={openAddModal} variant="admin-primary">
-          <Plus className="w-5 h-5 mr-2" />
+        <Button onClick={openAddModal} variant="admin-orange" size="sm">
+          <Plus className="w-4 h-4" />
           Agregar Tipo
         </Button>
       </div>

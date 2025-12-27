@@ -8,6 +8,7 @@ export interface PurchaseOrderItem {
   purchaseOrderId: number;
   variantId?: number;
   inputId?: number;
+  inputVariantId?: number;
   description?: string;
   quantity: number;
   quantityReceived: number;
@@ -26,6 +27,13 @@ export interface PurchaseOrderItem {
     code: string;
     name: string;
     inputType?: { id: number; name: string };
+  };
+  inputVariant?: {
+    id: number;
+    sku: string;
+    input?: { id: number; name: string; code: string };
+    color?: { id: number; name: string; hexCode: string };
+    size?: { id: number; name: string; abbreviation: string };
   };
 }
 
@@ -65,6 +73,7 @@ export interface CreatePurchaseOrderData {
   items: {
     variantId?: number;
     inputId?: number;
+    inputVariantId?: number;
     description?: string;
     quantity: number;
     unitCost: number;

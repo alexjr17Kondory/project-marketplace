@@ -1,5 +1,49 @@
 import api from './api.service';
 
+export interface InputColor {
+  id: number;
+  colorId: number;
+  color: {
+    id: number;
+    name: string;
+    slug: string;
+    hexCode: string;
+  };
+}
+
+export interface InputVariant {
+  id: number;
+  sku: string;
+  colorId: number | null;
+  sizeId: number | null;
+  unitCost: number | string;
+  currentStock: number | string;
+  minStock: number | string;
+  maxStock: number | string;
+  isActive: boolean;
+  color: {
+    id: number;
+    name: string;
+    hexCode: string;
+  } | null;
+  size: {
+    id: number;
+    name: string;
+    abbreviation: string;
+  } | null;
+}
+
+export interface InputTypeSize {
+  id: number;
+  sizeId: number;
+  size: {
+    id: number;
+    name: string;
+    abbreviation: string;
+    sortOrder: number;
+  };
+}
+
 export interface Input {
   id: number;
   code: string;
@@ -7,10 +51,10 @@ export interface Input {
   name: string;
   description: string | null;
   unitOfMeasure: string;
-  currentStock: number | string; // Decimal comes as string from backend
-  minStock: number | string; // Decimal comes as string from backend
-  maxStock: number | string | null; // Decimal comes as string from backend
-  unitCost: number | string; // Decimal comes as string from backend
+  currentStock: number | string;
+  minStock: number | string;
+  maxStock: number | string | null;
+  unitCost: number | string;
   supplier: string | null;
   supplierCode: string | null;
   notes: string | null;
@@ -21,11 +65,16 @@ export interface Input {
     id: number;
     name: string;
     slug: string;
+    hasVariants: boolean;
+    inputTypeSizes?: InputTypeSize[];
   };
+  inputColors?: InputColor[];
+  variants?: InputVariant[];
   _count?: {
     batches: number;
     movements: number;
     zoneInputs: number;
+    variants: number;
   };
 }
 
@@ -41,6 +90,8 @@ export interface CreateInputDto {
   supplier?: string;
   supplierCode?: string;
   notes?: string;
+  colorIds?: number[];
+  sizeIds?: number[];
 }
 
 export interface UpdateInputDto {
@@ -62,6 +113,22 @@ export interface InputFilters {
   inputTypeId?: number;
   search?: string;
   lowStock?: boolean;
+}
+
+export interface InputVariantMovement {
+  id: number;
+  inputVariantId: number;
+  movementType: 'ENTRADA' | 'SALIDA' | 'AJUSTE' | 'RESERVA' | 'LIBERACION' | 'DEVOLUCION' | 'MERMA';
+  quantity: number | string;
+  previousStock: number | string;
+  newStock: number | string;
+  referenceType: string | null;
+  referenceId: number | null;
+  reason: string | null;
+  notes: string | null;
+  userId: number | null;
+  unitCost: number | string | null;
+  createdAt: string;
 }
 
 export const inputsService = {
@@ -102,5 +169,48 @@ export const inputsService = {
   async recalculateStock(id: number): Promise<Input> {
     const response = await api.post<Input>(`/inputs/${id}/recalculate-stock`);
     return response.data!;
+  },
+
+  // Color management
+  async addColor(inputId: number, colorId: number): Promise<Input> {
+    const response = await api.post<Input>(`/inputs/${inputId}/colors`, { colorId });
+    return response.data!;
+  },
+
+  async removeColor(inputId: number, colorId: number): Promise<Input> {
+    const response = await api.delete<Input>(`/inputs/${inputId}/colors/${colorId}`);
+    return response.data!;
+  },
+
+  // Variants management
+  async getVariants(inputId: number): Promise<InputVariant[]> {
+    const response = await api.get<InputVariant[]>(`/inputs/${inputId}/variants`);
+    return response.data || [];
+  },
+
+  async getVariantById(variantId: number): Promise<InputVariant> {
+    const response = await api.get<InputVariant>(`/inputs/variants/${variantId}`);
+    return response.data!;
+  },
+
+  async updateVariant(variantId: number, data: { unitCost?: number; minStock?: number; maxStock?: number }): Promise<InputVariant> {
+    const response = await api.put<InputVariant>(`/inputs/variants/${variantId}`, data);
+    return response.data!;
+  },
+
+  async updateVariantStock(variantId: number, quantity: number, operation: 'add' | 'subtract'): Promise<InputVariant> {
+    const response = await api.post<InputVariant>(`/inputs/variants/${variantId}/stock`, { quantity, operation });
+    return response.data!;
+  },
+
+  async regenerateVariants(inputId: number): Promise<Input> {
+    const response = await api.post<Input>(`/inputs/${inputId}/regenerate-variants`);
+    return response.data!;
+  },
+
+  async getVariantMovements(variantId: number, limit?: number): Promise<InputVariantMovement[]> {
+    const params = limit ? `?limit=${limit}` : '';
+    const response = await api.get<InputVariantMovement[]>(`/inputs/variants/${variantId}/movements${params}`);
+    return response.data || [];
   },
 };

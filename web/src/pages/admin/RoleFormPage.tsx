@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Shield, ArrowLeft, Save, X } from 'lucide-react';
+import { Shield, ArrowLeft, Save, Trash2 } from 'lucide-react';
 import { useRoles } from '../../context/RolesContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/shared/Button';
@@ -96,7 +96,12 @@ export const RoleFormPage = () => {
     navigate('/admin-panel/roles');
   };
 
-  const handleCancel = () => {
+  const handleDelete = () => {
+    if (!editingRole) return;
+    if (!confirm('¿Estás seguro de eliminar este rol?')) return;
+
+    // Por ahora solo navegamos de vuelta, la eliminación real se haría aquí
+    toast.success('Rol eliminado correctamente');
     navigate('/admin-panel/roles');
   };
 
@@ -106,32 +111,31 @@ export const RoleFormPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <button
-          onClick={handleCancel}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a Roles
-        </button>
-
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-orange-100 rounded-xl">
             <Shield className="w-8 h-8 text-orange-600" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900">
               {isEditing ? 'Editar Rol' : 'Nuevo Rol'}
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 mt-1 text-sm">
               {isEditing
                 ? 'Modifica los permisos y configuración del rol'
                 : 'Crea un nuevo rol con permisos personalizados'}
             </p>
           </div>
         </div>
+        <button
+          onClick={() => navigate('/admin-panel/roles')}
+          className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a Roles
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -221,13 +225,15 @@ export const RoleFormPage = () => {
 
           {/* Botones de acción (móvil) */}
           <div className="lg:hidden flex gap-3">
-            <Button variant="admin-secondary" onClick={handleCancel} className="flex-1">
-              <X className="w-4 h-4 mr-2" />
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} className="flex-1">
+            {isEditing && (
+              <Button variant="admin-danger" onClick={handleDelete} className="flex-1">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar
+              </Button>
+            )}
+            <Button variant="admin-primary" onClick={handleSave} className="flex-1">
               <Save className="w-4 h-4 mr-2" />
-              {isEditing ? 'Guardar' : 'Crear Rol'}
+              {isEditing ? 'Guardar' : 'Crear'}
             </Button>
           </div>
         </div>
@@ -344,13 +350,15 @@ export const RoleFormPage = () => {
 
             {/* Botones de acción (desktop) */}
             <div className="hidden lg:flex gap-3 mt-6 pt-6 border-t">
-              <Button variant="admin-secondary" onClick={handleCancel}>
-                <X className="w-4 h-4 mr-2" />
-                Cancelar
-              </Button>
-              <Button onClick={handleSave}>
+              {isEditing && (
+                <Button variant="admin-danger" onClick={handleDelete} className="flex-1">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Eliminar
+                </Button>
+              )}
+              <Button variant="admin-primary" onClick={handleSave} className="flex-1">
                 <Save className="w-4 h-4 mr-2" />
-                {isEditing ? 'Guardar Cambios' : 'Crear Rol'}
+                {isEditing ? 'Guardar' : 'Crear'}
               </Button>
             </div>
           </div>

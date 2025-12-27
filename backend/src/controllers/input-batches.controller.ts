@@ -102,6 +102,32 @@ export async function recordOutput(req: Request, res: Response, next: NextFuncti
   }
 }
 
+// Obtener todos los movimientos de insumos
+export async function getAllMovements(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const filters = {
+      inputId: req.query.inputId ? parseInt(req.query.inputId as string) : undefined,
+      movementType: req.query.movementType as string | undefined,
+      referenceType: req.query.referenceType as string | undefined,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : 500,
+    };
+    const movements = await inputBatchesService.getAllMovements(filters as any);
+    res.json({ success: true, data: movements });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Obtener estadísticas de movimientos de insumos
+export async function getInputMovementsStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const stats = await inputBatchesService.getInputMovementsStats();
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // Obtener movimientos por insumo
 export async function getMovementsByInputId(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

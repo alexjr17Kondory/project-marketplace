@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zoneTypesService, type ZoneType } from '../../services/zone-types.service';
-import { Plus, Edit, Trash2, Check, X } from 'lucide-react';
+import { Plus, Settings, Check, X } from 'lucide-react';
 
 export default function ZoneTypesPage() {
   const navigate = useNavigate();
@@ -25,18 +25,6 @@ export default function ZoneTypesPage() {
       console.error(err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este tipo de zona?')) return;
-
-    try {
-      await zoneTypesService.delete(id);
-      await loadZoneTypes();
-    } catch (err) {
-      alert('Error al eliminar el tipo de zona');
-      console.error(err);
     }
   };
 
@@ -154,17 +142,10 @@ export default function ZoneTypesPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => navigate(`/admin-panel/zone-types/${zoneType.id}`)}
-                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-900 mr-4"
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Editar"
                       >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(zoneType.id)}
-                        className="inline-flex items-center gap-1 text-red-600 hover:text-red-900"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                        <Settings className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>

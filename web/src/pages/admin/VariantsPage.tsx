@@ -30,6 +30,7 @@ import {
   Package,
   Layers,
   TrendingDown,
+  Settings,
 } from 'lucide-react';
 
 const columnHelper = createColumnHelper<ProductVariant>();
@@ -40,6 +41,7 @@ export default function VariantsPage() {
   const [loading, setLoading] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [showBarcodeModal, setShowBarcodeModal] = useState<ProductVariant | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState<ProductVariant | null>(null);
   const [barcodeImageUrl, setBarcodeImageUrl] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -290,11 +292,11 @@ export default function VariantsPage() {
               </button>
             )}
             <button
-              onClick={() => setDeleteConfirmId(row.original.id)}
-              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Eliminar"
+              onClick={() => setShowDetailModal(row.original)}
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Detalles"
             >
-              <Trash2 className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         ),
@@ -337,14 +339,14 @@ export default function VariantsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Variantes de Productos</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Variantes de Productos</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona variantes, codigos de barras y stock</p>
         </div>
-        <Button variant="outline" onClick={loadVariants} className="flex items-center gap-2">
+        <Button variant="admin-orange" size="sm" onClick={loadVariants}>
           <RefreshCw className="w-4 h-4" />
           Actualizar
         </Button>
@@ -562,7 +564,7 @@ export default function VariantsPage() {
             )}
             <div className="flex gap-3">
               <Button
-                variant="outline"
+                variant="admin-secondary"
                 onClick={() => {
                   setShowBarcodeModal(null);
                   if (barcodeImageUrl) URL.revokeObjectURL(barcodeImageUrl);
@@ -572,7 +574,7 @@ export default function VariantsPage() {
               >
                 Cerrar
               </Button>
-              <Button onClick={() => window.print()} className="flex-1">
+              <Button variant="admin-primary" onClick={() => window.print()} className="flex-1">
                 <Printer className="w-4 h-4 mr-2" />
                 Imprimir
               </Button>
@@ -598,17 +600,154 @@ export default function VariantsPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setDeleteConfirmId(null)} className="flex-1">
+            <Button variant="admin-secondary" onClick={() => setDeleteConfirmId(null)} className="flex-1">
               Cancelar
             </Button>
             <Button
+              variant="admin-danger"
               onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
-              className="flex-1 bg-red-600 hover:bg-red-700"
+              className="flex-1"
             >
               Eliminar
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Modal - Detalles de Variante */}
+      <Modal
+        isOpen={!!showDetailModal}
+        onClose={() => setShowDetailModal(null)}
+        title="Detalles de Variante"
+        size="md"
+      >
+        {showDetailModal && (
+          <div className="space-y-6">
+            {/* Producto */}
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+              <img
+                src={showDetailModal.product.images?.[0] || '/placeholder.png'}
+                alt={showDetailModal.product.name}
+                className="w-16 h-16 rounded-lg object-cover"
+              />
+              <div>
+                <h3 className="font-medium text-gray-900">{showDetailModal.product.name}</h3>
+                <p className="text-sm text-gray-500">SKU: {showDetailModal.sku}</p>
+              </div>
+            </div>
+
+            {/* Atributos */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500 mb-1">Color</p>
+                {showDetailModal.color ? (
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-5 h-5 rounded-full border border-gray-200"
+                      style={{ backgroundColor: showDetailModal.color.hexCode }}
+                    />
+                    <span className="text-sm font-medium">{showDetailModal.color.name}</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-400">N/A</span>
+                )}
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500 mb-1">Talla</p>
+                {showDetailModal.size ? (
+                  <span className="text-sm font-medium">{showDetailModal.size.name} ({showDetailModal.size.abbreviation})</span>
+                ) : (
+                  <span className="text-sm text-gray-400">N/A</span>
+                )}
+              </div>
+            </div>
+
+            {/* Stock y Precio */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500 mb-1">Stock</p>
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg font-bold ${
+                    showDetailModal.stock === 0
+                      ? 'text-red-600'
+                      : showDetailModal.stock <= showDetailModal.minStock
+                      ? 'text-amber-600'
+                      : 'text-green-600'
+                  }`}>
+                    {showDetailModal.stock}
+                  </span>
+                  <span className="text-xs text-gray-400">/ min: {showDetailModal.minStock}</span>
+                </div>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500 mb-1">Precio</p>
+                <span className="text-lg font-bold text-gray-900">
+                  ${showDetailModal.finalPrice.toLocaleString('es-CO')}
+                </span>
+              </div>
+            </div>
+
+            {/* Codigo de Barras */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-xs text-gray-500 mb-1">Codigo de Barras</p>
+              {showDetailModal.barcode ? (
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm">{showDetailModal.barcode}</span>
+                  <button
+                    onClick={() => {
+                      handleShowBarcode(showDetailModal);
+                      setShowDetailModal(null);
+                    }}
+                    className="text-indigo-600 hover:text-indigo-800 text-sm"
+                  >
+                    Ver imagen
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">Sin codigo asignado</span>
+                  <button
+                    onClick={() => {
+                      handleAssignBarcode(showDetailModal.id);
+                      setShowDetailModal(null);
+                    }}
+                    className="text-indigo-600 hover:text-indigo-800 text-sm"
+                  >
+                    Generar
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Acciones */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                variant="admin-danger"
+                onClick={() => {
+                  setShowDetailModal(null);
+                  setDeleteConfirmId(showDetailModal.id);
+                }}
+                className="flex-1"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar
+              </Button>
+              <Button
+                variant="admin-secondary"
+                onClick={() => {
+                  handleStockAdjustment(showDetailModal);
+                  setShowDetailModal(null);
+                }}
+                className="flex-1"
+              >
+                Ajustar Stock
+              </Button>
+              <Button variant="admin-primary" onClick={() => setShowDetailModal(null)} className="flex-1">
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

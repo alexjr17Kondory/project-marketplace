@@ -158,3 +158,116 @@ export function getMovementTypeColor(type: MovementType): string {
 export function isIncoming(type: MovementType): boolean {
   return ['PURCHASE', 'TRANSFER_IN', 'RETURN', 'INITIAL'].includes(type);
 }
+
+// ============ INPUT BATCH MOVEMENTS (Insumos) ============
+
+export type InputMovementType =
+  | 'ENTRADA'
+  | 'SALIDA'
+  | 'AJUSTE'
+  | 'RESERVA'
+  | 'LIBERACION'
+  | 'CONSUMO'
+  | 'DEVOLUCION';
+
+export interface InputBatchMovement {
+  id: number;
+  type: 'batch' | 'variant';
+  inputId: number | null;
+  movementType: InputMovementType;
+  quantity: number | string;
+  reason?: string;
+  notes?: string;
+  referenceType?: string;
+  referenceId?: number;
+  userId?: number;
+  createdAt: string;
+  input: {
+    id: number;
+    code: string;
+    name: string;
+    unitOfMeasure: string;
+  } | null;
+  inputBatch?: {
+    batchNumber: string;
+  } | null;
+  inputVariant?: {
+    id: number;
+    sku: string;
+    color?: {
+      id: number;
+      name: string;
+      hexCode: string;
+    };
+    size?: {
+      id: number;
+      name: string;
+      abbreviation: string;
+    };
+  } | null;
+}
+
+export interface InputMovementFilters {
+  inputId?: number;
+  movementType?: InputMovementType;
+  referenceType?: string;
+  limit?: number;
+}
+
+export interface InputMovementsStats {
+  totalInputs: number;
+  totalStock: number;
+  lowStock: number;
+  todayMovements: number;
+}
+
+// Obtener movimientos de insumos
+export async function getInputMovements(filters?: InputMovementFilters): Promise<InputBatchMovement[]> {
+  const params = new URLSearchParams();
+  if (filters?.inputId) params.append('inputId', String(filters.inputId));
+  if (filters?.movementType) params.append('movementType', filters.movementType);
+  if (filters?.referenceType) params.append('referenceType', filters.referenceType);
+  if (filters?.limit) params.append('limit', String(filters.limit));
+
+  const response = await api.get<InputBatchMovement[]>(`/input-batches/movements/all?${params.toString()}`);
+  return response.data || [];
+}
+
+// Obtener estadísticas de movimientos de insumos
+export async function getInputMovementsStats(): Promise<InputMovementsStats> {
+  const response = await api.get<InputMovementsStats>('/input-batches/movements/stats');
+  return response.data!;
+}
+
+// Helper para obtener el label del tipo de movimiento de insumo
+export function getInputMovementTypeLabel(type: InputMovementType): string {
+  const labels: Record<InputMovementType, string> = {
+    ENTRADA: 'Entrada',
+    SALIDA: 'Salida',
+    AJUSTE: 'Ajuste',
+    RESERVA: 'Reserva',
+    LIBERACION: 'Liberación',
+    CONSUMO: 'Consumo',
+    DEVOLUCION: 'Devolución',
+  };
+  return labels[type] || type;
+}
+
+// Helper para obtener el color del tipo de movimiento de insumo
+export function getInputMovementTypeColor(type: InputMovementType): string {
+  const colors: Record<InputMovementType, string> = {
+    ENTRADA: 'bg-green-100 text-green-800',
+    SALIDA: 'bg-red-100 text-red-800',
+    AJUSTE: 'bg-yellow-100 text-yellow-800',
+    RESERVA: 'bg-blue-100 text-blue-800',
+    LIBERACION: 'bg-purple-100 text-purple-800',
+    CONSUMO: 'bg-orange-100 text-orange-800',
+    DEVOLUCION: 'bg-teal-100 text-teal-800',
+  };
+  return colors[type] || 'bg-gray-100 text-gray-800';
+}
+
+// Helper para determinar si el movimiento de insumo es entrada o salida
+export function isInputIncoming(type: InputMovementType): boolean {
+  return ['ENTRADA', 'LIBERACION', 'DEVOLUCION'].includes(type);
+}

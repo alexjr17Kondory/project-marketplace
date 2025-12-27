@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Template } from '../../services/templates.service';
 import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';
+import { ImageUploadField } from './ImageUploadField';
 import { catalogsService } from '../../services/catalogs.service';
 import type { Color, Size, Category, ProductType as CatalogProductType } from '../../services/catalogs.service';
 
@@ -19,16 +20,22 @@ export interface TemplateFormData {
   categoryId: number | null;
   typeId: number | null;
   basePrice: number;
-  images: {
-    front: string;
-    back?: string;
-    side?: string;
-  };
+  images: string[];
   tags: string[];
   colorIds: number[];
   sizeIds: number[];
   isActive: boolean;
 }
+
+// Función auxiliar para extraer imágenes del template
+const getTemplateImages = (template?: Template): string[] => {
+  if (!template?.images) return [];
+  // Si images es un array, usarlo directamente
+  if (Array.isArray(template.images)) return template.images.filter(Boolean);
+  // Si es objeto con front/back/side, convertirlo a array
+  const imgs = template.images as { front?: string; back?: string; side?: string };
+  return [imgs.front, imgs.back, imgs.side].filter((img): img is string => !!img);
+};
 
 export const TemplateForm = ({ template, onSubmit, onDelete }: TemplateFormProps) => {
   const [formData, setFormData] = useState({
@@ -41,10 +48,10 @@ export const TemplateForm = ({ template, onSubmit, onDelete }: TemplateFormProps
     basePrice: template?.basePrice || 0,
     isActive: template?.isActive ?? true,
     tags: template?.tags?.join(', ') || '',
-    frontImage: template?.images?.front || '',
-    backImage: template?.images?.back || '',
-    sideImage: template?.images?.side || '',
   });
+
+  // Array de imágenes del producto
+  const [images, setImages] = useState<string[]>(getTemplateImages(template));
 
   // Catálogos disponibles
   const [availableColors, setAvailableColors] = useState<Color[]>([]);
@@ -148,16 +155,64 @@ export const TemplateForm = ({ template, onSubmit, onDelete }: TemplateFormProps
       basePrice: Number(formData.basePrice),
       isActive: formData.isActive,
       tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
-      images: {
-        front: formData.frontImage,
-        back: formData.backImage || undefined,
-        side: formData.sideImage || undefined,
-      },
+      images: images.filter(Boolean),
       colorIds: selectedColorIds,
       sizeIds: selectedSizeIds,
     };
 
     await onSubmit(templateData);
+  };
+
+  // Funciones para manejar imágenes (máximo 5)
+  const MAX_IMAGES = 5;
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const addImage = (imageUrl: string) => {
+    if (imageUrl && images.length < MAX_IMAGES) {
+      setImages(prev => [...prev, imageUrl]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateImage = (index: number, newUrl: string) => {
+    setImages(prev => prev.map((img, i) => i === index ? newUrl : img));
+  };
+
+  // Drag and drop para reordenar imágenes
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      const newImages = [...images];
+      const [draggedImage] = newImages.splice(draggedIndex, 1);
+      newImages.splice(dropIndex, 0, draggedImage);
+      setImages(newImages);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   const toggleColor = (colorId: number) => {
@@ -273,43 +328,92 @@ export const TemplateForm = ({ template, onSubmit, onDelete }: TemplateFormProps
           />
         </div>
 
-        {/* Cuarta fila: Imagen Frontal completa */}
+        {/* Imágenes del Producto */}
         <div className="col-span-12">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Imagen Frontal (URL) *
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Imágenes del Producto * (mínimo 1, máximo {MAX_IMAGES})
           </label>
-          <Input
-            type="url"
-            value={formData.frontImage}
-            onChange={(e) => setFormData({ ...formData, frontImage: e.target.value })}
-            required
-            placeholder="https://ejemplo.com/imagen-frontal.jpg"
-          />
-        </div>
 
-        {/* Quinta fila: Imágenes Trasera y Lateral */}
-        <div className="col-span-12 md:col-span-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Imagen Trasera (URL)
-          </label>
-          <Input
-            type="url"
-            value={formData.backImage}
-            onChange={(e) => setFormData({ ...formData, backImage: e.target.value })}
-            placeholder="https://ejemplo.com/imagen-trasera.jpg"
-          />
-        </div>
+          {/* Galería de imágenes existentes - arrastrables */}
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-4">
+              {images.map((img, index) => (
+                <div
+                  key={index}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`relative group aspect-square cursor-grab active:cursor-grabbing transition-all duration-200 ${
+                    draggedIndex === index ? 'opacity-50 scale-95' : ''
+                  } ${
+                    dragOverIndex === index ? 'ring-2 ring-orange-500 ring-offset-2' : ''
+                  }`}
+                >
+                  <img
+                    src={img}
+                    alt={`Imagen ${index + 1}`}
+                    className="w-full h-full object-contain bg-gray-50 rounded-lg border-2 border-gray-200 p-2 pointer-events-none"
+                  />
+                  {/* Indicador de arrastre */}
+                  <div className="absolute top-2 left-2 p-1 bg-gray-800/70 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                    </svg>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                    title="Eliminar imagen"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  {index === 0 && (
+                    <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-orange-500 text-white text-xs font-medium rounded shadow">
+                      Principal
+                    </span>
+                  )}
+                  {/* Número de orden */}
+                  <span className="absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center bg-gray-800/70 text-white text-xs font-bold rounded-full">
+                    {index + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
-        <div className="col-span-12 md:col-span-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Imagen Lateral (URL)
-          </label>
-          <Input
-            type="url"
-            value={formData.sideImage}
-            onChange={(e) => setFormData({ ...formData, sideImage: e.target.value })}
-            placeholder="https://ejemplo.com/imagen-lateral.jpg"
-          />
+          {images.length > 1 && (
+            <p className="text-xs text-gray-500 mb-3">
+              💡 Arrastra las imágenes para cambiar el orden. La primera será la principal.
+            </p>
+          )}
+
+          {/* Agregar nueva imagen (si no se alcanzó el límite) */}
+          {images.length < MAX_IMAGES ? (
+            <ImageUploadField
+              key={`image-upload-${images.length}`}
+              label={`Agregar imagen (${images.length}/${MAX_IMAGES})`}
+              value=""
+              onChange={(value) => {
+                if (value) addImage(value);
+              }}
+            />
+          ) : (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+              <p className="text-sm text-green-700 font-medium">
+                ✓ Máximo de {MAX_IMAGES} imágenes alcanzado
+              </p>
+            </div>
+          )}
+
+          {images.length === 0 && (
+            <p className="text-xs text-red-500 mt-1">Debes agregar al menos una imagen</p>
+          )}
         </div>
 
         {/* Sexta fila: Slug, Tags, Estado Activo */}
@@ -434,42 +538,25 @@ export const TemplateForm = ({ template, onSubmit, onDelete }: TemplateFormProps
       </div>
 
       {/* Actions */}
-      <div className="grid grid-cols-12 gap-3 pt-6 mt-6 border-t border-gray-200">
-        {onDelete ? (
-          <>
-            <div className="col-span-12 sm:col-span-6">
-              <Button
-                type="button"
-                onClick={onDelete}
-                variant="admin-danger"
-                className="w-full"
-              >
-                Eliminar Modelo
-              </Button>
-            </div>
-            <div className="col-span-12 sm:col-span-6">
-              <Button
-                type="submit"
-                variant="admin-primary"
-                className="w-full"
-                disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0}
-              >
-                Actualizar Modelo
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="col-span-12">
-            <Button
-              type="submit"
-              variant="admin-primary"
-              className="w-full"
-              disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0}
-            >
-              Crear Modelo
-            </Button>
-          </div>
+      <div className="flex gap-3 pt-6 mt-6 border-t border-gray-200">
+        {onDelete && (
+          <Button
+            type="button"
+            onClick={onDelete}
+            variant="admin-danger"
+            className="flex-1"
+          >
+            Eliminar
+          </Button>
         )}
+        <Button
+          type="submit"
+          variant="admin-primary"
+          className="flex-1"
+          disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0 || images.length === 0}
+        >
+          {template ? 'Guardar' : 'Crear'}
+        </Button>
       </div>
     </form>
   );

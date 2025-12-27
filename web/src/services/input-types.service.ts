@@ -1,21 +1,36 @@
 import api from './api.service';
 
+export interface InputTypeSize {
+  id: number;
+  sizeId: number;
+  size: {
+    id: number;
+    name: string;
+    abbreviation: string;
+    sortOrder: number;
+  };
+}
+
 export interface InputType {
   id: number;
   name: string;
   slug: string;
   description: string | null;
   sortOrder: number;
+  hasVariants: boolean;
   isActive: boolean;
+  inputTypeSizes: InputTypeSize[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateInputTypeDto {
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   sortOrder?: number;
+  hasVariants?: boolean;
+  sizeIds?: number[];
 }
 
 export interface UpdateInputTypeDto {
@@ -23,7 +38,9 @@ export interface UpdateInputTypeDto {
   slug?: string;
   description?: string;
   sortOrder?: number;
+  hasVariants?: boolean;
   isActive?: boolean;
+  sizeIds?: number[];
 }
 
 export const inputTypesService = {

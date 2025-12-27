@@ -126,4 +126,16 @@ router.put('/:id', inputsController.updateInput);
 router.delete('/:id', inputsController.deleteInput);
 router.post('/:id/recalculate-stock', inputsController.recalculateStock);
 
+// Rutas para colores y variantes de insumos
+router.post('/:id/colors', inputsController.addColorToInput);
+router.delete('/:id/colors/:colorId', inputsController.removeColorFromInput);
+router.get('/:id/variants', inputsController.getInputVariants);
+router.post('/:id/regenerate-variants', inputsController.regenerateVariants);
+
+// Rutas para variantes individuales
+router.get('/variants/:variantId', inputsController.getInputVariantById);
+router.put('/variants/:variantId', inputsController.updateInputVariant);
+router.post('/variants/:variantId/stock', inputsController.updateVariantStock);
+router.get('/variants/:variantId/movements', inputsController.getVariantMovements);
+
 export default router;

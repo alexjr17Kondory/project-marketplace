@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { inputTypesService, type InputType } from '../../services/input-types.service';
-import { Plus, Edit, Trash2, Check, X } from 'lucide-react';
+import { Plus, Settings, Check, X } from 'lucide-react';
 
 export default function InputTypesPage() {
   const navigate = useNavigate();
@@ -25,18 +25,6 @@ export default function InputTypesPage() {
       console.error(err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este tipo de insumo?')) return;
-
-    try {
-      await inputTypesService.delete(id);
-      await loadInputTypes();
-    } catch (err) {
-      alert('Error al eliminar el tipo de insumo');
-      console.error(err);
     }
   };
 
@@ -148,17 +136,10 @@ export default function InputTypesPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => navigate(`/admin-panel/input-types/${inputType.id}`)}
-                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-900 mr-4"
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Editar"
                       >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(inputType.id)}
-                        className="inline-flex items-center gap-1 text-red-600 hover:text-red-900"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                        <Settings className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>

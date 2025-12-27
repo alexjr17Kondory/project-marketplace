@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { inputTypesService, type CreateInputTypeDto, type UpdateInputTypeDto } from '../../services/input-types.service';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { catalogsService, type Size } from '../../services/catalogs.service';
+import { Button } from '../../components/shared/Button';
+import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 
 export default function InputTypeDetailPage() {
   const navigate = useNavigate();
@@ -12,16 +14,28 @@ export default function InputTypeDetailPage() {
     name: '',
     description: '',
     sortOrder: 0,
+    sizeIds: [],
   });
 
+  const [availableSizes, setAvailableSizes] = useState<Size[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    loadSizes();
     if (isEditing) {
       loadInputType();
     }
   }, [id]);
+
+  const loadSizes = async () => {
+    try {
+      const sizes = await catalogsService.getSizes();
+      setAvailableSizes(sizes.filter((s) => s.isActive));
+    } catch (err) {
+      console.error('Error al cargar tallas:', err);
+    }
+  };
 
   const loadInputType = async () => {
     try {
@@ -31,6 +45,7 @@ export default function InputTypeDetailPage() {
         name: data.name,
         description: data.description || '',
         sortOrder: data.sortOrder,
+        sizeIds: data.inputTypeSizes?.map((its) => its.sizeId) || [],
       });
     } catch (err) {
       setError('Error al cargar el tipo de insumo');
@@ -52,20 +67,44 @@ export default function InputTypeDetailPage() {
       setLoading(true);
       setError(null);
 
+      // hasVariants se determina automáticamente por si hay tallas seleccionadas
+      const hasVariants = formData.sizeIds && formData.sizeIds.length > 0;
+
       if (isEditing) {
         const updateData: UpdateInputTypeDto = {
           name: formData.name,
           description: formData.description || undefined,
           sortOrder: formData.sortOrder,
+          hasVariants,
+          sizeIds: formData.sizeIds || [],
         };
         await inputTypesService.update(parseInt(id!), updateData);
       } else {
-        await inputTypesService.create(formData);
+        await inputTypesService.create({
+          ...formData,
+          hasVariants,
+          sizeIds: formData.sizeIds || [],
+        });
       }
 
       navigate('/admin-panel/input-types');
     } catch (err) {
       setError('Error al guardar el tipo de insumo');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('¿Estás seguro de eliminar este tipo de insumo?')) return;
+
+    try {
+      setLoading(true);
+      await inputTypesService.delete(parseInt(id!));
+      navigate('/admin-panel/input-types');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error al eliminar el tipo de insumo');
       console.error(err);
     } finally {
       setLoading(false);
@@ -80,6 +119,15 @@ export default function InputTypeDetailPage() {
     }));
   };
 
+  const toggleSize = (sizeId: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      sizeIds: prev.sizeIds?.includes(sizeId)
+        ? prev.sizeIds.filter((id) => id !== sizeId)
+        : [...(prev.sizeIds || []), sizeId],
+    }));
+  };
+
   if (loading && isEditing) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -91,25 +139,24 @@ export default function InputTypeDetailPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <button
-            onClick={() => navigate('/admin-panel/input-types')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isEditing ? 'Editar Tipo de Insumo' : 'Nuevo Tipo de Insumo'}
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {isEditing
-                ? 'Modifica la información del tipo de insumo'
-                : 'Crea un nuevo tipo de insumo para el inventario'}
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isEditing ? 'Editar Tipo de Insumo' : 'Nuevo Tipo de Insumo'}
+          </h1>
+          <p className="text-gray-600 mt-1 text-sm">
+            {isEditing
+              ? 'Modifica la información del tipo de insumo'
+              : 'Crea un nuevo tipo de insumo para el inventario'}
+          </p>
         </div>
+        <button
+          onClick={() => navigate('/admin-panel/input-types')}
+          className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a Tipos de Insumo
+        </button>
       </div>
 
       {/* Error message */}
@@ -121,7 +168,7 @@ export default function InputTypeDetailPage() {
 
       {/* Form */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <form onSubmit={handleSubmit} className="p-6 md:p-8">
+        <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-6">
             {/* Nombre */}
             <div>
@@ -135,7 +182,7 @@ export default function InputTypeDetailPage() {
                 value={formData.name}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
-                placeholder="Ej: Sublimación, DTF, Vinilo"
+                placeholder="Ej: Camisetas Base, Sublimación, DTF"
                 required
               />
             </div>
@@ -175,27 +222,81 @@ export default function InputTypeDetailPage() {
                 Los números menores aparecen primero en el listado
               </p>
             </div>
+
+            {/* Separador */}
+            <hr className="border-gray-200" />
+
+            {/* Tallas Disponibles */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tallas Disponibles
+              </label>
+              <p className="text-sm text-gray-500 mb-3">
+                Selecciona las tallas que aplican a este tipo de insumo (ej: camisetas, gorras).
+                Si no se seleccionan tallas, los insumos de este tipo se manejarán por unidad simple (ej: tintas, papel).
+              </p>
+              <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-96 overflow-y-auto">
+                {availableSizes.length === 0 ? (
+                  <p className="text-sm text-gray-500">No hay tallas disponibles</p>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {availableSizes.map((size) => (
+                      <label
+                        key={size.id}
+                        className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${
+                          formData.sizeIds?.includes(size.id)
+                            ? 'bg-orange-50 border-2 border-orange-500'
+                            : 'bg-white border-2 border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.sizeIds?.includes(size.id) || false}
+                          onChange={() => toggleSize(size.id)}
+                          className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900">
+                            {size.abbreviation}
+                          </div>
+                          <div className="text-xs text-gray-500">{size.name}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {formData.sizeIds && formData.sizeIds.length > 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  {formData.sizeIds.length} talla{formData.sizeIds.length !== 1 ? 's' : ''} seleccionada{formData.sizeIds.length !== 1 ? 's' : ''} - Los insumos generarán variantes (talla × color)
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
-            <button
-              type="button"
-              onClick={() => navigate('/admin-panel/input-types')}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <X className="w-4 h-4" />
-              Cancelar
-            </button>
-            <button
+          <div className="mt-8 flex gap-3">
+            {isEditing && (
+              <Button
+                type="button"
+                variant="admin-danger"
+                onClick={handleDelete}
+                disabled={loading}
+                className="flex-1"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar
+              </Button>
+            )}
+            <Button
               type="submit"
+              variant="admin-primary"
               disabled={loading}
-              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1"
             >
-              <Save className="w-4 h-4" />
-              {loading ? 'Guardando...' : 'Guardar Tipo de Insumo'}
-            </button>
+              <Save className="w-4 h-4 mr-2" />
+              {loading ? 'Guardando...' : 'Guardar'}
+            </Button>
           </div>
         </form>
       </div>

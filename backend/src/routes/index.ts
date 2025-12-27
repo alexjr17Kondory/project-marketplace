@@ -24,6 +24,8 @@ import labelTemplatesRoutes from './label-templates.routes';
 import suppliersRoutes from './suppliers.routes';
 import purchaseOrdersRoutes from './purchase-orders.routes';
 import inventoryRoutes from './inventory.routes';
+import inventoryCountsRoutes from './inventory-counts.routes';
+import inventoryConversionsRoutes from './inventory-conversions.routes';
 
 const router = Router();
 
@@ -137,5 +139,11 @@ router.use('/purchase-orders', purchaseOrdersRoutes);
 
 // Rutas de inventario (movimientos, ajustes)
 router.use('/inventory', inventoryRoutes);
+
+// Rutas de conteo de inventario físico
+router.use('/inventory-counts', inventoryCountsRoutes);
+
+// Rutas de conversión de inventario (insumos a productos)
+router.use('/inventory-conversions', inventoryConversionsRoutes);
 
 export default router;

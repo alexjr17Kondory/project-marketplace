@@ -314,6 +314,182 @@ export const inputBatchesService = {
     });
   },
 
+  // Obtener todos los movimientos de insumos con filtros (incluye batch y variant movements)
+  async getAllMovements(filters: {
+    inputId?: number;
+    movementType?: MovementType;
+    referenceType?: string;
+    limit?: number;
+  } = {}): Promise<any[]> {
+    const limitPerType = Math.ceil((filters.limit || 500) / 2);
+
+    // Fetch InputBatchMovement
+    const batchWhere: Prisma.InputBatchMovementWhereInput = {};
+    if (filters.inputId) {
+      batchWhere.inputId = filters.inputId;
+    }
+    if (filters.movementType) {
+      batchWhere.movementType = filters.movementType;
+    }
+    if (filters.referenceType) {
+      batchWhere.referenceType = filters.referenceType;
+    }
+
+    const batchMovements = await prisma.inputBatchMovement.findMany({
+      where: batchWhere,
+      orderBy: { createdAt: 'desc' },
+      take: limitPerType,
+      include: {
+        input: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            unitOfMeasure: true,
+          },
+        },
+        inputBatch: {
+          select: {
+            batchNumber: true,
+          },
+        },
+      },
+    });
+
+    // Fetch InputVariantMovement
+    const variantWhere: Prisma.InputVariantMovementWhereInput = {};
+    if (filters.movementType) {
+      variantWhere.movementType = filters.movementType;
+    }
+    if (filters.referenceType) {
+      variantWhere.referenceType = filters.referenceType;
+    }
+
+    const variantMovements = await prisma.inputVariantMovement.findMany({
+      where: variantWhere,
+      orderBy: { createdAt: 'desc' },
+      take: limitPerType,
+      include: {
+        inputVariant: {
+          include: {
+            input: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                unitOfMeasure: true,
+              },
+            },
+            color: {
+              select: {
+                id: true,
+                name: true,
+                hexCode: true,
+              },
+            },
+            size: {
+              select: {
+                id: true,
+                name: true,
+                abbreviation: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Combine and normalize both types of movements
+    const normalizedBatchMovements = batchMovements.map((m) => ({
+      id: m.id,
+      type: 'batch' as const,
+      inputId: m.inputId,
+      movementType: m.movementType,
+      quantity: m.quantity,
+      reason: m.reason,
+      notes: m.notes,
+      referenceType: m.referenceType,
+      referenceId: m.referenceId,
+      userId: m.userId,
+      createdAt: m.createdAt,
+      input: m.input,
+      inputBatch: m.inputBatch,
+      inputVariant: null,
+    }));
+
+    const normalizedVariantMovements = variantMovements.map((m) => ({
+      id: m.id,
+      type: 'variant' as const,
+      inputId: m.inputVariant?.input?.id || null,
+      movementType: m.movementType,
+      quantity: m.quantity,
+      reason: m.reason,
+      notes: m.notes,
+      referenceType: m.referenceType,
+      referenceId: m.referenceId,
+      userId: m.userId,
+      createdAt: m.createdAt,
+      input: m.inputVariant?.input || null,
+      inputBatch: null,
+      inputVariant: m.inputVariant ? {
+        id: m.inputVariant.id,
+        sku: m.inputVariant.sku,
+        color: m.inputVariant.color,
+        size: m.inputVariant.size,
+      } : null,
+    }));
+
+    // Combine and sort by date
+    const allMovements = [...normalizedBatchMovements, ...normalizedVariantMovements]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, filters.limit || 500);
+
+    return allMovements;
+  },
+
+  // Obtener estadísticas de movimientos de insumos
+  async getInputMovementsStats(): Promise<{
+    totalInputs: number;
+    totalStock: number;
+    lowStock: number;
+    todayMovements: number;
+  }> {
+    const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+
+    const [totalInputs, lowStockInputs, totalStockAgg, batchTodayMovements, variantTodayMovements] = await Promise.all([
+      prisma.input.count({ where: { isActive: true } }),
+      prisma.input.findMany({
+        where: { isActive: true },
+        select: { currentStock: true, minStock: true },
+      }),
+      prisma.input.aggregate({
+        where: { isActive: true },
+        _sum: { currentStock: true },
+      }),
+      prisma.inputBatchMovement.count({
+        where: {
+          createdAt: { gte: todayStart },
+        },
+      }),
+      prisma.inputVariantMovement.count({
+        where: {
+          createdAt: { gte: todayStart },
+        },
+      }),
+    ]);
+
+    const lowStock = lowStockInputs.filter(
+      (i) => Number(i.currentStock) <= Number(i.minStock) && Number(i.currentStock) > 0
+    ).length;
+
+    return {
+      totalInputs,
+      totalStock: Number(totalStockAgg._sum.currentStock || 0),
+      lowStock,
+      todayMovements: batchTodayMovements + variantTodayMovements,
+    };
+  },
+
   // Obtener movimientos por insumo
   async getMovementsByInputId(
     inputId: number,

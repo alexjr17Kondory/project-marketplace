@@ -33,6 +33,7 @@ import {
   ShoppingCart,
   Printer,
   ArrowDownUp,
+  ArrowRightLeft,
   ClipboardList,
   Building2,
 } from 'lucide-react';
@@ -131,6 +132,8 @@ const menuWithSubmenus: {
     submenu: [
       { path: '/admin-panel/suppliers', label: 'Proveedores', icon: Building2, permission: 'inventory.view' },
       { path: '/admin-panel/purchase-orders', label: 'Órdenes de Compra', icon: ClipboardList, permission: 'inventory.view' },
+      { path: '/admin-panel/inventory-conversions', label: 'Conversiones', icon: ArrowRightLeft, permission: 'inventory.view' },
+      { path: '/admin-panel/inventory-counts', label: 'Conteo Físico', icon: Archive, permission: 'inventory.view' },
       { path: '/admin-panel/inventory-movements', label: 'Movimientos', icon: ArrowDownUp, permission: 'inventory.view' },
     ],
   },

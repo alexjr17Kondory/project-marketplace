@@ -49,8 +49,14 @@ import { PaymentsPage } from './pages/admin/PaymentsPage';
 import CashRegistersPage from './pages/admin/CashRegistersPage';
 import BarcodePrintPage from './pages/admin/BarcodePrintPage';
 import SuppliersPage from './pages/admin/SuppliersPage';
+import SupplierDetailPage from './pages/admin/SupplierDetailPage';
 import PurchaseOrdersPage from './pages/admin/PurchaseOrdersPage';
+import PurchaseOrderDetailPage from './pages/admin/PurchaseOrderDetailPage';
 import InventoryMovementsPage from './pages/admin/InventoryMovementsPage';
+import InventoryCountsPage from './pages/admin/InventoryCountsPage';
+import InventoryCountDetailPage from './pages/admin/InventoryCountDetailPage';
+import InventoryConversionsPage from './pages/admin/InventoryConversionsPage';
+import InventoryConversionDetailPage from './pages/admin/InventoryConversionDetailPage';
 import {
   SettingsGeneralPage,
   SettingsAppearancePage,
@@ -424,6 +430,14 @@ function App() {
                                       }
                                     />
                                     <Route
+                                      path="/suppliers/:id"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <SupplierDetailPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
                                       path="/purchase-orders"
                                       element={
                                         <PermissionRoute permission="inventory.view">
@@ -432,10 +446,50 @@ function App() {
                                       }
                                     />
                                     <Route
+                                      path="/purchase-orders/:id"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <PurchaseOrderDetailPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
                                       path="/inventory-movements"
                                       element={
                                         <PermissionRoute permission="inventory.view">
                                           <InventoryMovementsPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/inventory-counts"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <InventoryCountsPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/inventory-counts/:id"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <InventoryCountDetailPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/inventory-conversions"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <InventoryConversionsPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/inventory-conversions/:id"
+                                      element={
+                                        <PermissionRoute permission="inventory.view">
+                                          <InventoryConversionDetailPage />
                                         </PermissionRoute>
                                       }
                                     />

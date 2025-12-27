@@ -165,19 +165,19 @@ export const ProductTypesPage = () => {
 
   if (viewMode === 'add') {
     return (
-      <div className="p-4 md:p-8">
+      <div className="p-6">
         {/* Header con botón volver */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Agregar Nuevo Tipo de Producto</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Agregar Nuevo Tipo de Producto</h1>
             <p className="text-gray-600 mt-1 text-sm">Configura el tipo y sus tallas disponibles</p>
           </div>
           <button
             onClick={cancelEdit}
-            className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Volver a Tipos</span>
+            <ArrowLeft className="w-4 h-4" />
+            Volver a Tipos
           </button>
         </div>
 
@@ -190,19 +190,19 @@ export const ProductTypesPage = () => {
 
   if (viewMode === 'edit' && selectedType) {
     return (
-      <div className="p-4 md:p-8">
+      <div className="p-6">
         {/* Header con botón volver */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Editar Tipo de Producto</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Editar Tipo de Producto</h1>
             <p className="text-gray-600 mt-1 text-sm">Actualiza el tipo y sus tallas asignadas</p>
           </div>
           <button
             onClick={cancelEdit}
-            className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Volver a Tipos</span>
+            <ArrowLeft className="w-4 h-4" />
+            Volver a Tipos
           </button>
         </div>
 
@@ -247,15 +247,15 @@ export const ProductTypesPage = () => {
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Tipos de Producto</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Tipos de Producto</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona los tipos y sus tallas asignadas</p>
         </div>
-        <Button onClick={() => setViewMode('add')} variant="admin-primary">
-          <Plus className="w-5 h-5 mr-2" />
+        <Button onClick={() => setViewMode('add')} variant="admin-orange" size="sm">
+          <Plus className="w-4 h-4" />
           Agregar Tipo
         </Button>
       </div>
@@ -318,8 +318,8 @@ export const ProductTypesPage = () => {
                         : 'Comienza agregando tu primer tipo de producto'}
                     </p>
                     {!globalFilter && (
-                      <Button onClick={() => setViewMode('add')} variant="admin-primary">
-                        <Plus className="w-5 h-5 mr-2" />
+                      <Button onClick={() => setViewMode('add')} variant="admin-orange" size="sm">
+                        <Plus className="w-4 h-4" />
                         Agregar Tipo
                       </Button>
                     )}

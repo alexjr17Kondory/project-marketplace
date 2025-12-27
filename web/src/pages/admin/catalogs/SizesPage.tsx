@@ -29,13 +29,13 @@ export const SizesPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     abbreviation: '',
-    order: 0,
-    active: true,
+    sortOrder: 0,
+    isActive: true,
   });
 
   const columns = useMemo(
     () => [
-      columnHelper.accessor('order', {
+      columnHelper.accessor('sortOrder', {
         header: ({ column }) => (
           <button
             onClick={() => column.toggleSorting()}
@@ -59,7 +59,7 @@ export const SizesPage = () => {
           </span>
         ),
       }),
-      columnHelper.accessor('active', {
+      columnHelper.accessor('isActive', {
         header: 'Estado',
         cell: (info) => {
           const active = info.getValue();
@@ -114,7 +114,7 @@ export const SizesPage = () => {
 
   const openAddModal = () => {
     setEditingSize(null);
-    setFormData({ name: '', abbreviation: '', order: sizes.length + 1, active: true });
+    setFormData({ name: '', abbreviation: '', sortOrder: sizes.length + 1, isActive: true });
     setIsModalOpen(true);
   };
 
@@ -123,8 +123,8 @@ export const SizesPage = () => {
     setFormData({
       name: size.name,
       abbreviation: size.abbreviation,
-      order: size.order,
-      active: size.active,
+      sortOrder: size.sortOrder,
+      isActive: size.isActive,
     });
     setIsModalOpen(true);
   };
@@ -139,7 +139,7 @@ export const SizesPage = () => {
       toast.success('Talla creada correctamente');
     }
     setIsModalOpen(false);
-    setFormData({ name: '', abbreviation: '', order: 0, active: true });
+    setFormData({ name: '', abbreviation: '', sortOrder: 0, isActive: true });
   };
 
   const handleDelete = (id: string) => {
@@ -150,15 +150,15 @@ export const SizesPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Tallas</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Tallas</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona las tallas disponibles</p>
         </div>
-        <Button onClick={openAddModal} variant="admin-primary">
-          <Plus className="w-5 h-5 mr-2" />
+        <Button onClick={openAddModal} variant="admin-orange" size="sm">
+          <Plus className="w-4 h-4" />
           Agregar Talla
         </Button>
       </div>
@@ -291,8 +291,8 @@ export const SizesPage = () => {
             </label>
             <Input
               type="number"
-              value={formData.order}
-              onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
+              value={formData.sortOrder}
+              onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) })}
               min="1"
               required
             />
@@ -301,12 +301,12 @@ export const SizesPage = () => {
           <div className="flex items-center">
             <input
               type="checkbox"
-              id="active"
-              checked={formData.active}
-              onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+              id="isActive"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <label htmlFor="active" className="ml-2 text-sm font-medium text-gray-700">
+            <label htmlFor="isActive" className="ml-2 text-sm font-medium text-gray-700">
               Activo
             </label>
           </div>

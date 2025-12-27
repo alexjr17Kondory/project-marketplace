@@ -29,7 +29,7 @@ export const CategoriesPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    active: true,
+    isActive: true,
   });
 
   const columns = useMemo(
@@ -50,7 +50,7 @@ export const CategoriesPage = () => {
         header: 'Descripción',
         cell: (info) => <span className="text-gray-500">{info.getValue() || '-'}</span>,
       }),
-      columnHelper.accessor('active', {
+      columnHelper.accessor('isActive', {
         header: 'Estado',
         cell: (info) => {
           const active = info.getValue();
@@ -105,7 +105,7 @@ export const CategoriesPage = () => {
 
   const openAddModal = () => {
     setEditingCategory(null);
-    setFormData({ name: '', description: '', active: true });
+    setFormData({ name: '', description: '', isActive: true });
     setIsModalOpen(true);
   };
 
@@ -114,7 +114,7 @@ export const CategoriesPage = () => {
     setFormData({
       name: category.name,
       description: category.description || '',
-      active: category.active,
+      isActive: category.isActive,
     });
     setIsModalOpen(true);
   };
@@ -129,7 +129,7 @@ export const CategoriesPage = () => {
       toast.success('Categoría creada correctamente');
     }
     setIsModalOpen(false);
-    setFormData({ name: '', description: '', active: true });
+    setFormData({ name: '', description: '', isActive: true });
   };
 
   const handleDelete = (id: string) => {
@@ -140,15 +140,15 @@ export const CategoriesPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Categorías</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Categorías</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona las categorías de productos</p>
         </div>
-        <Button onClick={openAddModal} variant="admin-primary">
-          <Plus className="w-5 h-5 mr-2" />
+        <Button onClick={openAddModal} variant="admin-orange" size="sm">
+          <Plus className="w-4 h-4" />
           Agregar Categoría
         </Button>
       </div>
@@ -278,12 +278,12 @@ export const CategoriesPage = () => {
           <div className="flex items-center">
             <input
               type="checkbox"
-              id="active"
-              checked={formData.active}
-              onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+              id="isActive"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <label htmlFor="active" className="ml-2 text-sm font-medium text-gray-700">
+            <label htmlFor="isActive" className="ml-2 text-sm font-medium text-gray-700">
               Activo
             </label>
           </div>

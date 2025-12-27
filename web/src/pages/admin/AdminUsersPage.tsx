@@ -258,14 +258,14 @@ export const AdminUsersPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Administradores</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Administradores</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona los administradores del sistema</p>
         </div>
-        <Button onClick={handleOpenForm} className="flex items-center gap-2">
+        <Button onClick={handleOpenForm} variant="admin-orange" size="sm">
           <Plus className="w-4 h-4" />
           Nuevo Admin
         </Button>
@@ -540,16 +540,8 @@ export const AdminUsersPage = () => {
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="admin-secondary"
-              onClick={() => setIsFormOpen(false)}
-              className="flex-1"
-            >
-              Cancelar
-            </Button>
             <Button type="submit" className="flex-1">
-              Crear Admin
+              Crear
             </Button>
           </div>
         </form>

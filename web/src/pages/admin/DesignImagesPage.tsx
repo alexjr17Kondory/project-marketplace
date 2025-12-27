@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { designImagesService, type DesignImage } from '../../services/design-images.service';
-import { Plus, Edit, Trash2, Image as ImageIcon, Search, Filter, Upload, Link, Loader2 } from 'lucide-react';
+import { Button } from '../../components/shared/Button';
+import { Plus, Settings, Trash2, Image as ImageIcon, Search, Filter, Upload, Link, Loader2 } from 'lucide-react';
 
 export default function DesignImagesPage() {
   const [images, setImages] = useState<DesignImage[]>([]);
@@ -261,7 +262,7 @@ export default function DesignImagesPage() {
           </div>
           <button
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4" />
             Nueva Imagen
@@ -358,20 +359,13 @@ export default function DesignImagesPage() {
                   }}
                 />
                 {/* Overlay con acciones */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button
                     onClick={() => openEditModal(image)}
                     className="p-2 bg-white rounded-full text-blue-600 hover:bg-blue-50"
                     title="Editar"
                   >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(image.id)}
-                    className="p-2 bg-white rounded-full text-red-600 hover:bg-red-50"
-                    title="Eliminar"
-                  >
-                    <Trash2 className="w-4 h-4" />
+                    <Settings className="w-4 h-4" />
                   </button>
                 </div>
                 {/* Badge de estado */}
@@ -586,20 +580,28 @@ export default function DesignImagesPage() {
                 </div>
 
                 {/* Botones */}
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
+                <div className="flex gap-3 pt-4 border-t mt-4">
+                  {editingImage && (
+                    <Button
+                      type="button"
+                      variant="admin-danger"
+                      onClick={() => {
+                        setShowModal(false);
+                        handleDelete(editingImage.id);
+                      }}
+                      className="flex-1"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Eliminar
+                    </Button>
+                  )}
+                  <Button
                     type="submit"
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    variant="admin-primary"
+                    className="flex-1"
                   >
-                    {editingImage ? 'Guardar Cambios' : 'Crear Imagen'}
-                  </button>
+                    {editingImage ? 'Guardar' : 'Crear'}
+                  </Button>
                 </div>
               </form>
             </div>

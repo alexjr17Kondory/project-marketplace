@@ -44,8 +44,8 @@ const mapApiSize = (s: any): Size => ({
   id: s.id,
   name: s.name,
   abbreviation: s.abbreviation,
-  order: s.sortOrder || 0,
-  active: s.isActive,
+  sortOrder: s.sortOrder || 0,
+  isActive: s.isActive,
   createdAt: new Date(s.createdAt || Date.now()),
   updatedAt: new Date(s.updatedAt || Date.now()),
 });
@@ -126,8 +126,8 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     const newSize = await catalogsService.createSize({
       name: sizeData.name,
       abbreviation: sizeData.abbreviation,
-      sortOrder: sizeData.order,
-      isActive: sizeData.active,
+      sortOrder: sizeData.sortOrder,
+      isActive: sizeData.isActive,
     });
     setSizes((prev) => [...prev, mapApiSize(newSize)]);
   };
@@ -136,8 +136,8 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     const apiUpdates: any = {};
     if (updates.name !== undefined) apiUpdates.name = updates.name;
     if (updates.abbreviation !== undefined) apiUpdates.abbreviation = updates.abbreviation;
-    if (updates.order !== undefined) apiUpdates.sortOrder = updates.order;
-    if (updates.active !== undefined) apiUpdates.isActive = updates.active;
+    if (updates.sortOrder !== undefined) apiUpdates.sortOrder = updates.sortOrder;
+    if (updates.isActive !== undefined) apiUpdates.isActive = updates.isActive;
 
     const updated = await catalogsService.updateSize(id, apiUpdates);
     setSizes((prev) => prev.map((s) => (s.id === id ? mapApiSize(updated) : s)));
@@ -153,7 +153,7 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     const newColor = await catalogsService.createColor({
       name: colorData.name,
       hexCode: colorData.hexCode,
-      isActive: colorData.active,
+      isActive: colorData.isActive,
     });
     setColors((prev) => [...prev, mapApiColor(newColor)]);
   };
@@ -162,7 +162,7 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     const apiUpdates: any = {};
     if (updates.name !== undefined) apiUpdates.name = updates.name;
     if (updates.hexCode !== undefined) apiUpdates.hexCode = updates.hexCode;
-    if (updates.active !== undefined) apiUpdates.isActive = updates.active;
+    if (updates.isActive !== undefined) apiUpdates.isActive = updates.isActive;
 
     const updated = await catalogsService.updateColor(id, apiUpdates);
     setColors((prev) => prev.map((c) => (c.id === id ? mapApiColor(updated) : c)));
@@ -178,7 +178,7 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     const newType = await catalogsService.createProductType({
       name: typeData.name,
       description: typeData.description,
-      isActive: typeData.active,
+      isActive: typeData.isActive,
     });
     setProductTypes((prev) => [...prev, mapApiProductType(newType)]);
   };
@@ -190,7 +190,7 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     const apiUpdates: any = {};
     if (updates.name !== undefined) apiUpdates.name = updates.name;
     if (updates.description !== undefined) apiUpdates.description = updates.description;
-    if (updates.active !== undefined) apiUpdates.isActive = updates.active;
+    if (updates.isActive !== undefined) apiUpdates.isActive = updates.isActive;
 
     const updated = await catalogsService.updateProductType(id, apiUpdates);
     setProductTypes((prev) => prev.map((t) => (t.id === id ? mapApiProductType(updated) : t)));
@@ -227,7 +227,7 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     const newCategory = await catalogsService.createCategory({
       name: categoryData.name,
       description: categoryData.description,
-      isActive: categoryData.active,
+      isActive: categoryData.isActive,
     });
     setCategories((prev) => [...prev, mapApiCategory(newCategory)]);
   };
@@ -239,7 +239,7 @@ export const CatalogsProvider = ({ children }: { children: ReactNode }) => {
     const apiUpdates: any = {};
     if (updates.name !== undefined) apiUpdates.name = updates.name;
     if (updates.description !== undefined) apiUpdates.description = updates.description;
-    if (updates.active !== undefined) apiUpdates.isActive = updates.active;
+    if (updates.isActive !== undefined) apiUpdates.isActive = updates.isActive;
 
     const updated = await catalogsService.updateCategory(id, apiUpdates);
     setCategories((prev) => prev.map((c) => (c.id === id ? mapApiCategory(updated) : c)));

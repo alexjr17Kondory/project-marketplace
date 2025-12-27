@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   useReactTable,
   getCoreRowModel,
@@ -13,8 +14,7 @@ import {
   Truck,
   Plus,
   Search,
-  Edit,
-  Trash2,
+  Settings,
   Phone,
   Mail,
   MapPin,
@@ -22,54 +22,20 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  AlertCircle,
 } from 'lucide-react';
-import { Modal } from '../../components/shared/Modal';
 import { Button } from '../../components/shared/Button';
-import { Input } from '../../components/shared/Input';
 import { useToast } from '../../context/ToastContext';
 import * as suppliersService from '../../services/suppliers.service';
 import type { Supplier, SupplierStats } from '../../services/suppliers.service';
 
 export default function SuppliersPage() {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stats, setStats] = useState<SupplierStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sorting, setSorting] = useState<SortingState>([]);
-
-  // Modal states
-  const [showModal, setShowModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Form state
-  const [formData, setFormData] = useState({
-    code: '',
-    name: '',
-    taxId: '',
-    taxIdType: 'NIT',
-    contactName: '',
-    email: '',
-    phone: '',
-    altPhone: '',
-    website: '',
-    address: '',
-    city: '',
-    department: '',
-    postalCode: '',
-    country: 'Colombia',
-    paymentTerms: '',
-    paymentMethod: '',
-    bankName: '',
-    bankAccountType: '',
-    bankAccount: '',
-    notes: '',
-    isActive: true,
-  });
 
   // Load data
   useEffect(() => {
@@ -93,110 +59,14 @@ export default function SuppliersPage() {
     }
   };
 
-  // Open create modal
-  const handleCreate = async () => {
-    try {
-      const code = await suppliersService.generateCode();
-      setFormData({
-        code,
-        name: '',
-        taxId: '',
-        taxIdType: 'NIT',
-        contactName: '',
-        email: '',
-        phone: '',
-        altPhone: '',
-        website: '',
-        address: '',
-        city: '',
-        department: '',
-        postalCode: '',
-        country: 'Colombia',
-        paymentTerms: '',
-        paymentMethod: '',
-        bankName: '',
-        bankAccountType: '',
-        bankAccount: '',
-        notes: '',
-        isActive: true,
-      });
-      setEditingSupplier(null);
-      setShowModal(true);
-    } catch (error) {
-      showToast('Error al generar código', 'error');
-    }
+  // Navigate to create page
+  const handleCreate = () => {
+    navigate('/admin-panel/suppliers/new');
   };
 
-  // Open edit modal
+  // Navigate to edit page
   const handleEdit = (supplier: Supplier) => {
-    setFormData({
-      code: supplier.code,
-      name: supplier.name,
-      taxId: supplier.taxId || '',
-      taxIdType: supplier.taxIdType || 'NIT',
-      contactName: supplier.contactName || '',
-      email: supplier.email || '',
-      phone: supplier.phone || '',
-      altPhone: supplier.altPhone || '',
-      website: supplier.website || '',
-      address: supplier.address || '',
-      city: supplier.city || '',
-      department: supplier.department || '',
-      postalCode: supplier.postalCode || '',
-      country: supplier.country || 'Colombia',
-      paymentTerms: supplier.paymentTerms || '',
-      paymentMethod: supplier.paymentMethod || '',
-      bankName: supplier.bankName || '',
-      bankAccountType: supplier.bankAccountType || '',
-      bankAccount: supplier.bankAccount || '',
-      notes: supplier.notes || '',
-      isActive: supplier.isActive,
-    });
-    setEditingSupplier(supplier);
-    setShowModal(true);
-  };
-
-  // Save supplier
-  const handleSave = async () => {
-    if (!formData.code || !formData.name) {
-      showToast('El código y nombre son requeridos', 'error');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      if (editingSupplier) {
-        await suppliersService.updateSupplier(editingSupplier.id, formData);
-        showToast('Proveedor actualizado', 'success');
-      } else {
-        await suppliersService.createSupplier(formData);
-        showToast('Proveedor creado', 'success');
-      }
-      setShowModal(false);
-      loadData();
-    } catch (error: any) {
-      showToast(error.response?.data?.message || 'Error al guardar', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Delete supplier
-  const handleDelete = async () => {
-    if (!supplierToDelete) return;
-
-    try {
-      setSaving(true);
-      await suppliersService.deleteSupplier(supplierToDelete.id);
-      showToast('Proveedor eliminado', 'success');
-      setShowDeleteModal(false);
-      setSupplierToDelete(null);
-      loadData();
-    } catch (error: any) {
-      showToast(error.response?.data?.message || 'Error al eliminar', 'error');
-    } finally {
-      setSaving(false);
-    }
+    navigate(`/admin-panel/suppliers/${supplier.id}`);
   };
 
   // Table columns
@@ -285,25 +155,15 @@ export default function SuppliersPage() {
       },
       {
         id: 'actions',
-        header: 'Acciones',
+        header: () => <div className="text-right">Acciones</div>,
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end">
             <button
               onClick={() => handleEdit(row.original)}
-              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
               title="Editar"
             >
-              <Edit className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                setSupplierToDelete(row.original);
-                setShowDeleteModal(true);
-              }}
-              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Eliminar"
-            >
-              <Trash2 className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         ),
@@ -350,20 +210,15 @@ export default function SuppliersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-orange-100 rounded-lg">
-            <Truck className="w-6 h-6 text-orange-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Proveedores</h1>
-            <p className="text-sm text-gray-500">Gestión de proveedores</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Proveedores</h1>
+          <p className="text-sm text-gray-500 mt-1">Gestión de proveedores</p>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="w-4 h-4 mr-2" />
+        <Button onClick={handleCreate} variant="admin-orange" size="sm">
+          <Plus className="w-4 h-4" />
           Nuevo Proveedor
         </Button>
       </div>
@@ -494,176 +349,6 @@ export default function SuppliersPage() {
           </div>
         )}
       </div>
-
-      {/* Create/Edit Modal */}
-      <Modal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title={editingSupplier ? 'Editar Proveedor' : 'Nuevo Proveedor'}
-        size="xl"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Código"
-            value={formData.code}
-            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-            required
-          />
-          <Input
-            label="Nombre / Razón Social"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo de Identificación
-            </label>
-            <select
-              value={formData.taxIdType}
-              onChange={(e) => setFormData({ ...formData, taxIdType: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="NIT">NIT</option>
-              <option value="RUT">RUT</option>
-              <option value="CC">Cédula</option>
-              <option value="CE">Cédula Extranjería</option>
-            </select>
-          </div>
-          <Input
-            label="Número de Identificación"
-            value={formData.taxId}
-            onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
-          />
-          <Input
-            label="Nombre de Contacto"
-            value={formData.contactName}
-            onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-          />
-          <Input
-            label="Email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          />
-          <Input
-            label="Teléfono"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          />
-          <Input
-            label="Teléfono Alternativo"
-            value={formData.altPhone}
-            onChange={(e) => setFormData({ ...formData, altPhone: e.target.value })}
-          />
-          <Input
-            label="Sitio Web"
-            value={formData.website}
-            onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-          />
-          <Input
-            label="Dirección"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          />
-          <Input
-            label="Ciudad"
-            value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-          />
-          <Input
-            label="Departamento"
-            value={formData.department}
-            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-          />
-          <Input
-            label="Términos de Pago"
-            value={formData.paymentTerms}
-            onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-            placeholder="Ej: 30 días"
-          />
-          <Input
-            label="Método de Pago"
-            value={formData.paymentMethod}
-            onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-            placeholder="Ej: Transferencia"
-          />
-          <Input
-            label="Banco"
-            value={formData.bankName}
-            onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-          />
-          <Input
-            label="Cuenta Bancaria"
-            value={formData.bankAccount}
-            onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
-          />
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
-              />
-              <span className="text-sm text-gray-700">Proveedor activo</span>
-            </label>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={() => setShowModal(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              'Guardar'
-            )}
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Delete Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Eliminar Proveedor"
-      >
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-red-100 rounded-full">
-            <AlertCircle className="w-6 h-6 text-red-600" />
-          </div>
-          <div>
-            <p className="text-gray-600">
-              ¿Estás seguro de eliminar el proveedor{' '}
-              <strong>{supplierToDelete?.name}</strong>?
-            </p>
-            <p className="text-sm text-gray-500 mt-2">Esta acción no se puede deshacer.</p>
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={handleDelete} disabled={saving}>
-            {saving ? 'Eliminando...' : 'Eliminar'}
-          </Button>
-        </div>
-      </Modal>
     </div>
   );
 }

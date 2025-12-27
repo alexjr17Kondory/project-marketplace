@@ -9,7 +9,7 @@ import {
   createColumnHelper,
   type SortingState,
 } from '@tanstack/react-table';
-import { Plus, Edit, Trash2, Power, PowerOff, Monitor, MapPin, Users, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Plus, Settings, Trash2, Power, Monitor, MapPin, Users, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { Modal } from '../../components/shared/Modal';
 import { Button } from '../../components/shared/Button';
@@ -35,6 +35,7 @@ export default function CashRegistersPage() {
     name: '',
     location: '',
     code: '',
+    isActive: true,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +59,7 @@ export default function CashRegistersPage() {
 
   const handleCreate = () => {
     setEditingRegister(null);
-    setFormData({ name: '', location: '', code: '' });
+    setFormData({ name: '', location: '', code: '', isActive: true });
     setFormErrors({});
     setShowModal(true);
   };
@@ -69,23 +70,10 @@ export default function CashRegistersPage() {
       name: register.name,
       location: register.location,
       code: register.code,
+      isActive: register.isActive,
     });
     setFormErrors({});
     setShowModal(true);
-  };
-
-  const handleToggleActive = async (register: CashRegister) => {
-    try {
-      await cashRegisterService.updateCashRegister(register.id, { isActive: !register.isActive });
-      showToast(
-        `Caja ${register.isActive ? 'desactivada' : 'activada'} correctamente`,
-        'success'
-      );
-      await loadCashRegisters();
-    } catch (error: any) {
-      console.error('Error toggling register:', error);
-      showToast(error.response?.data?.message || 'Error al actualizar la caja', 'error');
-    }
   };
 
   const handleDeleteClick = (register: CashRegister) => {
@@ -149,7 +137,7 @@ export default function CashRegistersPage() {
 
       await loadCashRegisters();
       setShowModal(false);
-      setFormData({ name: '', location: '', code: '' });
+      setFormData({ name: '', location: '', code: '', isActive: true });
     } catch (error: any) {
       console.error('Error saving register:', error);
       showToast(error.response?.data?.message || 'Error al guardar la caja registradora', 'error');
@@ -259,44 +247,17 @@ export default function CashRegistersPage() {
       columnHelper.display({
         id: 'actions',
         header: () => <div className="text-right">Acciones</div>,
-        cell: ({ row }) => {
-          const register = row.original;
-          const activeSession = getActiveSession(register);
-          return (
-            <div className="flex items-center justify-end gap-1">
-              <button
-                onClick={() => handleEdit(register)}
-                className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                title="Editar"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleToggleActive(register)}
-                className={`p-2 rounded-lg transition-colors ${
-                  register.isActive
-                    ? 'text-amber-600 hover:bg-amber-50'
-                    : 'text-green-600 hover:bg-green-50'
-                }`}
-                title={register.isActive ? 'Desactivar' : 'Activar'}
-              >
-                {register.isActive ? (
-                  <PowerOff className="w-4 h-4" />
-                ) : (
-                  <Power className="w-4 h-4" />
-                )}
-              </button>
-              <button
-                onClick={() => handleDeleteClick(register)}
-                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Eliminar"
-                disabled={!!activeSession}
-              >
-                <Trash2 className={`w-4 h-4 ${activeSession ? 'opacity-30' : ''}`} />
-              </button>
-            </div>
-          );
-        },
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end">
+            <button
+              onClick={() => handleEdit(row.original)}
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Editar"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+        ),
       }),
     ],
     []
@@ -334,15 +295,15 @@ export default function CashRegistersPage() {
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Cajas Registradoras</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Cajas Registradoras</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona las cajas registradoras del punto de venta</p>
         </div>
-        <Button onClick={handleCreate} variant="admin-primary">
-          <Plus className="w-5 h-5 mr-2" />
+        <Button onClick={handleCreate} variant="admin-orange" size="sm">
+          <Plus className="w-4 h-4" />
           Nueva Caja
         </Button>
       </div>
@@ -442,8 +403,8 @@ export default function CashRegistersPage() {
                         : 'Crea tu primera caja registradora para comenzar'}
                     </p>
                     {!globalFilter && (
-                      <Button onClick={handleCreate} variant="admin-primary">
-                        <Plus className="w-5 h-5 mr-2" />
+                      <Button onClick={handleCreate} variant="admin-orange" size="sm">
+                        <Plus className="w-4 h-4" />
                         Nueva Caja
                       </Button>
                     )}
@@ -563,23 +524,53 @@ export default function CashRegistersPage() {
             </p>
           </div>
 
+          {/* Estado Activo */}
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Estado de la caja</p>
+              <p className="text-xs text-gray-500">
+                {formData.isActive ? 'La caja esta activa y disponible' : 'La caja esta inactiva'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                formData.isActive ? 'bg-green-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  formData.isActive ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Actions */}
           <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowModal(false)}
-              disabled={submitting}
-              className="flex-1"
-            >
-              Cancelar
-            </Button>
+            {editingRegister && (
+              <Button
+                type="button"
+                variant="admin-danger"
+                onClick={() => {
+                  setShowModal(false);
+                  handleDeleteClick(editingRegister);
+                }}
+                disabled={submitting}
+                className="flex-1"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar
+              </Button>
+            )}
             <Button
               type="submit"
+              variant="admin-primary"
               disabled={submitting}
               className="flex-1"
             >
-              {submitting ? 'Guardando...' : editingRegister ? 'Actualizar' : 'Crear'}
+              {submitting ? 'Guardando...' : editingRegister ? 'Guardar' : 'Crear'}
             </Button>
           </div>
         </form>
@@ -611,7 +602,7 @@ export default function CashRegistersPage() {
           <div className="flex gap-3">
             <Button
               type="button"
-              variant="outline"
+              variant="admin-secondary"
               onClick={() => {
                 setShowDeleteModal(false);
                 setDeletingRegister(null);
@@ -622,8 +613,9 @@ export default function CashRegistersPage() {
             </Button>
             <Button
               type="button"
+              variant="admin-danger"
               onClick={handleDeleteConfirm}
-              className="flex-1 bg-red-600 hover:bg-red-700"
+              className="flex-1"
             >
               Eliminar
             </Button>

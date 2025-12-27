@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import { catalogsService } from '../../services/catalogs.service';
@@ -113,10 +113,25 @@ export const ProductTypeDetailPage = () => {
         await catalogsService.assignSizesToProductType(newType.id, selectedSizeIds);
       }
 
-      navigate('/admin/product-types');
+      navigate('/admin-panel/catalogs/product-types');
     } catch (error) {
       console.error('Error guardando tipo:', error);
       alert('Error al guardar el tipo de producto');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('¿Estás seguro de eliminar este tipo de producto?')) return;
+
+    try {
+      setSaving(true);
+      await catalogsService.deleteProductType(Number(id));
+      navigate('/admin-panel/catalogs/product-types');
+    } catch (error) {
+      console.error('Error eliminando tipo:', error);
+      alert('Error al eliminar el tipo de producto');
     } finally {
       setSaving(false);
     }
@@ -131,23 +146,24 @@ export const ProductTypeDetailPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate('/admin/product-types')}
-          className="p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             {isEditing ? 'Editar Tipo de Producto' : 'Nuevo Tipo de Producto'}
           </h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="text-gray-600 mt-1 text-sm">
             Configura el tipo de producto y las tallas disponibles
           </p>
         </div>
+        <button
+          onClick={() => navigate('/admin-panel/catalogs/product-types')}
+          className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a Tipos de Producto
+        </button>
       </div>
 
       {/* Formulario */}
@@ -272,21 +288,27 @@ export const ProductTypeDetailPage = () => {
         </div>
 
         {/* Botones */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t">
-          <Button
-            type="button"
-            variant="admin-secondary"
-            onClick={() => navigate('/admin/product-types')}
-          >
-            Cancelar
-          </Button>
+        <div className="flex gap-3 pt-4 border-t">
+          {isEditing && (
+            <Button
+              type="button"
+              variant="admin-danger"
+              onClick={handleDelete}
+              disabled={saving}
+              className="flex-1"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Eliminar
+            </Button>
+          )}
           <Button
             type="submit"
             variant="admin-primary"
             disabled={saving}
+            className="flex-1"
           >
             <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Crear Tipo'}
+            {saving ? 'Guardando...' : 'Guardar'}
           </Button>
         </div>
       </form>

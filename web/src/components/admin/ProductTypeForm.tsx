@@ -235,20 +235,16 @@ export const ProductTypeForm = ({ productType, onSubmit, onDelete }: ProductType
       </div>
 
       {/* Botones de acción */}
-      <div className="flex items-center justify-between pt-4 border-t">
-        {productType && onDelete ? (
-          <Button type="button" variant="admin-danger" onClick={onDelete}>
+      <div className="flex gap-3 pt-4 border-t">
+        {productType && onDelete && (
+          <Button type="button" variant="admin-danger" onClick={onDelete} className="flex-1">
             <X className="w-4 h-4 mr-2" />
-            Eliminar Tipo
+            Eliminar
           </Button>
-        ) : (
-          <div />
         )}
-        <div className="flex items-center gap-3">
-          <Button type="submit" variant="admin-primary">
-            {productType ? 'Actualizar Tipo' : 'Crear Tipo'}
-          </Button>
-        </div>
+        <Button type="submit" variant="admin-primary" className="flex-1">
+          {productType ? 'Guardar' : 'Crear'}
+        </Button>
       </div>
     </form>
   );

@@ -86,3 +86,137 @@ export async function recalculateStock(req: Request, res: Response, next: NextFu
     next(error);
   }
 }
+
+// ==================== COLORES Y VARIANTES ====================
+
+// Agregar color a un insumo
+export async function addColorToInput(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const inputId = parseInt(req.params['id']!);
+    const { colorId } = req.body;
+
+    if (!colorId) {
+      res.status(400).json({ success: false, message: 'colorId es requerido' });
+      return;
+    }
+
+    const input = await inputsService.addColorToInput(inputId, parseInt(colorId));
+    res.json({ success: true, data: input });
+  } catch (error: any) {
+    if (error.message) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    next(error);
+  }
+}
+
+// Remover color de un insumo
+export async function removeColorFromInput(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const inputId = parseInt(req.params['id']!);
+    const colorId = parseInt(req.params['colorId']!);
+
+    const input = await inputsService.removeColorFromInput(inputId, colorId);
+    res.json({ success: true, data: input });
+  } catch (error: any) {
+    if (error.message) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    next(error);
+  }
+}
+
+// Obtener variantes de un insumo
+export async function getInputVariants(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const inputId = parseInt(req.params['id']!);
+    const variants = await inputsService.getInputVariants(inputId);
+    res.json({ success: true, data: variants });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Obtener una variante por ID
+export async function getInputVariantById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const variantId = parseInt(req.params['variantId']!);
+    const variant = await inputsService.getInputVariantById(variantId);
+
+    if (!variant) {
+      res.status(404).json({ success: false, message: 'Variante no encontrada' });
+      return;
+    }
+
+    res.json({ success: true, data: variant });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Actualizar variante de insumo
+export async function updateInputVariant(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const variantId = parseInt(req.params['variantId']!);
+    const variant = await inputsService.updateInputVariant(variantId, req.body);
+    res.json({ success: true, data: variant });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Actualizar stock de variante
+export async function updateVariantStock(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const variantId = parseInt(req.params['variantId']!);
+    const { quantity, operation } = req.body;
+
+    if (!quantity || !operation) {
+      res.status(400).json({ success: false, message: 'quantity y operation son requeridos' });
+      return;
+    }
+
+    if (!['add', 'subtract'].includes(operation)) {
+      res.status(400).json({ success: false, message: 'operation debe ser "add" o "subtract"' });
+      return;
+    }
+
+    const variant = await inputsService.updateVariantStock(variantId, parseFloat(quantity), operation);
+    res.json({ success: true, data: variant });
+  } catch (error: any) {
+    if (error.message) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    next(error);
+  }
+}
+
+// Regenerar variantes de un insumo
+export async function regenerateVariants(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const inputId = parseInt(req.params['id']!);
+    const input = await inputsService.regenerateVariants(inputId);
+    res.json({ success: true, data: input });
+  } catch (error: any) {
+    if (error.message) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    next(error);
+  }
+}
+
+// Obtener movimientos de una variante de insumo
+export async function getVariantMovements(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const variantId = parseInt(req.params['variantId']!);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    const movements = await inputsService.getVariantMovements(variantId, limit);
+    res.json({ success: true, data: movements });
+  } catch (error) {
+    next(error);
+  }
+}

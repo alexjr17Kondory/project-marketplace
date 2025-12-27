@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { zoneTypesService, type CreateZoneTypeDto, type UpdateZoneTypeDto } from '../../services/zone-types.service';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { Button } from '../../components/shared/Button';
+import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 
 export default function ZoneTypeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -61,6 +62,21 @@ export default function ZoneTypeDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm('¿Estás seguro de eliminar este tipo de zona?')) return;
+
+    try {
+      setLoading(true);
+      await zoneTypesService.delete(parseInt(id!));
+      navigate('/admin-panel/zone-types');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error al eliminar el tipo de zona');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -97,25 +113,24 @@ export default function ZoneTypeDetailPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <button
-            onClick={() => navigate('/admin-panel/zone-types')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isNew ? 'Nuevo Tipo de Zona' : 'Editar Tipo de Zona'}
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {isNew
-                ? 'Crea un nuevo tipo de zona para las plantillas'
-                : 'Modifica la información del tipo de zona'}
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isNew ? 'Nuevo Tipo de Zona' : 'Editar Tipo de Zona'}
+          </h1>
+          <p className="text-gray-600 mt-1 text-sm">
+            {isNew
+              ? 'Crea un nuevo tipo de zona para las plantillas'
+              : 'Modifica la información del tipo de zona'}
+          </p>
         </div>
+        <button
+          onClick={() => navigate('/admin-panel/zone-types')}
+          className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a Tipos de Zona
+        </button>
       </div>
 
       {/* Error message */}
@@ -127,7 +142,7 @@ export default function ZoneTypeDetailPage() {
 
       {/* Form */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <form onSubmit={handleSubmit} className="p-6 md:p-8">
+        <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-6">
             {/* Nombre */}
             <div>
@@ -204,24 +219,28 @@ export default function ZoneTypeDetailPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
-            <button
-              type="button"
-              onClick={() => navigate('/admin-panel/zone-types')}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <X className="w-4 h-4" />
-              Cancelar
-            </button>
-            <button
+          <div className="mt-8 flex gap-3">
+            {!isNew && (
+              <Button
+                type="button"
+                variant="admin-danger"
+                onClick={handleDelete}
+                disabled={loading}
+                className="flex-1"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar
+              </Button>
+            )}
+            <Button
               type="submit"
+              variant="admin-primary"
               disabled={loading}
-              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1"
             >
-              <Save className="w-4 h-4" />
-              {loading ? 'Guardando...' : 'Guardar Tipo de Zona'}
-            </button>
+              <Save className="w-4 h-4 mr-2" />
+              {loading ? 'Guardando...' : 'Guardar'}
+            </Button>
           </div>
         </form>
       </div>

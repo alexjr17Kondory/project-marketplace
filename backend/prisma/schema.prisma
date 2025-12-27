@@ -150,6 +150,10 @@ model Size {
   productTypeSizes ProductTypeSize[]
   variants         ProductVariant[]
 
+  // Relaciones para insumos con variantes
+  inputTypeSizes InputTypeSize[]
+  inputVariants  InputVariant[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -165,6 +169,10 @@ model Color {
 
   productColors ProductColor[]
   variants      ProductVariant[]
+
+  // Relaciones para insumos con variantes
+  inputColors   InputColor[]
+  inputVariants InputVariant[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -636,18 +644,36 @@ model ZoneInput {
 // Tipo de Insumo (DTF, Vinilo, Sublimación, etc.)
 model InputType {
   id          Int     @id @default(autoincrement())
-  name        String // "DTF", "Vinilo Textil", "Sublimación"
-  slug        String  @unique // "dtf", "vinilo-textil", "sublimacion"
+  name        String // "DTF", "Vinilo Textil", "Sublimación", "Camisetas Base"
+  slug        String  @unique // "dtf", "vinilo-textil", "sublimacion", "camisetas-base"
   description String? @db.Text
   sortOrder   Int     @default(0)
   isActive    Boolean @default(true)
 
-  inputs Input[]
+  // Configuración de variantes
+  hasVariants Boolean @default(false) // Si true, los insumos de este tipo tienen tallas/colores
+
+  inputs         Input[]
+  inputTypeSizes InputTypeSize[] // Tallas disponibles para este tipo de insumo
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("input_types")
+}
+
+// Tabla intermedia para tipos de insumo y tallas
+model InputTypeSize {
+  id          Int       @id @default(autoincrement())
+  inputTypeId Int
+  inputType   InputType @relation(fields: [inputTypeId], references: [id], onDelete: Cascade)
+  sizeId      Int
+  size        Size      @relation(fields: [sizeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([inputTypeId, sizeId])
+  @@map("input_type_sizes")
 }
 
 // Insumo (material de inventario)
@@ -662,9 +688,9 @@ model Input {
 
   // Información del insumo
   unitOfMeasure String // "cm²", "unidad", "metro", etc.
-  unitCost      Decimal @db.Decimal(10, 2) // Costo por unidad
+  unitCost      Decimal @db.Decimal(10, 2) // Costo por unidad (para insumos sin variantes)
 
-  // Stock
+  // Stock (para insumos SIN variantes - cuando InputType.hasVariants = false)
   currentStock Decimal @default(0) @db.Decimal(10, 2) // Stock actual
   minStock     Decimal @default(0) @db.Decimal(10, 2) // Stock mínimo (alerta)
   maxStock     Decimal @default(0) @db.Decimal(10, 2) // Stock máximo
@@ -682,11 +708,104 @@ model Input {
   zoneInputs         ZoneInput[] // Zonas que usan este insumo
   purchaseOrderItems PurchaseOrderItem[] // Items de órdenes de compra
 
+  // Relaciones para variantes (cuando InputType.hasVariants = true)
+  inputColors InputColor[] // Colores disponibles para este insumo
+  variants    InputVariant[] // Variantes (combinaciones color+talla)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([inputTypeId])
   @@map("inputs")
+}
+
+// Tabla intermedia para insumos y colores
+model InputColor {
+  id      Int   @id @default(autoincrement())
+  inputId Int
+  input   Input @relation(fields: [inputId], references: [id], onDelete: Cascade)
+  colorId Int
+  color   Color @relation(fields: [colorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([inputId, colorId])
+  @@map("input_colors")
+}
+
+// Variante de Insumo (combinación específica de color+talla)
+model InputVariant {
+  id      Int   @id @default(autoincrement())
+  inputId Int
+  input   Input @relation(fields: [inputId], references: [id], onDelete: Cascade)
+
+  // Color y talla de esta variante
+  colorId Int?
+  color   Color? @relation(fields: [colorId], references: [id], onDelete: SetNull)
+  sizeId  Int?
+  size    Size?  @relation(fields: [sizeId], references: [id], onDelete: SetNull)
+
+  // SKU único para esta variante
+  sku String @unique
+
+  // Costos
+  unitCost Decimal @db.Decimal(10, 2) // Costo por unidad de esta variante
+
+  // Stock de esta variante específica
+  currentStock Decimal @default(0) @db.Decimal(10, 2)
+  minStock     Decimal @default(0) @db.Decimal(10, 2)
+  maxStock     Decimal @default(0) @db.Decimal(10, 2)
+
+  isActive Boolean @default(true)
+
+  // Relaciones
+  purchaseOrderItems PurchaseOrderItem[] // Items de órdenes de compra
+  movements          InputVariantMovement[] // Movimientos de inventario
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([inputId, colorId, sizeId])
+  @@index([inputId])
+  @@index([colorId])
+  @@index([sizeId])
+  @@map("input_variants")
+}
+
+// Movimiento de Variante de Insumo
+model InputVariantMovement {
+  id             Int          @id @default(autoincrement())
+  inputVariantId Int
+  inputVariant   InputVariant @relation(fields: [inputVariantId], references: [id], onDelete: Cascade)
+
+  // Tipo de movimiento
+  movementType MovementType
+
+  // Cantidad (positiva para entradas, negativa para salidas)
+  quantity      Decimal @db.Decimal(10, 2) // Cantidad del movimiento
+  previousStock Decimal @db.Decimal(10, 2) // Stock antes del movimiento
+  newStock      Decimal @db.Decimal(10, 2) // Stock después del movimiento
+
+  // Referencias
+  referenceType String? // "purchase_order", "production", "adjustment", "transfer"
+  referenceId   Int? // ID de la referencia
+
+  // Detalles
+  reason String? @db.Text // Razón del movimiento
+  notes  String? @db.Text
+
+  // Usuario que realizó el movimiento
+  userId Int?
+
+  // Costo unitario (para entradas de compra)
+  unitCost Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([inputVariantId])
+  @@index([movementType])
+  @@index([createdAt])
+  @@map("input_variant_movements")
 }
 
 // Lote de Insumo (entrada de inventario)
@@ -992,12 +1111,17 @@ model PurchaseOrderItem {
   purchaseOrderId Int
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 
-  // Puede ser una variante de producto O un insumo
+  // Puede ser una variante de producto O un insumo O una variante de insumo
   variantId Int?
   variant   ProductVariant? @relation(fields: [variantId], references: [id])
 
+  // Para insumos SIN variantes (InputType.hasVariants = false)
   inputId Int?
   input   Input? @relation(fields: [inputId], references: [id])
+
+  // Para insumos CON variantes (InputType.hasVariants = true)
+  inputVariantId Int?
+  inputVariant   InputVariant? @relation(fields: [inputVariantId], references: [id])
 
   // Descripción (para items no relacionados o referencia)
   description String?
@@ -1018,6 +1142,7 @@ model PurchaseOrderItem {
   @@index([purchaseOrderId])
   @@index([variantId])
   @@index([inputId])
+  @@index([inputVariantId])
   @@map("purchase_order_items")
 }
 
@@ -1067,4 +1192,211 @@ enum VariantMovementType {
   RETURN      // Devolución de cliente
   DAMAGE      // Daño/merma
   INITIAL     // Stock inicial
+}
+
+// ==================== CONTEO DE INVENTARIO FÍSICO ====================
+
+// Sesión de conteo de inventario
+model InventoryCount {
+  id          Int    @id @default(autoincrement())
+  countNumber String @unique // Número de conteo (ej: INV-2025-0001)
+
+  // Tipo de conteo
+  countType InventoryCountType @default(FULL) // Completo o parcial
+
+  // Estado
+  status InventoryCountStatus @default(DRAFT)
+
+  // Fecha del conteo
+  countDate DateTime @default(now())
+
+  // Usuario que realiza el conteo
+  countedById   Int?
+  countedByName String? // Nombre del usuario (para referencia)
+
+  // Usuario que aprueba el conteo
+  approvedById   Int?
+  approvedByName String?
+  approvedAt     DateTime?
+
+  // Notas
+  notes String? @db.Text
+
+  // Items del conteo
+  items InventoryCountItem[]
+
+  // Estadísticas (calculadas al cerrar)
+  totalItems       Int @default(0) // Total de items contados
+  itemsWithDiff    Int @default(0) // Items con diferencia
+  totalDiffValue   Decimal @default(0) @db.Decimal(10, 2) // Valor total de diferencias
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([countDate])
+  @@map("inventory_counts")
+}
+
+// Item de conteo de inventario
+model InventoryCountItem {
+  id               Int            @id @default(autoincrement())
+  inventoryCountId Int
+  inventoryCount   InventoryCount @relation(fields: [inventoryCountId], references: [id], onDelete: Cascade)
+
+  // Referencia al insumo
+  inputId Int
+  // No ponemos relación directa para evitar problemas si se elimina el insumo
+
+  // Datos del insumo al momento del conteo (snapshot)
+  inputCode String
+  inputName String
+  unitOfMeasure String
+  unitCost Decimal @db.Decimal(10, 2)
+
+  // Cantidades
+  systemQuantity Decimal @db.Decimal(10, 2) // Cantidad según sistema
+  countedQuantity Decimal? @db.Decimal(10, 2) // Cantidad contada físicamente
+  difference Decimal? @db.Decimal(10, 2) // Diferencia (countedQuantity - systemQuantity)
+  differenceValue Decimal? @db.Decimal(10, 2) // Valor de la diferencia (difference * unitCost)
+
+  // Estado del item
+  isCounted Boolean @default(false) // Si ya se contó
+
+  // Notas específicas del item
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([inventoryCountId, inputId])
+  @@index([inventoryCountId])
+  @@index([inputId])
+  @@map("inventory_count_items")
+}
+
+enum InventoryCountType {
+  FULL    // Conteo completo (todos los insumos)
+  PARTIAL // Conteo parcial (insumos seleccionados)
+}
+
+enum InventoryCountStatus {
+  DRAFT      // Borrador - en preparación
+  IN_PROGRESS // En progreso - contando
+  PENDING_APPROVAL // Pendiente de aprobación
+  APPROVED   // Aprobado - ajustes aplicados
+  CANCELLED  // Cancelado
+}
+
+// ==================== CONVERSIÓN DE INVENTARIO ====================
+
+// Conversión de insumos a productos
+model InventoryConversion {
+  id               Int    @id @default(autoincrement())
+  conversionNumber String @unique // Número de conversión (ej: CONV-2025-0001)
+
+  // Estado
+  status ConversionStatus @default(DRAFT)
+
+  // Fecha de conversión
+  conversionDate DateTime @default(now())
+
+  // Usuario que realiza la conversión
+  createdById   Int?
+  createdByName String?
+
+  // Usuario que aprueba (si requiere aprobación)
+  approvedById   Int?
+  approvedByName String?
+  approvedAt     DateTime?
+
+  // Descripción/motivo
+  description String? @db.Text
+  notes       String? @db.Text
+
+  // Items de entrada (insumos consumidos)
+  inputItems ConversionInputItem[]
+
+  // Items de salida (productos/variantes generados)
+  outputItems ConversionOutputItem[]
+
+  // Totales calculados
+  totalInputCost  Decimal @default(0) @db.Decimal(10, 2) // Costo total de insumos consumidos
+  totalOutputCost Decimal @default(0) @db.Decimal(10, 2) // Valor total de productos generados
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([conversionDate])
+  @@index([createdById])
+  @@map("inventory_conversions")
+}
+
+// Insumo consumido en la conversión (entrada)
+model ConversionInputItem {
+  id           Int                 @id @default(autoincrement())
+  conversionId Int
+  conversion   InventoryConversion @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+
+  // Referencia al insumo
+  inputId Int
+
+  // Datos del insumo al momento de la conversión (snapshot)
+  inputCode     String
+  inputName     String
+  unitOfMeasure String
+  unitCost      Decimal @db.Decimal(10, 2)
+
+  // Cantidad consumida
+  quantity Decimal @db.Decimal(10, 2)
+
+  // Costo total de este item
+  totalCost Decimal @db.Decimal(10, 2) // quantity * unitCost
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([conversionId])
+  @@index([inputId])
+  @@map("conversion_input_items")
+}
+
+// Producto/variante generado en la conversión (salida)
+model ConversionOutputItem {
+  id           Int                 @id @default(autoincrement())
+  conversionId Int
+  conversion   InventoryConversion @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+
+  // Referencia a la variante de producto
+  variantId Int
+
+  // Datos del producto/variante al momento de la conversión (snapshot)
+  productName String
+  variantSku  String
+  colorName   String?
+  sizeName    String?
+  unitPrice   Decimal @db.Decimal(10, 2) // Precio base del producto
+
+  // Cantidad generada
+  quantity Int
+
+  // Valor total de este item
+  totalValue Decimal @db.Decimal(10, 2) // quantity * unitPrice
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([conversionId])
+  @@index([variantId])
+  @@map("conversion_output_items")
+}
+
+enum ConversionStatus {
+  DRAFT     // Borrador - en preparación
+  PENDING   // Pendiente de aprobación
+  APPROVED  // Aprobada - inventario actualizado
+  CANCELLED // Cancelada
 }

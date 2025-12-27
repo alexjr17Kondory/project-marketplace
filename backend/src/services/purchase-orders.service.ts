@@ -13,6 +13,7 @@ interface PurchaseOrderFilters {
 interface PurchaseOrderItemData {
   variantId?: number;
   inputId?: number;
+  inputVariantId?: number;
   description?: string;
   quantity: number;
   unitCost: number;
@@ -109,6 +110,13 @@ export async function getPurchaseOrderById(id: number) {
               inputType: { select: { id: true, name: true } },
             },
           },
+          inputVariant: {
+            include: {
+              input: { select: { id: true, name: true, code: true } },
+              color: { select: { id: true, name: true, hexCode: true } },
+              size: { select: { id: true, name: true, abbreviation: true } },
+            },
+          },
         },
       },
     },
@@ -147,6 +155,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderData) {
     return {
       variantId: item.variantId || null,
       inputId: item.inputId || null,
+      inputVariantId: item.inputVariantId || null,
       description: item.description,
       quantity: item.quantity,
       unitCost: item.unitCost,
@@ -213,6 +222,7 @@ export async function updatePurchaseOrder(id: number, data: UpdatePurchaseOrderD
           purchaseOrderId: id,
           variantId: item.variantId || null,
           inputId: item.inputId || null,
+          inputVariantId: item.inputVariantId || null,
           description: item.description,
           quantity: item.quantity,
           unitCost: item.unitCost,
@@ -359,7 +369,104 @@ export async function receiveItems(orderId: number, itemsToReceive: ReceiveItemD
           data: { currentStock: newStock },
         });
 
-        // TODO: Crear lote de insumo y movimiento
+        // Crear o usar lote existente para el insumo
+        let batch = await prisma.inputBatch.findFirst({
+          where: {
+            inputId: item.inputId,
+            isActive: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (!batch) {
+          // Crear nuevo lote
+          batch = await prisma.inputBatch.create({
+            data: {
+              inputId: item.inputId,
+              batchNumber: `OC-${order.orderNumber}-${item.id}`,
+              initialQuantity: receiveData.quantityReceived,
+              currentQuantity: receiveData.quantityReceived,
+              unitCost: item.unitCost,
+              totalCost: item.unitCost.toNumber() * receiveData.quantityReceived,
+              purchaseDate: new Date(),
+              isActive: true,
+            },
+          });
+        } else {
+          // Actualizar lote existente
+          await prisma.inputBatch.update({
+            where: { id: batch.id },
+            data: {
+              currentQuantity: batch.currentQuantity.toNumber() + receiveData.quantityReceived,
+            },
+          });
+        }
+
+        // Registrar movimiento de insumo
+        await prisma.inputBatchMovement.create({
+          data: {
+            inputId: item.inputId,
+            inputBatchId: batch.id,
+            movementType: 'ENTRADA',
+            quantity: receiveData.quantityReceived,
+            reason: `Recepción de OC ${order.orderNumber}`,
+            referenceType: 'purchase_order',
+            referenceId: orderId,
+            userId,
+          },
+        });
+      }
+    }
+
+    // Manejar variantes de insumo
+    if (item.inputVariantId) {
+      const inputVariant = await prisma.inputVariant.findUnique({
+        where: { id: item.inputVariantId },
+      });
+
+      if (inputVariant) {
+        const previousStock = inputVariant.currentStock.toNumber();
+        const newStock = previousStock + receiveData.quantityReceived;
+
+        await prisma.inputVariant.update({
+          where: { id: item.inputVariantId },
+          data: { currentStock: newStock },
+        });
+
+        // Registrar movimiento de variante de insumo
+        await prisma.inputVariantMovement.create({
+          data: {
+            inputVariantId: item.inputVariantId,
+            movementType: 'ENTRADA',
+            quantity: receiveData.quantityReceived,
+            previousStock,
+            newStock,
+            referenceType: 'purchase_order',
+            referenceId: orderId,
+            reason: `Recepción de OC ${order.orderNumber}`,
+            userId,
+            unitCost: item.unitCost,
+          },
+        });
+
+        // También actualizar el stock total del insumo padre
+        const parentInput = await prisma.input.findUnique({
+          where: { id: inputVariant.inputId },
+          include: { variants: { where: { isActive: true } } },
+        });
+
+        if (parentInput) {
+          // Recalcular stock total sumando todas las variantes
+          const totalVariantStock = parentInput.variants.reduce(
+            (sum, v) => sum + v.currentStock.toNumber(),
+            0
+          ) + receiveData.quantityReceived; // Incluir el incremento actual
+
+          await prisma.input.update({
+            where: { id: inputVariant.inputId },
+            data: { currentStock: totalVariantStock },
+          });
+        }
       }
     }
   }

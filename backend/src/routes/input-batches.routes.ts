@@ -159,6 +159,8 @@ router.post('/:id/release', inputBatchesController.releaseReservation);
 router.post('/:id/output', inputBatchesController.recordOutput);
 
 // Movimientos
+router.get('/movements/all', inputBatchesController.getAllMovements);
+router.get('/movements/stats', inputBatchesController.getInputMovementsStats);
 router.get('/input/:inputId/movements', inputBatchesController.getMovementsByInputId);
 router.get('/:batchId/movements', inputBatchesController.getMovementsByBatchId);
 

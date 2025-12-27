@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { inputsService, type Input, type InputFilters } from '../../services/inputs.service';
 import { inputTypesService, type InputType } from '../../services/input-types.service';
-import { Plus, Edit, Trash2, RefreshCw, Search, Filter } from 'lucide-react';
+import { Plus, Settings, Search, Filter } from 'lucide-react';
 
 export default function InputsPage() {
   const navigate = useNavigate();
@@ -49,30 +49,6 @@ export default function InputsPage() {
       console.error(err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este insumo?')) return;
-
-    try {
-      await inputsService.delete(id);
-      await loadInputs();
-    } catch (err) {
-      alert('Error al eliminar el insumo');
-      console.error(err);
-    }
-  };
-
-  const handleRecalculateStock = async (id: number) => {
-    if (!confirm('¿Estás seguro de recalcular el stock de este insumo?')) return;
-
-    try {
-      await inputsService.recalculateStock(id);
-      await loadInputs();
-    } catch (err) {
-      alert('Error al recalcular el stock');
-      console.error(err);
     }
   };
 
@@ -244,24 +220,10 @@ export default function InputsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => navigate(`/admin-panel/inputs/${input.id}`)}
-                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-900 mr-3"
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Editar"
                         >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleRecalculateStock(input.id)}
-                          className="inline-flex items-center gap-1 text-green-600 hover:text-green-900 mr-3"
-                          title="Recalcular stock"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(input.id)}
-                          className="inline-flex items-center gap-1 text-red-600 hover:text-red-900"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
+                          <Settings className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>

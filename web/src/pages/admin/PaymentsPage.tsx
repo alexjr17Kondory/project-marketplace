@@ -208,10 +208,10 @@ export function PaymentsPage() {
           </div>
 
           <div className="flex items-end gap-2">
-            <Button onClick={handleApplyFilters} className="flex-1">
+            <Button onClick={handleApplyFilters} variant="admin-primary" className="flex-1">
               Aplicar
             </Button>
-            <Button onClick={handleClearFilters} variant="secondary">
+            <Button onClick={handleClearFilters} variant="admin-secondary">
               Limpiar
             </Button>
           </div>
@@ -426,7 +426,7 @@ export function PaymentsPage() {
                 )}
               </div>
               <div className="mt-6 flex justify-end">
-                <Button onClick={() => setSelectedPayment(null)} variant="secondary">
+                <Button onClick={() => setSelectedPayment(null)} variant="admin-secondary">
                   Cerrar
                 </Button>
               </div>

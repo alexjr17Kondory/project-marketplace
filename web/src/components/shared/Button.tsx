@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'admin-primary' | 'admin-secondary' | 'admin-danger';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'admin-primary' | 'admin-secondary' | 'admin-danger' | 'admin-orange';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   fullWidth?: boolean;
@@ -33,6 +33,7 @@ export const Button = ({
     'admin-primary': 'bg-blue-600 text-white hover:bg-blue-700',
     'admin-secondary': 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300',
     'admin-danger': 'bg-red-600 text-white hover:bg-red-700',
+    'admin-orange': 'bg-orange-600 text-white hover:bg-orange-700',
   };
 
   const sizes = {

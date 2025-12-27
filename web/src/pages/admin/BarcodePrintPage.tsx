@@ -423,11 +423,11 @@ export default function BarcodePrintPage() {
                 {getTotalLabels()} etiquetas - {variants[0]?.product.name}
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleClosePreview}>
+                <Button variant="admin-secondary" onClick={handleClosePreview}>
                   <X className="w-4 h-4 mr-2" />
                   Cerrar
                 </Button>
-                <Button onClick={handleDownloadPdf}>
+                <Button variant="admin-primary" onClick={handleDownloadPdf}>
                   <Download className="w-4 h-4 mr-2" />
                   Descargar PDF
                 </Button>

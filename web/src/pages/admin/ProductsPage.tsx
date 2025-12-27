@@ -273,19 +273,19 @@ export const ProductsPage = () => {
 
   if (viewMode === 'add') {
     return (
-      <div className="p-4 md:p-8">
+      <div className="p-6">
         {/* Header con botón volver */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Agregar Nuevo Producto</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Agregar Nuevo Producto</h1>
             <p className="text-gray-600 mt-1 text-sm">Completa la información del producto</p>
           </div>
           <button
             onClick={cancelEdit}
-            className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Volver a Productos</span>
+            <ArrowLeft className="w-4 h-4" />
+            Volver a Productos
           </button>
         </div>
 
@@ -298,19 +298,19 @@ export const ProductsPage = () => {
 
   if (viewMode === 'edit' && selectedProduct) {
     return (
-      <div className="p-4 md:p-8">
+      <div className="p-6">
         {/* Header con botón volver */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Editar Producto</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Editar Producto</h1>
             <p className="text-gray-600 mt-1 text-sm">Actualiza la información del producto</p>
           </div>
           <button
             onClick={cancelEdit}
-            className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Volver a Productos</span>
+            <ArrowLeft className="w-4 h-4" />
+            Volver a Productos
           </button>
         </div>
 
@@ -355,15 +355,15 @@ export const ProductsPage = () => {
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Productos</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
           <p className="text-gray-600 mt-1 text-sm">Gestiona tu catálogo de productos</p>
         </div>
-        <Button onClick={() => setViewMode('add')} variant="admin-primary">
-          <Plus className="w-5 h-5 mr-2" />
+        <Button onClick={() => setViewMode('add')} variant="admin-orange" size="sm">
+          <Plus className="w-4 h-4" />
           Agregar Producto
         </Button>
       </div>
@@ -426,8 +426,8 @@ export const ProductsPage = () => {
                         : 'Comienza agregando tu primer producto al catálogo'}
                     </p>
                     {!globalFilter && (
-                      <Button onClick={() => setViewMode('add')} variant="admin-primary">
-                        <Plus className="w-5 h-5 mr-2" />
+                      <Button onClick={() => setViewMode('add')} variant="admin-orange" size="sm">
+                        <Plus className="w-4 h-4" />
                         Agregar Producto
                       </Button>
                     )}
