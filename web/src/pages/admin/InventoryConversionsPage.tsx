@@ -14,13 +14,17 @@ import {
   ArrowRightLeft,
   Plus,
   Search,
-  Eye,
+  Settings,
   ChevronLeft,
   ChevronRight,
   Loader2,
   Calendar,
   Package,
   Boxes,
+  FileEdit,
+  Clock,
+  CheckCircle,
+  DollarSign,
 } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import { useToast } from '../../context/ToastContext';
@@ -177,16 +181,16 @@ export default function InventoryConversionsPage() {
         id: 'actions',
         header: () => <div className="text-right">Acciones</div>,
         cell: ({ row }) => (
-          <div className="flex items-center justify-end">
+          <div className="flex justify-end">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleView(row.original);
               }}
               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Ver detalle"
+              title="Ver detalles"
             >
-              <Eye className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         ),
@@ -232,11 +236,16 @@ export default function InventoryConversionsPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Conversión de Inventario</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Convierte insumos consumibles en productos terminados
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-orange-100 rounded-lg">
+            <ArrowRightLeft className="w-6 h-6 text-orange-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Conversión de Inventario</h1>
+            <p className="text-sm text-gray-500">
+              Convierte insumos consumibles en productos terminados
+            </p>
+          </div>
         </div>
         <Button onClick={handleCreate} variant="admin-orange" size="sm">
           <Plus className="w-4 h-4" />
@@ -248,26 +257,61 @@ export default function InventoryConversionsPage() {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-sm text-gray-500">Total Conversiones</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <ArrowRightLeft className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Total</p>
+                <p className="text-xl font-bold text-gray-900">{stats.total}</p>
+              </div>
+            </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-sm text-gray-500">Borradores</p>
-            <p className="text-2xl font-bold text-gray-600">{stats.byStatus.DRAFT}</p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <FileEdit className="w-5 h-5 text-gray-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Borradores</p>
+                <p className="text-xl font-bold text-gray-600">{stats.byStatus.DRAFT}</p>
+              </div>
+            </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-sm text-gray-500">Pendientes</p>
-            <p className="text-2xl font-bold text-yellow-600">{stats.byStatus.PENDING}</p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Clock className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Pendientes</p>
+                <p className="text-xl font-bold text-yellow-600">{stats.byStatus.PENDING}</p>
+              </div>
+            </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-sm text-gray-500">Aprobadas</p>
-            <p className="text-2xl font-bold text-green-600">{stats.byStatus.APPROVED}</p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Aprobadas</p>
+                <p className="text-xl font-bold text-green-600">{stats.byStatus.APPROVED}</p>
+              </div>
+            </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-sm text-gray-500">Costo Total</p>
-            <p className="text-lg font-bold text-orange-600">
-              {formatCurrency(stats.totalInputCost)}
-            </p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <DollarSign className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Costo Total</p>
+                <p className="text-lg font-bold text-orange-600">
+                  {formatCurrency(stats.totalInputCost)}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -350,27 +394,57 @@ export default function InventoryConversionsPage() {
         </div>
 
         {/* Pagination */}
-        {table.getPageCount() > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-            <p className="text-sm text-gray-500">
-              {table.getState().pagination.pageIndex * 10 + 1} -{' '}
-              {Math.min((table.getState().pagination.pageIndex + 1) * 10, filteredData.length)} de{' '}
-              {filteredData.length}
-            </p>
-            <div className="flex gap-2">
+        {table.getRowModel().rows.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-700">
+              Mostrando{' '}
+              <span className="font-medium">
+                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
+              </span>{' '}
+              a{' '}
+              <span className="font-medium">
+                {Math.min(
+                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )}
+              </span>{' '}
+              de <span className="font-medium">{table.getFilteredRowModel().rows.length}</span> conversiones
+            </div>
+
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
-                className="p-2 border rounded-lg disabled:opacity-50 hover:bg-gray-50"
+                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
+
+              <div className="flex gap-1">
+                {Array.from({ length: Math.min(table.getPageCount(), 10) }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => table.setPageIndex(page - 1)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                      table.getState().pagination.pageIndex === page - 1
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                {table.getPageCount() > 10 && (
+                  <span className="px-2 py-1 text-gray-500">...</span>
+                )}
+              </div>
+
               <button
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
-                className="p-2 border rounded-lg disabled:opacity-50 hover:bg-gray-50"
+                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>

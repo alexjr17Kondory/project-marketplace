@@ -2,7 +2,7 @@
 
 ## ESTADO GENERAL
 
-**Fecha:** 2025-12-26
+**Fecha:** 2025-12-27
 **Deploy Frontend:** https://project-marketplace.vercel.app
 **Backend Local:** http://localhost:3001/api
 **Progreso Total:** 99%
@@ -21,7 +21,7 @@
 | 6 | Configuracion General | ✅ | 100% |
 | 7 | Backend + Base de Datos | ✅ | 95% |
 | 8 | Punto de Venta (POS) | ✅ | 100% |
-| 9 | Compras e Inventario | 🟡 | 70% |
+| 9 | Compras e Inventario | 🟡 | 95% |
 | 10 | App Movil | ⚪ | Futuro |
 
 ---
@@ -243,7 +243,7 @@
 
 ## FASE 9: COMPRAS E INVENTARIO
 
-**Estado:** 70% Completado
+**Estado:** 95% Completado
 
 ### Backend Completado ✅
 - [x] **Modelo Supplier (Proveedores)**
@@ -293,13 +293,14 @@
 - [x] **Página de Proveedores** `/admin-panel/suppliers`
   - DataTable estandarizado con CRUD
   - Filtros y búsqueda
-  - Stats cards
+  - Stats cards con iconos
   - 10 items por página
 
 - [x] **Página de Movimientos** `/admin-panel/inventory-movements`
-  - Historial de movimientos (solo lectura)
-  - Filtros por tipo, fecha, variante
-  - Sin creación manual (movimientos vienen de compras/ventas)
+  - Tabs: Productos (Variantes) e Insumos (Consumibles)
+  - Movimientos combinados: batch + variant
+  - Filtros por tipo de movimiento
+  - Paginación estandarizada con botones numerados
 
 - [x] **Página de Variantes** `/admin-panel/variants`
   - DataTable estandarizado como ProductsPage
@@ -312,18 +313,37 @@
   - Paginación con 10 items
   - Stats cards
 
-### Frontend Pendiente
-- [ ] **Página de Órdenes de Compra** `/admin-panel/purchase-orders`
+- [x] **Página de Órdenes de Compra** `/admin-panel/purchase-orders`
   - Lista de OCs con filtros por estado
   - Crear/Editar OC con selector de items (PurchaseItemSelector)
-  - Recepción de mercancía
-  - Vista detalle
+  - Recepción de mercancía parcial/completa
+  - Vista detalle con timeline
+  - Stats cards con iconos
+  - Paginación estandarizada
 
-### Integración Pendiente
-- [ ] Vincular Variants con movimientos de stock automáticos
-- [ ] Vincular Inputs con movimientos de stock
+- [x] **Página de Conversiones** `/admin-panel/inventory-conversions`
+  - Sistema de órdenes de producción
+  - Consumir insumos → Generar productos
+  - Flujo: DRAFT → PENDING → APPROVED
+  - Stats cards con iconos
+  - Paginación estandarizada
+
+- [x] **Sistema de Variantes de Insumos**
+  - InputVariant (color × talla)
+  - InputVariantMovement para trazabilidad
+  - Matriz de stock por color/talla
+  - Movimientos automáticos al recibir OCs
+
+### Integración Completada ✅
+- [x] Variantes de producto con movimientos automáticos (VariantMovement)
+- [x] Variantes de insumos con movimientos automáticos (InputVariantMovement)
+- [x] Insumos simples con lotes y movimientos (InputBatch, InputBatchMovement)
+- [x] Conversiones actualizan inventario en ambos sentidos
+
+### Pendiente
 - [ ] Alertas de stock bajo (notificaciones)
 - [ ] Reportes de inventario
+- [ ] Conteos de inventario físico
 
 ---
 
@@ -407,6 +427,30 @@ docker exec marketplace-backend npx prisma studio
 ---
 
 ## CHANGELOG RECIENTE
+
+### v6.0 (2025-12-27)
+- ✅ **Sistema de Variantes de Insumos**
+  - Modelo InputVariant (color × talla) para insumos como camisetas
+  - Modelo InputVariantMovement para trazabilidad de movimientos
+  - Matriz visual de stock por color/talla en InputDetailPage
+  - Modal de movimientos por variante con historial
+  - Creación automática de variantes al agregar colores al insumo
+- ✅ **Movimientos de Inventario Unificados**
+  - API combinada para movimientos batch + variant
+  - InventoryMovementsPage con tabs para Productos e Insumos
+  - Creación automática de movimientos al recibir OCs
+  - Soporte para insumos simples (lotes) y con variantes
+- ✅ **Módulo de Conversiones (Órdenes de Producción)**
+  - InventoryConversionsPage con CRUD completo
+  - Flujo: DRAFT → PENDING → APPROVED
+  - Consumo de insumos y generación de productos
+  - Actualización automática de inventario en ambos sentidos
+- ✅ **Estandarización de UI Admin**
+  - Headers con iconos en todas las páginas
+  - Stats cards con iconos y colores consistentes
+  - Paginación con botones numerados (estilo OrdersPage)
+  - Icono Settings (ruedita) en columnas de acciones
+  - Páginas actualizadas: PurchaseOrdersPage, InventoryMovementsPage, InventoryConversionsPage
 
 ### v5.9 (2025-12-26)
 - ✅ **Módulo de Compras e Inventario (70%)**
@@ -574,5 +618,5 @@ docker exec marketplace-backend npx prisma studio
 
 ---
 
-**Ultima actualizacion:** 2025-12-26
-**Version:** 5.9
+**Ultima actualizacion:** 2025-12-27
+**Version:** 6.0
