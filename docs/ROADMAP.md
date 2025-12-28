@@ -6,6 +6,7 @@
 **Deploy Frontend:** https://project-marketplace.vercel.app
 **Backend Local:** http://localhost:3001/api
 **Progreso Total:** 99%
+**Versión Actual:** 6.1
 
 ---
 
@@ -21,7 +22,7 @@
 | 6 | Configuracion General | ✅ | 100% |
 | 7 | Backend + Base de Datos | ✅ | 95% |
 | 8 | Punto de Venta (POS) | ✅ | 100% |
-| 9 | Compras e Inventario | 🟡 | 95% |
+| 9 | Compras e Inventario | ✅ | 100% |
 | 10 | App Movil | ⚪ | Futuro |
 
 ---
@@ -141,11 +142,13 @@
 | Input Types | CRUD + filtros | ✅ |
 | Inputs | CRUD + stock + filtros | ✅ |
 | Template Zones | CRUD + zone inputs | ✅ |
+| Template Recipes | CRUD + 1:N ingredients + stock calculation | ✅ |
 | Design Images | CRUD + categories + filtros | ✅ |
 | Payments | CRUD + verify + refund + stats | ✅ |
 | Suppliers | CRUD + stats + generate-code | ✅ |
 | Purchase Orders | CRUD + status + receive + stats | ✅ |
 | Inventory | movements + bulk-adjustment + stats + low-stock | ✅ |
+| Inventory Conversions | CRUD + from-template + status workflow | ✅ |
 | Variants | CRUD + stock + barcode | ✅ |
 | Cash Registers | CRUD + sessions | ✅ |
 
@@ -243,7 +246,7 @@
 
 ## FASE 9: COMPRAS E INVENTARIO
 
-**Estado:** 95% Completado
+**Estado:** 100% Completado
 
 ### Backend Completado ✅
 - [x] **Modelo Supplier (Proveedores)**
@@ -334,11 +337,29 @@
   - Matriz de stock por color/talla
   - Movimientos automáticos al recibir OCs
 
+- [x] **Sistema de Template Recipes (Recetas de Plantillas)**
+  - Modelo TemplateRecipe con soporte 1:N (múltiples ingredientes por variante)
+  - Composite key: variantId + inputVariantId
+  - TemplateRecipesPage para gestionar recetas de templates
+  - Cálculo de stock disponible con bottleneck approach
+  - Asociación automática de insumos por color/talla
+  - API completa: create, read, delete específico, delete all
+  - Endpoints para obtener IDs de insumos asociados
+
+- [x] **Conversiones desde Plantillas**
+  - InventoryConversionFromTemplatePage con matriz interactiva
+  - Selección de template y carga automática de recetas
+  - Matriz color × talla con validación de stock
+  - Creación automática de insumos según recetas
+  - Integración completa con sistema de conversiones
+
 ### Integración Completada ✅
 - [x] Variantes de producto con movimientos automáticos (VariantMovement)
 - [x] Variantes de insumos con movimientos automáticos (InputVariantMovement)
 - [x] Insumos simples con lotes y movimientos (InputBatch, InputBatchMovement)
 - [x] Conversiones actualizan inventario en ambos sentidos
+- [x] Template recipes con múltiples ingredientes por variante
+- [x] Stock disponible calculado por bottleneck de ingredientes
 
 ### Pendiente
 - [ ] Alertas de stock bajo (notificaciones)
@@ -427,6 +448,35 @@ docker exec marketplace-backend npx prisma studio
 ---
 
 ## CHANGELOG RECIENTE
+
+### v6.1 (2025-12-27)
+- ✅ **Sistema de Template Recipes (Recetas de Plantillas)**
+  - Modelo TemplateRecipe con soporte 1:N para múltiples ingredientes
+  - Composite unique key (variantId, inputVariantId) para evitar duplicados
+  - API completa: GET, POST, DELETE específico, DELETE all
+  - TemplateRecipesPage con gestión visual de recetas
+  - Asociación automática de insumos a templates por color/talla
+  - Cálculo de stock disponible con bottleneck approach
+  - Endpoint para obtener IDs de insumos asociados a un template
+- ✅ **Conversiones desde Plantillas**
+  - InventoryConversionFromTemplatePage con matriz interactiva
+  - Selección de template con carga automática de recetas (1:N)
+  - Matriz color × talla para selección de cantidades
+  - Validación de stock disponible por variante
+  - Creación automática de input items según recetas
+  - Integración completa con sistema de conversiones existente
+  - Fix de infinite loop en carga de recetas (dependency array)
+- ✅ **Seed sin Variantes Automáticas**
+  - Eliminada generación automática de InputVariant
+  - Eliminada generación automática de ProductVariant
+  - Las variantes ahora se crean manualmente desde la interfaz
+  - Mayor control sobre inventario inicial
+- ✅ **Documentación y Limpieza**
+  - Creado INICIAR.md con guía completa de Docker
+  - Instrucciones paso a paso para inicialización
+  - Usuarios de prueba y datos iniciales documentados
+  - Comandos útiles y troubleshooting
+  - Eliminados archivos obsoletos: DEPLOY.md, INSTRUCCIONES_DEPLOY.md, SETUP_FIXES.md, GETTING_STARTED.md
 
 ### v6.0 (2025-12-27)
 - ✅ **Sistema de Variantes de Insumos**
@@ -619,4 +669,4 @@ docker exec marketplace-backend npx prisma studio
 ---
 
 **Ultima actualizacion:** 2025-12-27
-**Version:** 6.0
+**Version:** 6.1
