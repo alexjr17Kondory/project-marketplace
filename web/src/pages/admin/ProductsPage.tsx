@@ -25,6 +25,14 @@ type ViewMode = 'list' | 'add' | 'edit';
 
 const columnHelper = createColumnHelper<Product>();
 
+// Helper para obtener la primera imagen del producto
+function getFirstImage(images: any): string {
+  if (!images) return '';
+  if (Array.isArray(images)) return images[0] || '';
+  if (typeof images === 'object') return images.front || images.back || images.side || '';
+  return '';
+}
+
 export const ProductsPage = () => {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
   const toast = useToast();
@@ -55,7 +63,7 @@ export const ProductsPage = () => {
         cell: (info) => (
           <div className="flex items-center">
             <img
-              src={info.row.original.images.front}
+              src={getFirstImage(info.row.original.images)}
               alt={info.getValue()}
               className="w-12 h-12 rounded-lg object-cover"
             />

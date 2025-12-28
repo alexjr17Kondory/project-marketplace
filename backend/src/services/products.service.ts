@@ -321,6 +321,12 @@ export async function createProduct(data: CreateProductInput): Promise<ProductRe
     include: productInclude,
   });
 
+  // Auto-generar variantes si el producto tiene colores o tallas
+  if (data.colors.length > 0 || data.sizes.length > 0) {
+    const { generateVariantsForProduct } = await import('./variants.service');
+    await generateVariantsForProduct(product.id, 0);
+  }
+
   return formatProductResponse(product);
 }
 
@@ -348,6 +354,9 @@ export async function updateProduct(id: number, data: UpdateProductInput): Promi
     tags: data.tags,
   };
 
+  // Variable para saber si se actualizaron colores o tallas
+  let variantsNeedUpdate = false;
+
   // Si se proporcionan colores, actualizar relaciones
   if (data.colors && data.colors.length > 0) {
     updateData.productColors = {
@@ -356,6 +365,7 @@ export async function updateProduct(id: number, data: UpdateProductInput): Promi
         colorId: color.id,
       })),
     };
+    variantsNeedUpdate = true;
   }
 
   // Si se proporcionan tallas, actualizar relaciones
@@ -366,6 +376,7 @@ export async function updateProduct(id: number, data: UpdateProductInput): Promi
         sizeId: size.id,
       })),
     };
+    variantsNeedUpdate = true;
   }
 
   const product = await prisma.product.update({
@@ -374,11 +385,18 @@ export async function updateProduct(id: number, data: UpdateProductInput): Promi
     include: productInclude,
   });
 
+  // Auto-generar nuevas variantes si se actualizaron colores o tallas
+  if (variantsNeedUpdate) {
+    const { generateVariantsForProduct } = await import('./variants.service');
+    await generateVariantsForProduct(product.id, 0);
+  }
+
   return formatProductResponse(product);
 }
 
 // Eliminar producto
 export async function deleteProduct(id: number): Promise<void> {
+  // Primero verificar si el producto existe
   const product = await prisma.product.findUnique({
     where: { id },
   });
@@ -387,7 +405,7 @@ export async function deleteProduct(id: number): Promise<void> {
     throw new NotFoundError('Producto no encontrado');
   }
 
-  // Verificar si tiene pedidos asociados
+  // Verificar si tiene pedidos asociados directamente
   const orderItems = await prisma.orderItem.count({
     where: { productId: id },
   });
@@ -395,6 +413,34 @@ export async function deleteProduct(id: number): Promise<void> {
   if (orderItems > 0) {
     throw new BadRequestError(
       'No se puede eliminar el producto porque tiene pedidos asociados. Desactívalo en su lugar.'
+    );
+  }
+
+  // Verificar si alguna de sus variantes tiene relaciones
+  const variantsWithRelations = await prisma.productVariant.findMany({
+    where: { productId: id },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          orderItems: true,
+          movements: true,
+          templateRecipes: true,
+        },
+      },
+    },
+  });
+
+  const hasRelations = variantsWithRelations.some(
+    (v) =>
+      v._count.orderItems > 0 ||
+      v._count.movements > 0 ||
+      v._count.templateRecipes > 0
+  );
+
+  if (hasRelations) {
+    throw new BadRequestError(
+      'No se puede eliminar el producto porque tiene variantes con ventas, movimientos de inventario o recetas asociadas. Desactívalo en su lugar.'
     );
   }
 

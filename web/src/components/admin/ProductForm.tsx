@@ -2,9 +2,22 @@ import { useState, useEffect } from 'react';
 import type { Product, ProductType, ProductCategory } from '../../types/product';
 import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';
+import { ImageUploadField } from './ImageUploadField';
 import { X } from 'lucide-react';
 import { catalogsService } from '../../services/catalogs.service';
 import type { Color, Size, Category, ProductType as CatalogProductType } from '../../services/catalogs.service';
+
+const MAX_IMAGES = 5;
+
+// Helper para obtener imágenes del producto (array plano)
+function getProductImages(product?: Product): string[] {
+  if (!product?.images) return [];
+  // Si images es un array, usarlo directamente
+  if (Array.isArray(product.images)) return product.images.filter(Boolean);
+  // Si es objeto con front/back/side, convertirlo a array
+  const imgs = product.images as { front?: string; back?: string; side?: string };
+  return [imgs.front, imgs.back, imgs.side].filter((img): img is string => !!img);
+}
 
 interface ProductFormProps {
   product?: Product;
@@ -24,10 +37,14 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
     rating: product?.rating || 0,
     reviewsCount: product?.reviewsCount || 0,
     tags: product?.tags?.join(', ') || '',
-    frontImage: product?.images.front || '',
-    backImage: product?.images.back || '',
-    sideImage: product?.images.side || '',
   });
+
+  // Imágenes (nuevo sistema de array)
+  const [images, setImages] = useState<string[]>(getProductImages(product));
+
+  // Drag & Drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Catálogos disponibles
   const [availableColors, setAvailableColors] = useState<Color[]>([]);
@@ -90,6 +107,54 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
     loadSizes();
   }, [formData.typeId]);
 
+  // Funciones para manejar imágenes
+  const addImage = (imageUrl: string) => {
+    if (imageUrl && images.length < MAX_IMAGES) {
+      setImages([...images, imageUrl]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    const newImages = images.filter((_, i) => i !== index);
+    setImages(newImages);
+  };
+
+  // Drag & Drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newImages = [...images];
+    const [draggedImage] = newImages.splice(draggedIndex, 1);
+    newImages.splice(dropIndex, 0, draggedImage);
+
+    setImages(newImages);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -108,11 +173,7 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
       rating: formData.rating || undefined,
       reviewsCount: formData.reviewsCount || undefined,
       tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
-      images: {
-        front: formData.frontImage,
-        back: formData.backImage || undefined,
-        side: formData.sideImage || undefined,
-      },
+      images: images.filter(Boolean),
       colors: selectedColors.map(c => ({
         id: c.id,
         name: c.name,
@@ -243,46 +304,95 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
           />
         </div>
 
-        {/* Cuarta fila: Imagen Frontal completa */}
+        {/* Imágenes del Producto */}
         <div className="col-span-12">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Imagen Frontal (URL) *
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Imágenes del Producto * (mínimo 1, máximo {MAX_IMAGES})
           </label>
-          <Input
-            type="url"
-            value={formData.frontImage}
-            onChange={(e) => setFormData({ ...formData, frontImage: e.target.value })}
-            required
-            placeholder="https://ejemplo.com/imagen-frontal.jpg"
-          />
+
+          {/* Galería de imágenes existentes - arrastrables */}
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-4">
+              {images.map((img, index) => (
+                <div
+                  key={index}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`relative group aspect-square cursor-grab active:cursor-grabbing transition-all duration-200 ${
+                    draggedIndex === index ? 'opacity-50 scale-95' : ''
+                  } ${
+                    dragOverIndex === index ? 'ring-2 ring-orange-500 ring-offset-2' : ''
+                  }`}
+                >
+                  <img
+                    src={img}
+                    alt={`Imagen ${index + 1}`}
+                    className="w-full h-full object-contain bg-gray-50 rounded-lg border-2 border-gray-200 p-2 pointer-events-none"
+                  />
+                  {/* Indicador de arrastre */}
+                  <div className="absolute top-2 left-2 p-1 bg-gray-800/70 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                    </svg>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                    title="Eliminar imagen"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  {index === 0 && (
+                    <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-orange-500 text-white text-xs font-medium rounded shadow">
+                      Principal
+                    </span>
+                  )}
+                  {/* Número de orden */}
+                  <span className="absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center bg-gray-800/70 text-white text-xs font-bold rounded-full">
+                    {index + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {images.length > 1 && (
+            <p className="text-xs text-gray-500 mb-3">
+              💡 Arrastra las imágenes para cambiar el orden. La primera será la principal.
+            </p>
+          )}
+
+          {/* Agregar nueva imagen (si no se alcanzó el límite) */}
+          {images.length < MAX_IMAGES ? (
+            <ImageUploadField
+              key={`image-upload-${images.length}`}
+              label={`Agregar imagen (${images.length}/${MAX_IMAGES})`}
+              value=""
+              onChange={(value) => {
+                if (value) addImage(value);
+              }}
+            />
+          ) : (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+              <p className="text-sm text-green-700 font-medium">
+                ✓ Máximo de {MAX_IMAGES} imágenes alcanzado
+              </p>
+            </div>
+          )}
+
+          {images.length === 0 && (
+            <p className="text-xs text-red-500 mt-1">Debes agregar al menos una imagen</p>
+          )}
         </div>
 
-        {/* Quinta fila: Imágenes Trasera y Lateral */}
-        <div className="col-span-12 md:col-span-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Imagen Trasera (URL)
-          </label>
-          <Input
-            type="url"
-            value={formData.backImage}
-            onChange={(e) => setFormData({ ...formData, backImage: e.target.value })}
-            placeholder="https://ejemplo.com/imagen-trasera.jpg"
-          />
-        </div>
-
-        <div className="col-span-12 md:col-span-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Imagen Lateral (URL)
-          </label>
-          <Input
-            type="url"
-            value={formData.sideImage}
-            onChange={(e) => setFormData({ ...formData, sideImage: e.target.value })}
-            placeholder="https://ejemplo.com/imagen-lateral.jpg"
-          />
-        </div>
-
-        {/* Sexta fila: Rating, Reviews, Tags, Destacado */}
+        {/* Rating, Reviews, Tags, Destacado */}
         <div className="col-span-12 md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Rating (0-5)
@@ -336,7 +446,7 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
           </label>
         </div>
 
-        {/* Séptima fila: Colores (selector con checkboxes) */}
+        {/* Colores (selector con checkboxes) */}
         <div className="col-span-12 md:col-span-6">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Colores * (selecciona al menos uno)
@@ -435,7 +545,7 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
                 type="submit"
                 variant="admin-primary"
                 className="w-full"
-                disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0}
+                disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0 || images.length === 0}
               >
                 Actualizar Producto
               </Button>
@@ -447,7 +557,7 @@ export const ProductForm = ({ product, onSubmit, onDelete }: ProductFormProps) =
               type="submit"
               variant="admin-primary"
               className="w-full"
-              disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0}
+              disabled={selectedColorIds.length === 0 || selectedSizeIds.length === 0 || images.length === 0}
             >
               Crear Producto
             </Button>

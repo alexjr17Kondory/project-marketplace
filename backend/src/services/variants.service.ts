@@ -465,10 +465,30 @@ export async function updateVariant(id: number, data: UpdateVariantInput) {
 export async function deleteVariant(id: number) {
   const variant = await prisma.productVariant.findUnique({
     where: { id },
+    include: {
+      _count: {
+        select: {
+          orderItems: true,
+          movements: true,
+          templateRecipes: true,
+        },
+      },
+    },
   });
 
   if (!variant) {
     throw new Error('Variante no encontrada');
+  }
+
+  // Verificar si tiene relaciones que impidan eliminarla
+  if (
+    variant._count.orderItems > 0 ||
+    variant._count.movements > 0 ||
+    variant._count.templateRecipes > 0
+  ) {
+    throw new Error(
+      'No se puede eliminar la variante porque tiene ventas, movimientos de inventario o recetas asociadas. Desactívala en su lugar.'
+    );
   }
 
   return await prisma.productVariant.delete({
