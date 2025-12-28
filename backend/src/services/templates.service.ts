@@ -270,6 +270,12 @@ export async function createTemplate(data: {
     include: templateInclude,
   });
 
+  // Auto-generar variantes si el template tiene colores o tallas
+  if ((data.colorIds && data.colorIds.length > 0) || (data.sizeIds && data.sizeIds.length > 0)) {
+    const { generateVariantsForProduct } = await import('./variants.service');
+    await generateVariantsForProduct(template.id, 0);
+  }
+
   return formatTemplateResponse(template);
 }
 
@@ -301,6 +307,9 @@ export async function updateTemplate(
     throw new NotFoundError('Template no encontrado');
   }
 
+  // Variable para saber si se actualizaron colores o tallas
+  let variantsNeedUpdate = false;
+
   // Si se proporcionan colorIds, actualizar relación
   if (data.colorIds !== undefined) {
     await prisma.productColor.deleteMany({
@@ -315,6 +324,7 @@ export async function updateTemplate(
         })),
       });
     }
+    variantsNeedUpdate = true;
   }
 
   // Si se proporcionan sizeIds, actualizar relación
@@ -331,6 +341,7 @@ export async function updateTemplate(
         })),
       });
     }
+    variantsNeedUpdate = true;
   }
 
   const template = await prisma.product.update({
@@ -350,6 +361,12 @@ export async function updateTemplate(
     },
     include: templateInclude,
   });
+
+  // Auto-generar nuevas variantes si se actualizaron colores o tallas
+  if (variantsNeedUpdate) {
+    const { generateVariantsForProduct } = await import('./variants.service');
+    await generateVariantsForProduct(template.id, 0);
+  }
 
   return formatTemplateResponse(template);
 }
