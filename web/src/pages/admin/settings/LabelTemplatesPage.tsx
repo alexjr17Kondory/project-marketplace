@@ -36,6 +36,7 @@ export default function LabelTemplatesPage() {
     zones: [] as LabelZone[],
   });
 
+
   useEffect(() => {
     loadData();
   }, []);
@@ -67,6 +68,28 @@ export default function LabelTemplatesPage() {
     }
   };
 
+  // Función para escalar zonas proporcionalmente cuando cambian las dimensiones de la etiqueta
+  const scaleZones = (
+    zones: LabelZone[],
+    newWidth: number,
+    newHeight: number,
+    refWidth: number,
+    refHeight: number
+  ): LabelZone[] => {
+    const scaleX = newWidth / refWidth;
+    const scaleY = newHeight / refHeight;
+
+    return zones.map(zone => ({
+      ...zone,
+      x: zone.x * scaleX,
+      y: zone.y * scaleY,
+      width: zone.width * scaleX,
+      height: zone.height * scaleY,
+      // Escalar fontSize proporcionalmente
+      fontSize: Math.round(zone.fontSize * Math.min(scaleX, scaleY)),
+    }));
+  };
+
   const handleCreate = () => {
     setEditingTemplate(null);
     setEditorData({
@@ -90,6 +113,7 @@ export default function LabelTemplatesPage() {
       const fullTemplate = await labelTemplatesService.getLabelTemplateById(template.id);
 
       setEditingTemplate(fullTemplate);
+
       setEditorData({
         name: fullTemplate.name,
         backgroundImage: fullTemplate.backgroundImage,
@@ -604,11 +628,25 @@ export default function LabelTemplatesPage() {
 
   // Función para aplicar una configuración optimizada (solo cambia dimensiones)
   const applyOptimizedConfig = (config: typeof optimizedConfigs[0]) => {
-    setEditorData({
-      ...editorData,
-      width: config.width,
-      height: config.height,
-      // Mantiene pageMargin y labelSpacing actuales del usuario
+    // Usar la forma funcional para acceder al estado más reciente
+    setEditorData(prevData => {
+      // Escalar zonas proporcionalmente a las nuevas dimensiones
+      // Usamos prevData.width y prevData.height como referencia (valores ANTES del cambio)
+      const scaledZones = scaleZones(
+        prevData.zones,
+        config.width,
+        config.height,
+        prevData.width,
+        prevData.height
+      );
+
+      return {
+        ...prevData,
+        width: config.width,
+        height: config.height,
+        zones: scaledZones,
+        // Mantiene pageMargin y labelSpacing actuales del usuario
+      };
     });
   };
 
@@ -731,7 +769,25 @@ export default function LabelTemplatesPage() {
                   value={(editorData.width / 28.35).toFixed(1)}
                   onChange={(e) => {
                     const cm = parseFloat(e.target.value) || 6;
-                    setEditorData({ ...editorData, width: cm * 28.35 });
+                    const newWidth = cm * 28.35;
+
+                    // Usar la forma funcional para acceder al estado más reciente
+                    setEditorData(prevData => {
+                      // Escalar zonas proporcionalmente desde el ancho ACTUAL
+                      const scaledZones = scaleZones(
+                        prevData.zones,
+                        newWidth,
+                        prevData.height,
+                        prevData.width, // Referencia: valor ACTUAL del estado previo
+                        prevData.height
+                      );
+
+                      return {
+                        ...prevData,
+                        width: newWidth,
+                        zones: scaledZones,
+                      };
+                    });
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
@@ -750,7 +806,25 @@ export default function LabelTemplatesPage() {
                   value={(editorData.height / 28.35).toFixed(1)}
                   onChange={(e) => {
                     const cm = parseFloat(e.target.value) || 9;
-                    setEditorData({ ...editorData, height: cm * 28.35 });
+                    const newHeight = cm * 28.35;
+
+                    // Usar la forma funcional para acceder al estado más reciente
+                    setEditorData(prevData => {
+                      // Escalar zonas proporcionalmente desde el alto ACTUAL
+                      const scaledZones = scaleZones(
+                        prevData.zones,
+                        prevData.width,
+                        newHeight,
+                        prevData.width,
+                        prevData.height // Referencia: valor ACTUAL del estado previo
+                      );
+
+                      return {
+                        ...prevData,
+                        height: newHeight,
+                        zones: scaledZones,
+                      };
+                    });
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
@@ -953,12 +1027,13 @@ export default function LabelTemplatesPage() {
         {/* Editor Visual */}
         <div className="bg-white rounded-lg shadow-sm p-4">
           <LabelTemplateEditor
+            key={`${editorData.width}-${editorData.height}`}
             backgroundImage={editorData.backgroundImage}
             width={editorData.width}
             height={editorData.height}
             zones={editorData.zones}
-            onZonesChange={(zones) => setEditorData({ ...editorData, zones })}
-            onBackgroundImageChange={(image) => setEditorData({ ...editorData, backgroundImage: image })}
+            onZonesChange={(zones) => setEditorData(prevData => ({ ...prevData, zones }))}
+            onBackgroundImageChange={(image) => setEditorData(prevData => ({ ...prevData, backgroundImage: image }))}
           />
         </div>
       </div>
