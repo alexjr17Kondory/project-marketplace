@@ -44,6 +44,9 @@ export interface LabelTemplate {
   backgroundImage: string | null;
   width: number;
   height: number;
+  pageType: string;
+  pageMargin: number;
+  labelSpacing: number;
   isDefault: boolean;
   isActive: boolean;
   zones: LabelZone[];
@@ -58,6 +61,9 @@ export interface CreateLabelTemplateInput {
   backgroundImage?: string | null;
   width?: number;
   height?: number;
+  pageType?: string;
+  pageMargin?: number;
+  labelSpacing?: number;
   isDefault?: boolean;
 }
 
@@ -67,6 +73,9 @@ export interface UpdateLabelTemplateInput {
   backgroundImage?: string | null;
   width?: number;
   height?: number;
+  pageType?: string;
+  pageMargin?: number;
+  labelSpacing?: number;
   isDefault?: boolean;
   isActive?: boolean;
 }

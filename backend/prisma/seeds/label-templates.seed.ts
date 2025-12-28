@@ -15,6 +15,9 @@ export async function seedLabelTemplates() {
       backgroundImage: null, // Sin imagen de fondo
       width: 170.08, // 6 cm
       height: 255.12, // 9 cm
+      pageType: 'A4', // Tipo de hoja: A4
+      pageMargin: 20, // Margen de página: 20 pts (≈0.7 cm) - OPTIMIZADO
+      labelSpacing: 5.67, // Separación entre etiquetas: 5.67 pts (≈0.2 cm) - OPTIMIZADO
       isDefault: true,
       isActive: true,
     },

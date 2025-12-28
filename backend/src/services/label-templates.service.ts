@@ -10,6 +10,9 @@ export interface CreateLabelTemplateInput {
   backgroundImage?: string | null;
   width?: number;
   height?: number;
+  pageType?: string; // A3, A4, LETTER, CUSTOM
+  pageMargin?: number;
+  labelSpacing?: number;
   isDefault?: boolean;
 }
 
@@ -19,6 +22,9 @@ export interface UpdateLabelTemplateInput {
   backgroundImage?: string | null;
   width?: number;
   height?: number;
+  pageType?: string; // A3, A4, LETTER, CUSTOM
+  pageMargin?: number;
+  labelSpacing?: number;
   isDefault?: boolean;
   isActive?: boolean;
 }
@@ -177,6 +183,9 @@ export async function createLabelTemplate(data: CreateLabelTemplateInput) {
       backgroundImage: data.backgroundImage || null,
       width: data.width || 170.08, // 6 cm
       height: data.height || 255.12, // 9 cm
+      pageType: data.pageType || 'A4',
+      pageMargin: data.pageMargin !== undefined ? data.pageMargin : 20, // Optimizado: 0.7cm
+      labelSpacing: data.labelSpacing !== undefined ? data.labelSpacing : 5.67, // Optimizado: 0.2cm
       isDefault: data.isDefault || false,
       isActive: true,
       productTypes: data.productTypeIds && data.productTypeIds.length > 0
@@ -238,6 +247,9 @@ export async function updateLabelTemplate(id: number, data: UpdateLabelTemplateI
       ...(data.backgroundImage !== undefined && { backgroundImage: data.backgroundImage }),
       ...(data.width && { width: data.width }),
       ...(data.height && { height: data.height }),
+      ...(data.pageType && { pageType: data.pageType }),
+      ...(data.pageMargin !== undefined && { pageMargin: data.pageMargin }),
+      ...(data.labelSpacing !== undefined && { labelSpacing: data.labelSpacing }),
       ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
       ...(data.isActive !== undefined && { isActive: data.isActive }),
       ...(data.productTypeIds !== undefined && {

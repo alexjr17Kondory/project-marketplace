@@ -534,20 +534,58 @@ export async function generateBarcodeLabelsPDFWithTemplate(
   const labelWidthPt = template.width;
   const labelHeightPt = template.height;
 
-  // Configuración de página A4
-  const pageWidth = 595.28;
-  const pageHeight = 841.89;
-  const margin = 30;
+  // Determinar dimensiones de página según el tipo configurado
+  const pageType = template.pageType || 'A4';
+  let pageWidth: number;
+  let pageHeight: number;
+  let pdfSize: string | [number, number];
+
+  switch (pageType) {
+    case 'A3':
+      pageWidth = 841.89;  // 29.7 cm
+      pageHeight = 1190.55; // 42 cm
+      pdfSize = 'A3';
+      break;
+    case 'LETTER':
+      pageWidth = 612;     // 21.6 cm
+      pageHeight = 792;    // 27.9 cm
+      pdfSize = 'LETTER';
+      break;
+    case 'CUSTOM':
+      // Para custom, usar A4 como fallback
+      pageWidth = 595.28;
+      pageHeight = 841.89;
+      pdfSize = 'A4';
+      break;
+    case 'A4':
+    default:
+      pageWidth = 595.28;  // 21 cm
+      pageHeight = 841.89; // 29.7 cm
+      pdfSize = 'A4';
+      break;
+  }
+
+  // Usar márgenes y espaciado configurados en la plantilla (valores optimizados por defecto)
+  const margin = template.pageMargin ?? 20; // 0.7 cm optimizado
+  const spacing = template.labelSpacing ?? 5.67; // 0.2 cm optimizado
 
   // Calcular cuántas etiquetas caben por página
-  const spacing = 10;
   const labelCols = Math.floor((pageWidth - margin * 2 + spacing) / (labelWidthPt + spacing));
   const labelRows = Math.floor((pageHeight - margin * 2 + spacing) / (labelHeightPt + spacing));
   const labelsPerPage = labelCols * labelRows;
 
+  console.log('=== PAGE CONFIGURATION ===');
+  console.log('Page Type:', pageType);
+  console.log('Page Dimensions:', pageWidth, 'x', pageHeight, 'pts');
+  console.log('Margin:', margin, 'pts');
+  console.log('Spacing:', spacing, 'pts');
+  console.log('Label Size:', labelWidthPt, 'x', labelHeightPt, 'pts');
+  console.log('Grid:', labelCols, 'cols x', labelRows, 'rows =', labelsPerPage, 'labels per page');
+  console.log('========================');
+
   // Crear documento PDF
   const doc = new PDFDocument({
-    size: 'A4',
+    size: pdfSize,
     margin: margin,
   });
 

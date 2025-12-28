@@ -994,6 +994,11 @@ model LabelTemplate {
   width  Float @default(170.08) // 6 cm
   height Float @default(255.12) // 9 cm
 
+  // Configuración de página e impresión
+  pageType     String @default("A4") // A3, A4, LETTER, CUSTOM
+  pageMargin   Float  @default(30) // Margen de la página en puntos (0.7-1 cm)
+  labelSpacing Float  @default(10) // Separación entre etiquetas en puntos (0.3-0.4 cm)
+
   // Configuración
   isDefault Boolean @default(false) // Plantilla por defecto global
   isActive  Boolean @default(true)
