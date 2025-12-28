@@ -134,6 +134,9 @@ model Product {
   // Relación con zonas de template (si isTemplate = true)
   templateZones TemplateZone[]
 
+  // Relación con insumos (para templates)
+  productInputs ProductInput[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -208,6 +211,20 @@ model ProductSize {
 
   @@unique([productId, sizeId])
   @@map("product_sizes")
+}
+
+// Tabla intermedia para templates e insumos (relación simple sin variantes)
+model ProductInput {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inputId   Int
+  input     Input   @relation(fields: [inputId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([productId, inputId])
+  @@map("product_inputs")
 }
 
 // Variante de producto (combinación única de producto + color + talla)
@@ -744,6 +761,9 @@ model Input {
   inputColors InputColor[] // Colores disponibles para este insumo
   inputSizes  InputSize[] // Tallas disponibles para este insumo
   variants    InputVariant[] // Variantes (combinaciones color+talla)
+
+  // Relación con templates
+  productInputs ProductInput[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

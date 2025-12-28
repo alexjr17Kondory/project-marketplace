@@ -84,6 +84,8 @@ export default function InventoryConversionFromTemplatePage() {
   const loadData = async () => {
     try {
       setLoading(true);
+
+      // Load all variants to get products with variants
       const variants = await getVariants();
 
       // Group variants by product
@@ -110,8 +112,8 @@ export default function InventoryConversionFromTemplatePage() {
       setTemplates(templateProducts);
       setProducts(regularProducts);
     } catch (error: any) {
+      console.error('Error loading data:', error);
       showToast('Error al cargar datos', 'error');
-      navigate('/admin-panel/inventory-conversions');
     } finally {
       setLoading(false);
     }
@@ -465,9 +467,15 @@ export default function InventoryConversionFromTemplatePage() {
             {/* Product List */}
             <div className="max-h-[300px] overflow-y-auto border border-gray-200 rounded-lg">
               {filteredProducts.length === 0 ? (
-                <p className="p-4 text-sm text-gray-500 text-center">
-                  No se encontraron productos
-                </p>
+                <div className="p-6 text-center">
+                  <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-700 mb-1">
+                    No hay productos con variantes
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Genera variantes para los productos en la página de Templates o Variantes
+                  </p>
+                </div>
               ) : (
                 filteredProducts.map((product) => (
                   <button
@@ -564,9 +572,15 @@ export default function InventoryConversionFromTemplatePage() {
                 {/* Template List */}
                 <div className="max-h-[300px] overflow-y-auto border border-gray-200 rounded-lg">
                   {filteredTemplates.length === 0 ? (
-                    <p className="p-4 text-sm text-gray-500 text-center">
-                      No se encontraron plantillas
-                    </p>
+                    <div className="p-6 text-center">
+                      <Shirt className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm font-medium text-gray-700 mb-1">
+                        No hay plantillas con variantes
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Genera variantes para las plantillas en la página de Templates
+                      </p>
+                    </div>
                   ) : (
                     filteredTemplates.map((template) => (
                       <button

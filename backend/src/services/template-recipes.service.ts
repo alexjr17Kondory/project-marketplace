@@ -297,7 +297,7 @@ export async function getVariantStockByColorSize(
 
 /**
  * Asociar insumos a un template
- * Crea automáticamente las asociaciones entre variantes que coincidan en color y talla
+ * Crea una relación simple entre template e insumos (sin depender de variantes)
  */
 export async function associateInputsToTemplate(productId: number, inputIds: number[]) {
   // Verificar que el producto es un template
@@ -309,79 +309,25 @@ export async function associateInputsToTemplate(productId: number, inputIds: num
     throw new Error('El producto no es un template');
   }
 
-  // Obtener todas las variantes del template
-  const templateVariants = await prisma.productVariant.findMany({
+  // Eliminar asociaciones existentes
+  await prisma.productInput.deleteMany({
     where: { productId },
-    include: {
-      color: true,
-      size: true,
-    },
   });
 
-  // Obtener todas las variantes de los insumos seleccionados
-  const inputVariants = await prisma.inputVariant.findMany({
-    where: {
-      input: {
-        id: { in: inputIds },
-      },
-    },
-    include: {
-      color: true,
-      size: true,
-      input: true,
-    },
-  });
-
-  // Primero, eliminar todas las recetas existentes de este template
-  await prisma.templateRecipe.deleteMany({
-    where: {
-      variant: {
+  // Crear las nuevas asociaciones
+  if (inputIds.length > 0) {
+    await prisma.productInput.createMany({
+      data: inputIds.map(inputId => ({
         productId,
-      },
-    },
-  });
-
-  // Crear las asociaciones nuevas
-  const recipesToCreate = [];
-
-  for (const templateVariant of templateVariants) {
-    // Buscar variante de insumo que coincida en color y talla
-    const matchingInputVariant = inputVariants.find((inputVariant) => {
-      const colorMatches =
-        (templateVariant.colorId === null && inputVariant.colorId === null) ||
-        (templateVariant.colorId !== null &&
-          inputVariant.colorId !== null &&
-          templateVariant.colorId === inputVariant.colorId);
-
-      const sizeMatches =
-        (templateVariant.sizeId === null && inputVariant.sizeId === null) ||
-        (templateVariant.sizeId !== null &&
-          inputVariant.sizeId !== null &&
-          templateVariant.sizeId === inputVariant.sizeId);
-
-      return colorMatches && sizeMatches;
-    });
-
-    if (matchingInputVariant) {
-      recipesToCreate.push({
-        variantId: templateVariant.id,
-        inputVariantId: matchingInputVariant.id,
-        quantity: 1,
-      });
-    }
-  }
-
-  // Crear las recetas en lote
-  if (recipesToCreate.length > 0) {
-    await prisma.templateRecipe.createMany({
-      data: recipesToCreate,
+        inputId,
+      })),
       skipDuplicates: true,
     });
   }
 
   return {
-    created: recipesToCreate.length,
-    templateVariants: templateVariants.length,
+    created: inputIds.length,
+    message: `${inputIds.length} insumo(s) asociado(s) exitosamente`,
   };
 }
 
@@ -389,24 +335,10 @@ export async function associateInputsToTemplate(productId: number, inputIds: num
  * Obtener IDs de insumos asociados a un template
  */
 export async function getAssociatedInputIds(productId: number): Promise<number[]> {
-  const recipes = await prisma.templateRecipe.findMany({
-    where: {
-      variant: {
-        productId,
-      },
-    },
-    include: {
-      inputVariant: {
-        include: {
-          input: true,
-        },
-      },
-    },
+  const productInputs = await prisma.productInput.findMany({
+    where: { productId },
+    select: { inputId: true },
   });
 
-  // Obtener IDs únicos de insumos
-  const uniqueInputIds = new Set(recipes.map((recipe) => recipe.inputVariant.input.id));
-  const inputIds = Array.from(uniqueInputIds);
-
-  return inputIds;
+  return productInputs.map(pi => pi.inputId);
 }
