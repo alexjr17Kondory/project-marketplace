@@ -4,6 +4,7 @@ import { NotFoundError, BadRequestError } from '../utils/errors';
 
 // Tipos de estado
 type ConversionStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'CANCELLED';
+type ConversionType = 'MANUAL' | 'TEMPLATE';
 
 // Interfaces de respuesta
 export interface ConversionInputItemResponse {
@@ -34,6 +35,9 @@ export interface ConversionOutputItemResponse {
 export interface InventoryConversionResponse {
   id: number;
   conversionNumber: string;
+  conversionType: ConversionType;
+  templateId: number | null;
+  templateVariantId: number | null;
   status: ConversionStatus;
   conversionDate: Date;
   createdById: number | null;
@@ -69,6 +73,9 @@ function formatConversionResponse(conversion: any): InventoryConversionResponse 
   return {
     id: conversion.id,
     conversionNumber: conversion.conversionNumber,
+    conversionType: conversion.conversionType as ConversionType,
+    templateId: conversion.templateId,
+    templateVariantId: conversion.templateVariantId,
     status: conversion.status as ConversionStatus,
     conversionDate: conversion.conversionDate,
     createdById: conversion.createdById,
@@ -80,9 +87,12 @@ function formatConversionResponse(conversion: any): InventoryConversionResponse 
     notes: conversion.notes,
     inputItems: conversion.inputItems?.map((item: any) => ({
       id: item.id,
-      inputId: item.inputId,
+      inputVariantId: item.inputVariantId,
       inputCode: item.inputCode,
       inputName: item.inputName,
+      variantSku: item.variantSku,
+      colorName: item.colorName,
+      sizeName: item.sizeName,
       unitOfMeasure: item.unitOfMeasure,
       unitCost: Number(item.unitCost),
       quantity: Number(item.quantity),
@@ -187,11 +197,32 @@ export const inventoryConversionsService = {
       throw new NotFoundError('Conversión de inventario no encontrada');
     }
 
-    return formatConversionResponse(conversion);
+    // If conversion has a template, load template info
+    let templateInfo = null;
+    if (conversion.templateId) {
+      const template = await prisma.product.findUnique({
+        where: { id: conversion.templateId },
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+        },
+      });
+      templateInfo = template;
+    }
+
+    const response = formatConversionResponse(conversion);
+    // Add template info to response
+    (response as any).template = templateInfo;
+
+    return response;
   },
 
   // Crear conversión
   async createConversion(data: {
+    conversionType?: ConversionType;
+    templateId?: number;
+    templateVariantId?: number;
     conversionDate?: Date | string;
     createdById?: number;
     createdByName?: string;
@@ -213,6 +244,9 @@ export const inventoryConversionsService = {
     const conversion = await prisma.inventoryConversion.create({
       data: {
         conversionNumber,
+        conversionType: data.conversionType || 'MANUAL',
+        templateId: data.templateId,
+        templateVariantId: data.templateVariantId,
         status: 'DRAFT',
         conversionDate: parsedConversionDate,
         createdById: data.createdById,
@@ -229,11 +263,115 @@ export const inventoryConversionsService = {
     return formatConversionResponse(conversion);
   },
 
+  // Crear conversión desde plantilla
+  async createConversionFromTemplate(data: {
+    templateVariantId: number;
+    outputVariantId: number;
+    quantity: number;
+    conversionDate?: Date | string;
+    createdById?: number;
+    createdByName?: string;
+    description?: string;
+    notes?: string;
+  }): Promise<InventoryConversionResponse> {
+    // Obtener la variante de plantilla con su receta
+    const templateVariant = await prisma.productVariant.findUnique({
+      where: { id: data.templateVariantId },
+      include: {
+        product: true,
+        color: true,
+        size: true,
+        templateRecipes: {
+          include: {
+            inputVariant: {
+              include: {
+                input: true,
+                color: true,
+                size: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!templateVariant) {
+      throw new NotFoundError('Variante de plantilla no encontrada');
+    }
+
+    if (!templateVariant.product.isTemplate) {
+      throw new BadRequestError('La variante no pertenece a una plantilla');
+    }
+
+    if (!templateVariant.templateRecipes || templateVariant.templateRecipes.length === 0) {
+      throw new BadRequestError('La variante de plantilla no tiene recetas asociadas');
+    }
+
+    // Obtener la variante de salida
+    const outputVariant = await prisma.productVariant.findUnique({
+      where: { id: data.outputVariantId },
+      include: {
+        product: true,
+        color: true,
+        size: true,
+      },
+    });
+
+    if (!outputVariant) {
+      throw new NotFoundError('Variante de producto no encontrada');
+    }
+
+    // Verificar stock disponible para TODOS los ingredientes
+    for (const recipe of templateVariant.templateRecipes) {
+      const inputQuantityRequired = data.quantity * Number(recipe.quantity);
+      const inputVariant = recipe.inputVariant;
+
+      if (Number(inputVariant.currentStock) < inputQuantityRequired) {
+        throw new BadRequestError(
+          `Stock insuficiente de ${inputVariant.input.name} (${inputVariant.sku}). Disponible: ${inputVariant.currentStock} ${inputVariant.input.unitOfMeasure}, Requerido: ${inputQuantityRequired}`
+        );
+      }
+    }
+
+    // Crear conversión
+    const conversion = await this.createConversion({
+      conversionType: 'TEMPLATE',
+      templateId: templateVariant.productId,
+      templateVariantId: data.templateVariantId,
+      conversionDate: data.conversionDate,
+      createdById: data.createdById,
+      createdByName: data.createdByName,
+      description: data.description || `Conversión de plantilla: ${templateVariant.product.name}`,
+      notes: data.notes,
+    });
+
+    // Agregar TODOS los insumos automáticamente
+    for (const recipe of templateVariant.templateRecipes) {
+      const inputQuantityRequired = data.quantity * Number(recipe.quantity);
+      const inputVariant = recipe.inputVariant;
+
+      await this.addInputItem(conversion.id, {
+        inputVariantId: inputVariant.id,
+        quantity: inputQuantityRequired,
+        notes: `Insumo para ${data.quantity} unidades de ${templateVariant.product.name}`,
+      });
+    }
+
+    // Agregar producto de salida
+    await this.addOutputItem(conversion.id, {
+      variantId: data.outputVariantId,
+      quantity: data.quantity,
+      notes: `Generado desde plantilla ${templateVariant.sku}`,
+    });
+
+    return this.getConversionById(conversion.id);
+  },
+
   // Agregar insumo a la conversión
   async addInputItem(
     conversionId: number,
     data: {
-      inputId: number;
+      inputVariantId: number;
       quantity: number;
       notes?: string;
     }
@@ -250,44 +388,52 @@ export const inventoryConversionsService = {
       throw new BadRequestError('Solo se pueden modificar conversiones en borrador');
     }
 
-    // Obtener datos del insumo
-    const input = await prisma.input.findUnique({
-      where: { id: data.inputId },
+    // Obtener datos de la variante del insumo
+    const inputVariant = await prisma.inputVariant.findUnique({
+      where: { id: data.inputVariantId },
+      include: {
+        input: true,
+        color: true,
+        size: true,
+      },
     });
 
-    if (!input) {
-      throw new NotFoundError('Insumo no encontrado');
+    if (!inputVariant) {
+      throw new NotFoundError('Variante de insumo no encontrada');
     }
 
     // Verificar stock disponible
-    if (Number(input.currentStock) < data.quantity) {
+    if (Number(inputVariant.currentStock) < data.quantity) {
       throw new BadRequestError(
-        `Stock insuficiente de ${input.name}. Disponible: ${input.currentStock} ${input.unitOfMeasure}`
+        `Stock insuficiente de ${inputVariant.input.name} (${inputVariant.sku}). Disponible: ${inputVariant.currentStock} ${inputVariant.input.unitOfMeasure}`
       );
     }
 
-    // Verificar si ya existe este insumo en la conversión
+    // Verificar si ya existe esta variante en la conversión
     const existingItem = await prisma.conversionInputItem.findFirst({
       where: {
         conversionId,
-        inputId: data.inputId,
+        inputVariantId: data.inputVariantId,
       },
     });
 
     if (existingItem) {
-      throw new BadRequestError('Este insumo ya está agregado a la conversión');
+      throw new BadRequestError('Esta variante de insumo ya está agregada a la conversión');
     }
 
-    const totalCost = data.quantity * Number(input.unitCost);
+    const totalCost = data.quantity * Number(inputVariant.unitCost);
 
     await prisma.conversionInputItem.create({
       data: {
         conversionId,
-        inputId: data.inputId,
-        inputCode: input.code,
-        inputName: input.name,
-        unitOfMeasure: input.unitOfMeasure,
-        unitCost: input.unitCost,
+        inputVariantId: data.inputVariantId,
+        inputCode: inputVariant.input.code,
+        inputName: inputVariant.input.name,
+        variantSku: inputVariant.sku,
+        colorName: inputVariant.color?.name || null,
+        sizeName: inputVariant.size?.name || null,
+        unitOfMeasure: inputVariant.input.unitOfMeasure,
+        unitCost: inputVariant.unitCost,
         quantity: data.quantity,
         totalCost,
         notes: data.notes,
@@ -331,13 +477,14 @@ export const inventoryConversionsService = {
 
     // Si se actualiza cantidad, verificar stock
     if (data.quantity !== undefined) {
-      const input = await prisma.input.findUnique({
-        where: { id: item.inputId },
+      const inputVariant = await prisma.inputVariant.findUnique({
+        where: { id: item.inputVariantId },
+        include: { input: true },
       });
 
-      if (input && Number(input.currentStock) < data.quantity) {
+      if (inputVariant && Number(inputVariant.currentStock) < data.quantity) {
         throw new BadRequestError(
-          `Stock insuficiente de ${input.name}. Disponible: ${input.currentStock} ${input.unitOfMeasure}`
+          `Stock insuficiente de ${inputVariant.input.name} (${item.variantSku}). Disponible: ${inputVariant.currentStock} ${item.unitOfMeasure}`
         );
       }
 
@@ -569,17 +716,17 @@ export const inventoryConversionsService = {
 
     // Verificar disponibilidad de stock
     for (const item of conversion.inputItems) {
-      const input = await prisma.input.findUnique({
-        where: { id: item.inputId },
+      const inputVariant = await prisma.inputVariant.findUnique({
+        where: { id: item.inputVariantId },
       });
 
-      if (!input) {
-        throw new BadRequestError(`Insumo ${item.inputName} no encontrado`);
+      if (!inputVariant) {
+        throw new BadRequestError(`Variante de insumo ${item.inputName} (${item.variantSku}) no encontrada`);
       }
 
-      if (Number(input.currentStock) < Number(item.quantity)) {
+      if (Number(inputVariant.currentStock) < Number(item.quantity)) {
         throw new BadRequestError(
-          `Stock insuficiente de ${item.inputName}. Disponible: ${input.currentStock} ${item.unitOfMeasure}, Requerido: ${item.quantity}`
+          `Stock insuficiente de ${item.inputName} (${item.variantSku}). Disponible: ${inputVariant.currentStock} ${item.unitOfMeasure}, Requerido: ${item.quantity}`
         );
       }
     }
@@ -622,28 +769,34 @@ export const inventoryConversionsService = {
 
     // Verificar disponibilidad de stock nuevamente
     for (const item of conversion.inputItems) {
-      const input = await prisma.input.findUnique({
-        where: { id: item.inputId },
+      const inputVariant = await prisma.inputVariant.findUnique({
+        where: { id: item.inputVariantId },
       });
 
-      if (!input) {
-        throw new BadRequestError(`Insumo ${item.inputName} no encontrado`);
+      if (!inputVariant) {
+        throw new BadRequestError(`Variante de insumo ${item.inputName} (${item.variantSku}) no encontrada`);
       }
 
-      if (Number(input.currentStock) < Number(item.quantity)) {
+      if (Number(inputVariant.currentStock) < Number(item.quantity)) {
         throw new BadRequestError(
-          `Stock insuficiente de ${item.inputName}. Disponible: ${input.currentStock} ${item.unitOfMeasure}, Requerido: ${item.quantity}`
+          `Stock insuficiente de ${item.inputName} (${item.variantSku}). Disponible: ${inputVariant.currentStock} ${item.unitOfMeasure}, Requerido: ${item.quantity}`
         );
       }
     }
 
     // Aplicar cambios de inventario en una transacción
     await prisma.$transaction(async (tx) => {
-      // 1. Consumir insumos (reducir stock)
+      // 1. Consumir insumos (reducir stock de variantes)
       for (const item of conversion.inputItems) {
-        // Reducir stock del insumo
-        await tx.input.update({
-          where: { id: item.inputId },
+        const inputVariant = await tx.inputVariant.findUnique({
+          where: { id: item.inputVariantId },
+        });
+
+        if (!inputVariant) continue;
+
+        // Reducir stock de la variante de insumo
+        await tx.inputVariant.update({
+          where: { id: item.inputVariantId },
           data: {
             currentStock: {
               decrement: Number(item.quantity),
@@ -651,41 +804,20 @@ export const inventoryConversionsService = {
           },
         });
 
-        // Buscar lote activo para registrar movimiento
-        const batch = await tx.inputBatch.findFirst({
-          where: {
-            inputId: item.inputId,
-            isActive: true,
-            currentQuantity: { gte: Number(item.quantity) },
+        // Registrar movimiento de salida en InputVariantMovement
+        await tx.inputVariantMovement.create({
+          data: {
+            inputVariantId: item.inputVariantId,
+            movementType: 'SALIDA',
+            quantity: -Number(item.quantity),
+            previousStock: Number(inputVariant.currentStock),
+            newStock: Number(inputVariant.currentStock) - Number(item.quantity),
+            referenceType: 'conversion',
+            referenceId: conversion.id,
+            reason: `Conversión a producto ${conversion.conversionNumber}`,
+            notes: item.notes,
           },
-          orderBy: { createdAt: 'asc' }, // FIFO
         });
-
-        if (batch) {
-          // Reducir cantidad del lote
-          await tx.inputBatch.update({
-            where: { id: batch.id },
-            data: {
-              currentQuantity: {
-                decrement: Number(item.quantity),
-              },
-            },
-          });
-
-          // Registrar movimiento de salida
-          await tx.inputBatchMovement.create({
-            data: {
-              inputId: item.inputId,
-              inputBatchId: batch.id,
-              movementType: 'SALIDA',
-              quantity: -Number(item.quantity),
-              referenceType: 'conversion',
-              referenceId: conversion.id,
-              reason: `Conversión a producto ${conversion.conversionNumber}`,
-              notes: item.notes,
-            },
-          });
-        }
       }
 
       // 2. Generar productos (aumentar stock de variantes)

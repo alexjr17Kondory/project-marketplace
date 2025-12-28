@@ -510,7 +510,8 @@ export default function PurchaseOrderDetailPage() {
 
                       group.items.forEach(({ item }) => {
                         if (item.variantInfo) {
-                          const parts = item.variantInfo.split(' / ').map(p => p.trim());
+                          // Support both " / " and " - " separators
+                          const parts = item.variantInfo.split(/ \/ | - /).map(p => p.trim());
                           if (parts[0]) colors.set(parts[0], { name: parts[0] });
                           if (parts[1]) sizes.set(parts[1], parts[1]);
                         }
@@ -522,7 +523,8 @@ export default function PurchaseOrderDetailPage() {
                       const findItemByColorSize = (colorName: string, sizeName: string) => {
                         return group.items.find(({ item }) => {
                           if (!item.variantInfo) return false;
-                          const parts = item.variantInfo.split(' / ').map(p => p.trim());
+                          // Support both " / " and " - " separators
+                          const parts = item.variantInfo.split(/ \/ | - /).map(p => p.trim());
                           return parts[0] === colorName && parts[1] === sizeName;
                         });
                       };

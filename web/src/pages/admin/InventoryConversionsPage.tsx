@@ -25,8 +25,11 @@ import {
   Clock,
   CheckCircle,
   DollarSign,
+  Wrench,
+  Shirt,
 } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
+import { Modal } from '../../components/shared/Modal';
 import { useToast } from '../../context/ToastContext';
 import {
   inventoryConversionsService,
@@ -84,9 +87,50 @@ export default function InventoryConversionsPage() {
     }
   };
 
-  // Navigate to create page
+  // Create conversion modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedType, setSelectedType] = useState<'manual' | 'template' | null>(null);
+  const [formData, setFormData] = useState({
+    conversionDate: new Date().toISOString().split('T')[0],
+    description: '',
+    notes: '',
+  });
+  const [creating, setCreating] = useState(false);
+
   const handleCreate = () => {
-    navigate('/admin-panel/inventory-conversions/new');
+    setShowCreateModal(true);
+    setSelectedType(null);
+    setFormData({
+      conversionDate: new Date().toISOString().split('T')[0],
+      description: '',
+      notes: '',
+    });
+  };
+
+  const handleSelectType = (type: 'manual' | 'template') => {
+    setSelectedType(type);
+  };
+
+  const handleCreateConversion = async () => {
+    try {
+      setCreating(true);
+      if (selectedType === 'manual') {
+        const newConversion = await inventoryConversionsService.createConversion(formData);
+        showToast('Conversión creada', 'success');
+        setShowCreateModal(false);
+        navigate(`/admin-panel/inventory-conversions/${newConversion.id}`);
+      } else {
+        // Para plantilla, navegar a una página especial de selección
+        setShowCreateModal(false);
+        navigate('/admin-panel/inventory-conversions/new-from-template', {
+          state: { formData }
+        });
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Error al crear conversión', 'error');
+    } finally {
+      setCreating(false);
+    }
   };
 
   // Navigate to view/edit page
@@ -450,6 +494,163 @@ export default function InventoryConversionsPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de creación de conversión */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Nueva Conversión de Inventario"
+      >
+        <div className="p-6">
+          {!selectedType ? (
+            <>
+              <p className="text-gray-600 mb-6">
+                Elige cómo deseas crear la conversión de inventario:
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Opción Manual */}
+                <button
+                  onClick={() => handleSelectType('manual')}
+                  className="group relative p-6 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 text-left"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 rounded-full bg-orange-100 group-hover:bg-orange-200 flex items-center justify-center mb-4 transition-colors">
+                      <Wrench className="w-8 h-8 text-orange-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Manual</h3>
+                    <p className="text-sm text-gray-600">
+                      Selecciona insumos y productos manualmente
+                    </p>
+                  </div>
+                </button>
+
+                {/* Opción Desde Plantilla */}
+                <button
+                  onClick={() => handleSelectType('template')}
+                  className="group relative p-6 border-2 border-gray-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all duration-200 text-left"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 rounded-full bg-indigo-100 group-hover:bg-indigo-200 flex items-center justify-center mb-4 transition-colors">
+                      <Shirt className="w-8 h-8 text-indigo-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Desde Plantilla</h3>
+                    <p className="text-sm text-gray-600">
+                      Convierte una plantilla en producto terminado
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <Button
+                  variant="admin-secondary"
+                  onClick={() => setShowCreateModal(false)}
+                  className="w-full"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Formulario de conversión */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  selectedType === 'manual' ? 'bg-orange-100' : 'bg-indigo-100'
+                }`}>
+                  {selectedType === 'manual' ? (
+                    <Wrench className="w-5 h-5 text-orange-600" />
+                  ) : (
+                    <Shirt className="w-5 h-5 text-indigo-600" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedType === 'manual' ? 'Conversión Manual' : 'Conversión desde Plantilla'}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {selectedType === 'manual'
+                      ? 'Selecciona insumos y productos manualmente'
+                      : 'Convierte plantilla en producto terminado'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Fecha de conversión */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha de Conversión
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.conversionDate}
+                    onChange={(e) => setFormData({ ...formData, conversionDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+
+                {/* Descripción */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descripción (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Describe el motivo de la conversión..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+
+                {/* Notas */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notas (opcional)
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Notas adicionales..."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200">
+                <Button
+                  variant="admin-secondary"
+                  onClick={() => setSelectedType(null)}
+                  className="flex-1"
+                  disabled={creating}
+                >
+                  Atrás
+                </Button>
+                <Button
+                  variant="admin-primary"
+                  onClick={handleCreateConversion}
+                  className="flex-1"
+                  disabled={creating}
+                >
+                  {creating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creando...
+                    </>
+                  ) : (
+                    'Crear Conversión'
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

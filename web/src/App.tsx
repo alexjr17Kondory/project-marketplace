@@ -57,6 +57,8 @@ import InventoryCountsPage from './pages/admin/InventoryCountsPage';
 import InventoryCountDetailPage from './pages/admin/InventoryCountDetailPage';
 import InventoryConversionsPage from './pages/admin/InventoryConversionsPage';
 import InventoryConversionDetailPage from './pages/admin/InventoryConversionDetailPage';
+import InventoryConversionFromTemplatePage from './pages/admin/InventoryConversionFromTemplatePage';
+import TemplateRecipesPage from './pages/admin/TemplateRecipesPage';
 import {
   SettingsGeneralPage,
   SettingsAppearancePage,
@@ -486,10 +488,26 @@ function App() {
                                       }
                                     />
                                     <Route
+                                      path="/inventory-conversions/new-from-template"
+                                      element={
+                                        <PermissionRoute permission="inventory.manage">
+                                          <InventoryConversionFromTemplatePage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
                                       path="/inventory-conversions/:id"
                                       element={
                                         <PermissionRoute permission="inventory.view">
                                           <InventoryConversionDetailPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/template-recipes"
+                                      element={
+                                        <PermissionRoute permission="inventory.manage">
+                                          <TemplateRecipesPage />
                                         </PermissionRoute>
                                       }
                                     />

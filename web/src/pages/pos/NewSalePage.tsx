@@ -3,7 +3,10 @@ import { usePOS } from '../../context/POSContext';
 import type { CartItem } from '../../context/POSContext';
 import { useToast } from '../../context/ToastContext';
 import type { Sale } from '../../services/pos.service';
+import * as posService from '../../services/pos.service';
+import type { SearchResult, TemplateSearchResult, ProductSearchResult, TemplateZoneInfo } from '../../services/pos.service';
 import OpenSessionPrompt from '../../components/pos/OpenSessionPrompt';
+import ZoneSelectionModal from '../../components/pos/ZoneSelectionModal';
 import {
   ShoppingCart,
   Trash2,
@@ -16,6 +19,7 @@ import {
   Barcode as BarcodeIcon,
   Printer,
   CheckCircle,
+  ChevronDown,
 } from 'lucide-react';
 
 // Interfaz para datos de la venta completada
@@ -33,6 +37,8 @@ interface CompletedSaleData {
 export default function NewSalePage() {
   const {
     cart,
+    addToCart,
+    addTemplateToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
@@ -54,6 +60,14 @@ export default function NewSalePage() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
+  // Search state
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Template zone selection
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateSearchResult | null>(null);
+
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'mixed'>('cash');
   const [cashAmount, setCashAmount] = useState('');
@@ -66,19 +80,167 @@ export default function NewSalePage() {
   // Completed sale modal
   const [completedSale, setCompletedSale] = useState<CompletedSaleData | null>(null);
 
+  // Product info modal (for out of stock products)
+  const [productInfoModal, setProductInfoModal] = useState<{
+    name: string;
+    image: string;
+    color: string;
+    size: string;
+    sku: string;
+    barcode: string;
+    price: number;
+    stock: number;
+  } | null>(null);
+
   // Auto-focus barcode input on mount
   useEffect(() => {
     barcodeInputRef.current?.focus();
   }, []);
 
-  // Handle barcode scan
+  // Handle unified search (barcode or name)
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcodeInput.trim()) return;
 
-    await scanProduct(barcodeInput);
+    try {
+      setIsSearching(true);
+      const result = await posService.searchProductsAndTemplates(barcodeInput);
+
+      if (result.type === 'single' && result.result) {
+        // Barcode scan - single result
+        if (result.result.type === 'product') {
+          const productData = {
+            variantId: result.result.variantId,
+            product: {
+              id: result.result.productId,
+              name: result.result.name,
+              image: result.result.image || '',
+            },
+            color: result.result.color,
+            size: result.result.size,
+            sku: result.result.sku,
+            barcode: result.result.barcode,
+            price: result.result.price,
+            stock: result.result.stock,
+            available: result.result.available,
+          };
+
+          // Check stock before adding
+          if (productData.stock <= 0) {
+            // Show product info modal without adding to cart
+            setProductInfoModal({
+              name: productData.product.name,
+              image: productData.product.image,
+              color: productData.color,
+              size: productData.size,
+              sku: productData.sku,
+              barcode: productData.barcode,
+              price: productData.price,
+              stock: productData.stock,
+            });
+          } else {
+            // Add to cart
+            addToCart(productData, 1);
+          }
+        } else if (result.result.type === 'template') {
+          // Template scanned - show zone selection modal
+          setSelectedTemplate(result.result as TemplateSearchResult);
+        }
+        setBarcodeInput('');
+      } else if (result.type === 'list' && result.results) {
+        // Name search - multiple results, show dropdown
+        if (result.results.length === 0) {
+          showToast('No se encontraron resultados', 'error');
+        } else if (result.results.length === 1) {
+          // Only one result - handle directly
+          handleSelectSearchResult(result.results[0]);
+        } else {
+          // Multiple results - show dropdown
+          setSearchResults(result.results);
+          setShowSearchDropdown(true);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error searching:', error);
+      showToast(error.response?.data?.message || 'Error al buscar', 'error');
+    } finally {
+      setIsSearching(false);
+      barcodeInputRef.current?.focus();
+    }
+  };
+
+  // Handle selecting a result from dropdown
+  const handleSelectSearchResult = (result: SearchResult) => {
+    setShowSearchDropdown(false);
     setBarcodeInput('');
-    barcodeInputRef.current?.focus();
+
+    if (result.type === 'product') {
+      // Add product to cart (with stock validation)
+      const productResult = result as ProductSearchResult;
+      const productData = {
+        variantId: productResult.variantId,
+        product: {
+          id: productResult.productId,
+          name: productResult.name,
+          image: productResult.image || '',
+        },
+        color: productResult.color,
+        size: productResult.size,
+        sku: productResult.sku,
+        barcode: productResult.barcode,
+        price: productResult.price,
+        stock: productResult.stock,
+        available: productResult.available,
+      };
+
+      // Check stock before adding
+      if (productData.stock <= 0) {
+        // Show product info modal without adding to cart
+        setProductInfoModal({
+          name: productData.product.name,
+          image: productData.product.image,
+          color: productData.color,
+          size: productData.size,
+          sku: productData.sku,
+          barcode: productData.barcode,
+          price: productData.price,
+          stock: productData.stock,
+        });
+      } else {
+        // Add to cart
+        addToCart(productData, 1);
+      }
+    } else if (result.type === 'template') {
+      // Show zone selection modal for template
+      setSelectedTemplate(result as TemplateSearchResult);
+    }
+  };
+
+  // Handle zone selection confirmation
+  const handleZoneSelectionConfirm = (selectedZones: TemplateZoneInfo[], totalPrice: number) => {
+    if (!selectedTemplate) return;
+
+    // Add template to cart
+    addTemplateToCart(
+      selectedTemplate.templateId,
+      selectedTemplate.name,
+      selectedTemplate.image || '',
+      selectedTemplate.basePrice,
+      selectedZones,
+      totalPrice,
+      1
+    );
+
+    setSelectedTemplate(null);
+  };
+
+  // Toggle dropdown manually
+  const toggleSearchDropdown = () => {
+    if (searchResults.length > 0) {
+      setShowSearchDropdown(!showSearchDropdown);
+    } else {
+      showToast('Escribe algo para buscar productos', 'info');
+    }
   };
 
   // Calculate change
@@ -354,18 +516,80 @@ export default function NewSalePage() {
                 ref={barcodeInputRef}
                 type="text"
                 value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                placeholder="Escanea o ingresa código de barras..."
+                onChange={(e) => {
+                  setBarcodeInput(e.target.value);
+                  if (!e.target.value) {
+                    setShowSearchDropdown(false);
+                  }
+                }}
+                placeholder="Escanea código o busca por nombre..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                disabled={isScanningProduct}
+                disabled={isSearching}
               />
+
+              {/* Search Results Dropdown */}
+              {showSearchDropdown && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-96 overflow-y-auto">
+                  {searchResults.map((result, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => handleSelectSearchResult(result)}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors flex items-center gap-3"
+                    >
+                      {result.image && (
+                        <img
+                          src={result.image}
+                          alt={result.name}
+                          className="w-12 h-12 object-cover rounded"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{result.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {result.type === 'product'
+                            ? `${(result as ProductSearchResult).color} - ${(result as ProductSearchResult).size} | SKU: ${result.sku}`
+                            : `Template | Precio base: $${Number((result as TemplateSearchResult).basePrice).toLocaleString()}`}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        {result.type === 'product' ? (
+                          <>
+                            <p className="text-lg font-bold text-gray-900">
+                              ${(result as ProductSearchResult).price.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Stock: {(result as ProductSearchResult).stock}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="inline-block px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded">
+                            Personalizable
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            <button
+              type="button"
+              onClick={toggleSearchDropdown}
+              className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              disabled={isSearching}
+              title="Ver resultados de búsqueda"
+            >
+              <ChevronDown className="w-5 h-5" />
+            </button>
+
             <button
               type="submit"
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              disabled={isScanningProduct}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              disabled={isSearching}
             >
-              {isScanningProduct ? 'Buscando...' : 'Buscar'}
+              {isSearching ? 'Buscando...' : 'Buscar'}
             </button>
           </form>
         </div>
@@ -401,23 +625,56 @@ export default function NewSalePage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
-                {cart.map((item) => (
-                  <div key={item.variantId} className="p-4 hover:bg-gray-50">
+                {cart.map((item, index) => (
+                  <div key={index} className="p-4 hover:bg-gray-50">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{item.product.name}</h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {item.color} - {item.size}
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">SKU: {item.sku}</p>
-                        <p className="text-sm font-medium text-blue-600 mt-2">
-                          ${item.price.toLocaleString()} c/u
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-gray-900">{item.product.name}</h3>
+                          {item.itemType === 'template' && (
+                            <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded">
+                              Personalizado
+                            </span>
+                          )}
+                        </div>
+
+                        {item.itemType === 'product' ? (
+                          <>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {item.color} - {item.size}
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1">SKU: {item.sku}</p>
+                            <p className="text-sm font-medium text-blue-600 mt-2">
+                              ${item.price.toLocaleString()} c/u
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="mt-1 space-y-1">
+                              <p className="text-sm text-gray-600">
+                                Precio base: <span className="font-medium">${item.basePrice.toLocaleString()}</span>
+                              </p>
+                              {item.selectedZones.length > 0 && (
+                                <div className="text-xs space-y-0.5">
+                                  <p className="text-gray-500 font-medium">Zonas:</p>
+                                  {item.selectedZones.map((zone, idx) => (
+                                    <p key={idx} className="text-gray-600 pl-2">
+                                      • {zone.name}: <span className="font-medium">+${Number(zone.price).toLocaleString()}</span>
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium text-blue-600 mt-2">
+                              Total: ${item.price.toLocaleString()} c/u
+                            </p>
+                          </>
+                        )}
                       </div>
 
                       <div className="flex flex-col items-end gap-2">
                         <button
-                          onClick={() => removeFromCart(item.variantId)}
+                          onClick={() => removeFromCart(index.toString())}
                           className="text-red-600 hover:text-red-700"
                         >
                           <X className="w-5 h-5" />
@@ -425,7 +682,7 @@ export default function NewSalePage() {
 
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                            onClick={() => updateQuantity(index.toString(), item.quantity - 1)}
                             className="p-1 rounded border border-gray-300 hover:bg-gray-100"
                             disabled={item.quantity <= 1}
                           >
@@ -433,9 +690,9 @@ export default function NewSalePage() {
                           </button>
                           <span className="w-12 text-center font-medium">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                            onClick={() => updateQuantity(index.toString(), item.quantity + 1)}
                             className="p-1 rounded border border-gray-300 hover:bg-gray-100"
-                            disabled={item.quantity >= item.stock}
+                            disabled={item.itemType === 'product' && item.quantity >= item.stock}
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -782,6 +1039,106 @@ export default function NewSalePage() {
                   className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
                 >
                   Nueva Venta
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Zone Selection Modal */}
+      {selectedTemplate && (
+        <ZoneSelectionModal
+          template={selectedTemplate}
+          onConfirm={handleZoneSelectionConfirm}
+          onCancel={() => setSelectedTemplate(null)}
+        />
+      )}
+
+      {/* Product Info Modal (Out of Stock) */}
+      {productInfoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-red-50">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-red-800">Producto Sin Stock</h2>
+                <button
+                  onClick={() => {
+                    setProductInfoModal(null);
+                    barcodeInputRef.current?.focus();
+                  }}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Product Image */}
+              {productInfoModal.image && (
+                <div className="mb-4 flex justify-center">
+                  <img
+                    src={productInfoModal.image}
+                    alt={productInfoModal.name}
+                    className="w-48 h-48 object-cover rounded-lg border-2 border-gray-200"
+                  />
+                </div>
+              )}
+
+              {/* Product Info */}
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    {productInfoModal.name}
+                  </h3>
+                  <p className="text-gray-600">
+                    {productInfoModal.color} - {productInfoModal.size}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="bg-gray-50 p-3 rounded">
+                    <p className="text-gray-500 mb-1">SKU</p>
+                    <p className="font-mono font-medium text-gray-900">{productInfoModal.sku}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <p className="text-gray-500 mb-1">Código de Barras</p>
+                    <p className="font-mono font-medium text-gray-900">{productInfoModal.barcode}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <p className="text-gray-500 mb-1">Precio</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      ${productInfoModal.price.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="bg-red-50 p-3 rounded border border-red-200">
+                    <p className="text-red-600 mb-1 font-medium">Stock</p>
+                    <p className="text-lg font-bold text-red-700">
+                      {productInfoModal.stock}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+                  <p className="text-red-800 font-medium text-center">
+                    ⚠️ Este producto no tiene stock disponible
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="mt-6">
+                <button
+                  onClick={() => {
+                    setProductInfoModal(null);
+                    barcodeInputRef.current?.focus();
+                  }}
+                  className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium"
+                >
+                  Cerrar
                 </button>
               </div>
             </div>

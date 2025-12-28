@@ -1,6 +1,7 @@
 import { Prisma, Prisma as PrismaTypes } from '@prisma/client';
 import { prisma } from '../config/database';
 import { NotFoundError } from '../utils/errors';
+import { generateUniqueBarcode } from './variants.service';
 
 // Helper para manejar valores JSON nulos en Prisma
 const jsonNullOrValue = (value: any): Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined => {
@@ -71,6 +72,7 @@ export interface TemplateResponse {
   slug: string;
   name: string;
   description: string;
+  barcode: string | null;
   categoryId: number | null;
   categorySlug: string | null;
   categoryName: string | null;
@@ -97,6 +99,7 @@ function formatTemplateResponse(template: any): TemplateResponse {
     slug: template.slug,
     name: template.name,
     description: template.description,
+    barcode: template.barcode || null,
     categoryId: template.categoryId,
     categorySlug: template.category?.slug || null,
     categoryName: template.category?.name || null,
@@ -200,6 +203,7 @@ export async function createTemplate(data: {
   description: string;
   sku: string;
   slug: string;
+  barcode?: string;
   categoryId?: number;
   typeId?: number;
   basePrice: number;
@@ -211,12 +215,33 @@ export async function createTemplate(data: {
   colorIds?: number[];
   sizeIds?: number[];
 }): Promise<TemplateResponse> {
+  // Generar barcode automáticamente si no se proporciona
+  let barcode = data.barcode || null;
+  if (!barcode) {
+    try {
+      barcode = await generateUniqueBarcode();
+    } catch (error) {
+      // Si falla, dejar NULL (se puede asignar manualmente después)
+      barcode = null;
+    }
+  } else {
+    // Verificar que el barcode no exista
+    const existingBarcode = await prisma.product.findUnique({
+      where: { barcode },
+    });
+
+    if (existingBarcode) {
+      throw new Error('El código de barras ya existe');
+    }
+  }
+
   const template = await prisma.product.create({
     data: {
       name: data.name,
       description: data.description,
       sku: data.sku,
       slug: data.slug,
+      barcode,
       categoryId: data.categoryId || null,
       typeId: data.typeId || null,
       basePrice: data.basePrice,

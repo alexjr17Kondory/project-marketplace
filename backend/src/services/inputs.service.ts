@@ -59,6 +59,14 @@ export const inputsService = {
             color: true,
           },
         },
+        inputSizes: {
+          include: {
+            size: true,
+          },
+          orderBy: {
+            size: { sortOrder: 'asc' },
+          },
+        },
         variants: {
           where: { isActive: true },
           include: {
@@ -103,6 +111,14 @@ export const inputsService = {
         inputColors: {
           include: {
             color: true,
+          },
+        },
+        inputSizes: {
+          include: {
+            size: true,
+          },
+          orderBy: {
+            size: { sortOrder: 'asc' },
           },
         },
         variants: {
@@ -336,6 +352,95 @@ export const inputsService = {
     return this.getInputById(inputId) as Promise<InputWithRelations>;
   },
 
+  // Agregar talla a un insumo (y generar variantes)
+  async addSizeToInput(inputId: number, sizeId: number): Promise<InputWithRelations> {
+    const input = await prisma.input.findUnique({
+      where: { id: inputId },
+      include: {
+        inputType: true,
+        inputColors: {
+          include: { color: true },
+        },
+      },
+    });
+
+    if (!input) {
+      throw new Error('Insumo no encontrado');
+    }
+
+    if (!input.inputType.hasVariants) {
+      throw new Error('Este tipo de insumo no soporta variantes');
+    }
+
+    // Verificar si la talla ya existe
+    const existingSize = await prisma.inputSize.findUnique({
+      where: {
+        inputId_sizeId: { inputId, sizeId },
+      },
+    });
+
+    if (existingSize) {
+      throw new Error('La talla ya está asignada a este insumo');
+    }
+
+    // Obtener la información de la talla
+    const size = await prisma.size.findUnique({ where: { id: sizeId } });
+    if (!size) {
+      throw new Error('Talla no encontrada');
+    }
+
+    // Crear relación con talla
+    await prisma.inputSize.create({
+      data: { inputId, sizeId },
+    });
+
+    // Generar variantes para esta talla con todos los colores existentes
+    const colors = input.inputColors;
+    const variants = colors.map((ic) => ({
+      inputId,
+      colorId: ic.colorId,
+      sizeId: size.id,
+      sku: `${input.code}-${ic.colorId}-${size.abbreviation}`,
+      unitCost: Number(input.unitCost),
+    }));
+
+    if (variants.length > 0) {
+      await prisma.inputVariant.createMany({ data: variants });
+    }
+
+    return this.getInputById(inputId) as Promise<InputWithRelations>;
+  },
+
+  // Remover talla de un insumo (y eliminar variantes)
+  async removeSizeFromInput(inputId: number, sizeId: number): Promise<InputWithRelations> {
+    // Verificar si hay variantes con stock
+    const variantsWithStock = await prisma.inputVariant.findMany({
+      where: {
+        inputId,
+        sizeId,
+        currentStock: { gt: 0 },
+      },
+    });
+
+    if (variantsWithStock.length > 0) {
+      throw new Error('No se puede eliminar la talla porque hay variantes con stock');
+    }
+
+    // Eliminar variantes
+    await prisma.inputVariant.deleteMany({
+      where: { inputId, sizeId },
+    });
+
+    // Eliminar relación con talla
+    await prisma.inputSize.delete({
+      where: {
+        inputId_sizeId: { inputId, sizeId },
+      },
+    });
+
+    return this.getInputById(inputId) as Promise<InputWithRelations>;
+  },
+
   // Actualizar variante de insumo
   async updateInputVariant(
     variantId: number,
@@ -384,6 +489,45 @@ export const inputsService = {
         size: true,
       },
       orderBy: [
+        { color: { name: 'asc' } },
+        { size: { sortOrder: 'asc' } },
+      ],
+    });
+  },
+
+  // Obtener todas las variantes de todos los insumos
+  async getAllInputVariants() {
+    return prisma.inputVariant.findMany({
+      where: {
+        isActive: true,
+      },
+      include: {
+        input: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            unitOfMeasure: true,
+            isActive: true,
+          },
+        },
+        color: {
+          select: {
+            id: true,
+            name: true,
+            hexCode: true,
+          },
+        },
+        size: {
+          select: {
+            id: true,
+            name: true,
+            abbreviation: true,
+          },
+        },
+      },
+      orderBy: [
+        { input: { name: 'asc' } },
         { color: { name: 'asc' } },
         { size: { sortOrder: 'asc' } },
       ],

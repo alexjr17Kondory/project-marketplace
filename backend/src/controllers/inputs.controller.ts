@@ -128,11 +128,60 @@ export async function removeColorFromInput(req: Request, res: Response, next: Ne
   }
 }
 
+// Agregar talla a un insumo
+export async function addSizeToInput(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const inputId = parseInt(req.params['id']!);
+    const { sizeId } = req.body;
+
+    if (!sizeId) {
+      res.status(400).json({ success: false, message: 'sizeId es requerido' });
+      return;
+    }
+
+    const input = await inputsService.addSizeToInput(inputId, parseInt(sizeId));
+    res.json({ success: true, data: input });
+  } catch (error: any) {
+    if (error.message) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    next(error);
+  }
+}
+
+// Remover talla de un insumo
+export async function removeSizeFromInput(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const inputId = parseInt(req.params['id']!);
+    const sizeId = parseInt(req.params['sizeId']!);
+
+    const input = await inputsService.removeSizeFromInput(inputId, sizeId);
+    res.json({ success: true, data: input });
+  } catch (error: any) {
+    if (error.message) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    next(error);
+  }
+}
+
 // Obtener variantes de un insumo
 export async function getInputVariants(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const inputId = parseInt(req.params['id']!);
     const variants = await inputsService.getInputVariants(inputId);
+    res.json({ success: true, data: variants });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Obtener todas las variantes de todos los insumos
+export async function getAllInputVariants(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const variants = await inputsService.getAllInputVariants();
     res.json({ success: true, data: variants });
   } catch (error) {
     next(error);

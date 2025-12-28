@@ -24,6 +24,7 @@ export const TemplateZonesManager = ({ templateId }: TemplateZonesManagerProps) 
     positionY: 0,
     maxWidth: 100,
     maxHeight: 100,
+    price: 0,
     isRequired: false,
     sortOrder: 0,
   });
@@ -94,6 +95,7 @@ export const TemplateZonesManager = ({ templateId }: TemplateZonesManagerProps) 
         positionY: zoneFormData.positionY,
         maxWidth: zoneFormData.maxWidth,
         maxHeight: zoneFormData.maxHeight,
+        price: zoneFormData.price,
         isRequired: zoneFormData.isRequired,
         sortOrder: zoneFormData.sortOrder,
       });
@@ -127,6 +129,7 @@ export const TemplateZonesManager = ({ templateId }: TemplateZonesManagerProps) 
       positionY: zone.positionY,
       maxWidth: zone.maxWidth,
       maxHeight: zone.maxHeight,
+      price: zone.price,
       isRequired: zone.isRequired,
       sortOrder: zone.sortOrder,
     });
@@ -144,6 +147,7 @@ export const TemplateZonesManager = ({ templateId }: TemplateZonesManagerProps) 
       positionY: 0,
       maxWidth: 100,
       maxHeight: 100,
+      price: 0,
       isRequired: false,
       sortOrder: 0,
     });
@@ -275,6 +279,20 @@ export const TemplateZonesManager = ({ templateId }: TemplateZonesManagerProps) 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Precio ($)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={zoneFormData.price}
+                onChange={(e) => setZoneFormData({ ...zoneFormData, price: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Orden
               </label>
               <input
@@ -330,6 +348,9 @@ export const TemplateZonesManager = ({ templateId }: TemplateZonesManagerProps) 
                   <h4 className="font-semibold">{zone.name}</h4>
                   <p className="text-sm text-gray-600">
                     Tipo: {zone.zoneType?.name} | Posición: ({zone.positionX}%, {zone.positionY}%) | Tamaño: {zone.maxWidth}x{zone.maxHeight}%
+                  </p>
+                  <p className="text-sm font-medium text-green-600 mt-1">
+                    Precio: ${zone.price.toLocaleString()}
                   </p>
                   {zone.isRequired && (
                     <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded">

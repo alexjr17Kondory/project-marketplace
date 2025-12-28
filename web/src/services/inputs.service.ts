@@ -11,6 +11,17 @@ export interface InputColor {
   };
 }
 
+export interface InputSize {
+  id: number;
+  sizeId: number;
+  size: {
+    id: number;
+    name: string;
+    abbreviation: string;
+    sortOrder: number;
+  };
+}
+
 export interface InputVariant {
   id: number;
   sku: string;
@@ -69,6 +80,7 @@ export interface Input {
     inputTypeSizes?: InputTypeSize[];
   };
   inputColors?: InputColor[];
+  inputSizes?: InputSize[];
   variants?: InputVariant[];
   _count?: {
     batches: number;
@@ -182,6 +194,17 @@ export const inputsService = {
     return response.data!;
   },
 
+  // Size management
+  async addSize(inputId: number, sizeId: number): Promise<Input> {
+    const response = await api.post<Input>(`/inputs/${inputId}/sizes`, { sizeId });
+    return response.data!;
+  },
+
+  async removeSize(inputId: number, sizeId: number): Promise<Input> {
+    const response = await api.delete<Input>(`/inputs/${inputId}/sizes/${sizeId}`);
+    return response.data!;
+  },
+
   // Variants management
   async getVariants(inputId: number): Promise<InputVariant[]> {
     const response = await api.get<InputVariant[]>(`/inputs/${inputId}/variants`);
@@ -212,5 +235,11 @@ export const inputsService = {
     const params = limit ? `?limit=${limit}` : '';
     const response = await api.get<InputVariantMovement[]>(`/inputs/variants/${variantId}/movements${params}`);
     return response.data || [];
+  },
+
+  // Get all variants from all inputs
+  async getAllVariants(): Promise<(InputVariant & { input: { id: number; code: string; name: string; unitOfMeasure: string; isActive: boolean } })[]> {
+    const response = await api.get('/inputs/all-variants');
+    return response.data.data || response.data || [];
   },
 };

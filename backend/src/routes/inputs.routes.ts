@@ -120,15 +120,18 @@ router.use(authenticate, requireAdmin);
  */
 router.get('/', inputsController.getAllInputs);
 router.get('/low-stock', inputsController.getLowStockInputs);
+router.get('/all-variants', inputsController.getAllInputVariants); // Antes de /:id
 router.get('/:id', inputsController.getInputById);
 router.post('/', inputsController.createInput);
 router.put('/:id', inputsController.updateInput);
 router.delete('/:id', inputsController.deleteInput);
 router.post('/:id/recalculate-stock', inputsController.recalculateStock);
 
-// Rutas para colores y variantes de insumos
+// Rutas para colores y tallas de insumos
 router.post('/:id/colors', inputsController.addColorToInput);
 router.delete('/:id/colors/:colorId', inputsController.removeColorFromInput);
+router.post('/:id/sizes', inputsController.addSizeToInput);
+router.delete('/:id/sizes/:sizeId', inputsController.removeSizeFromInput);
 router.get('/:id/variants', inputsController.getInputVariants);
 router.post('/:id/regenerate-variants', inputsController.regenerateVariants);
 

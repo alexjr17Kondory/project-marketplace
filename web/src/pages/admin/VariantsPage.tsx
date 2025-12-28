@@ -106,30 +106,6 @@ export default function VariantsPage() {
     }
   };
 
-  // Ajustar stock
-  const handleStockAdjustment = async (variant: ProductVariant) => {
-    const colorName = variant.color?.name || 'N/A';
-    const sizeName = variant.size?.name || 'N/A';
-    const quantity = window.prompt(
-      `Ajustar stock de ${variant.product.name} (${colorName} - ${sizeName})\nStock actual: ${variant.stock}\n\nIngrese cantidad a sumar/restar (ej: +10 o -5):`
-    );
-
-    if (!quantity) return;
-
-    const adjustment = parseInt(quantity);
-    if (isNaN(adjustment)) {
-      showToast('Cantidad invalida', 'error');
-      return;
-    }
-
-    try {
-      await variantsService.adjustStock(variant.id, adjustment);
-      showToast('Stock ajustado exitosamente', 'success');
-      loadVariants();
-    } catch (error: any) {
-      showToast('Error al ajustar stock: ' + (error.response?.data?.message || error.message), 'error');
-    }
-  };
 
   // Stats
   const stats = useMemo(() => {
@@ -241,23 +217,33 @@ export default function VariantsPage() {
         cell: (info) => {
           const stock = info.getValue();
           const minStock = info.row.original.minStock;
+          const isTemplate = info.row.original.product.isTemplate;
           const isLow = stock <= minStock;
           const isOut = stock === 0;
 
           return (
-            <button
-              onClick={() => handleStockAdjustment(info.row.original)}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded font-medium text-sm hover:opacity-80 transition-opacity ${
-                isOut
-                  ? 'bg-red-100 text-red-700'
-                  : isLow
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-green-100 text-green-700'
-              }`}
-            >
-              {stock}
-              {isLow && !isOut && <AlertTriangle className="w-3 h-3" />}
-            </button>
+            <div className="flex items-center gap-1">
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded font-medium text-sm ${
+                  isOut
+                    ? 'bg-red-100 text-red-700'
+                    : isLow
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-green-100 text-green-700'
+                }`}
+              >
+                {stock}
+                {isLow && !isOut && <AlertTriangle className="w-3 h-3" />}
+              </span>
+              {isTemplate && (
+                <span
+                  className="text-xs text-indigo-600"
+                  title="Stock calculado desde insumo"
+                >
+                  📦
+                </span>
+              )}
+            </div>
           );
         },
       }),
@@ -665,7 +651,14 @@ export default function VariantsPage() {
             {/* Stock y Precio */}
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-500 mb-1">Stock</p>
+                <p className="text-xs text-gray-500 mb-1">
+                  Stock
+                  {showDetailModal.product.isTemplate && (
+                    <span className="ml-1 text-indigo-600" title="Calculado desde insumo">
+                      📦
+                    </span>
+                  )}
+                </p>
                 <div className="flex items-center gap-2">
                   <span className={`text-lg font-bold ${
                     showDetailModal.stock === 0
@@ -678,6 +671,11 @@ export default function VariantsPage() {
                   </span>
                   <span className="text-xs text-gray-400">/ min: {showDetailModal.minStock}</span>
                 </div>
+                {showDetailModal.product.isTemplate && (
+                  <p className="text-xs text-indigo-600 mt-1">
+                    Stock calculado desde insumo
+                  </p>
+                )}
               </div>
               <div className="p-4 bg-gray-50 rounded-lg">
                 <p className="text-xs text-gray-500 mb-1">Precio</p>
@@ -731,16 +729,6 @@ export default function VariantsPage() {
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Eliminar
-              </Button>
-              <Button
-                variant="admin-secondary"
-                onClick={() => {
-                  handleStockAdjustment(showDetailModal);
-                  setShowDetailModal(null);
-                }}
-                className="flex-1"
-              >
-                Ajustar Stock
               </Button>
               <Button variant="admin-primary" onClick={() => setShowDetailModal(null)} className="flex-1">
                 Cerrar

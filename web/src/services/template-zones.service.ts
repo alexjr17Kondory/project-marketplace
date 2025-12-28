@@ -14,6 +14,7 @@ export interface TemplateZone {
   maxHeight: number;
   radius?: number | null; // Para círculos
   points?: Array<{ x: number; y: number }> | null; // Para polígonos
+  price: number; // Precio adicional por personalizar esta zona
   isEditable: boolean;
   isRequired: boolean;
   isBlocked: boolean; // true = zona bloqueada (roja), false = zona de diseño
@@ -67,6 +68,7 @@ export interface CreateTemplateZoneDto {
   maxHeight: number;
   radius?: number;
   points?: Array<{ x: number; y: number }>;
+  price?: number;
   isEditable?: boolean;
   isRequired?: boolean;
   isBlocked?: boolean;
@@ -85,6 +87,7 @@ export interface UpdateTemplateZoneDto {
   maxHeight?: number;
   radius?: number;
   points?: Array<{ x: number; y: number }>;
+  price?: number;
   isEditable?: boolean;
   isRequired?: boolean;
   isBlocked?: boolean;

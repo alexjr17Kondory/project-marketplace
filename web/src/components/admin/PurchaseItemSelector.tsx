@@ -250,7 +250,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
       if (variant && quantity > 0) {
         const colorName = variant.color?.name || '';
         const sizeName = variant.size?.abbreviation || variant.size?.name || '';
-        const variantInfo = [colorName, sizeName].filter(Boolean).join(' - ');
+        const variantInfo = [colorName, sizeName].filter(Boolean).join(' / ');
 
         items.push({
           type: 'variant',
@@ -286,7 +286,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
         if (variant && quantity > 0) {
           const colorName = variant.color?.name || '';
           const sizeName = variant.size?.abbreviation || variant.size?.name || '';
-          const variantInfo = [colorName, sizeName].filter(Boolean).join(' - ');
+          const variantInfo = [colorName, sizeName].filter(Boolean).join(' / ');
 
           items.push({
             type: 'input-variant',

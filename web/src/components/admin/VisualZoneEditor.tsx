@@ -81,6 +81,7 @@ export const VisualZoneEditor = ({
   const [newZoneHeightCm, setNewZoneHeightCm] = useState<number>(25);
   const [newZoneShape, setNewZoneShape] = useState<'rect' | 'circle' | 'polygon'>('rect');
   const [newZoneIsBlocked, setNewZoneIsBlocked] = useState(false);
+  const [newZonePrice, setNewZonePrice] = useState<number>(0);
 
   // Estado para bloqueo de proporciones al redimensionar
   const [lockAspectRatio, setLockAspectRatio] = useState<boolean>(true); // Bloquear proporciones por defecto
@@ -92,6 +93,17 @@ export const VisualZoneEditor = ({
   const [zoneTypeImages, setZoneTypeImages] = useState<ZoneTypeImages>(externalZoneTypeImages || {});
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedZoneTypeForImage, setSelectedZoneTypeForImage] = useState<string | null>(null);
+
+  // Estado para precio editable de la zona seleccionada
+  const [editablePrice, setEditablePrice] = useState<number>(0);
+
+  // Actualizar precio cuando cambia la zona seleccionada
+  useEffect(() => {
+    const zone = zones.find(z => z.id === selectedZoneId);
+    if (zone) {
+      setEditablePrice(zone.price || 0);
+    }
+  }, [selectedZoneId, zones]);
 
   // Sincronizar con props externas cuando cambien
   useEffect(() => {
@@ -589,6 +601,7 @@ export const VisualZoneEditor = ({
         { x: 100, y: 100 },
         { x: 0, y: 100 }
       ] : undefined,
+      price: newZonePrice,
       isRequired: false,
       isBlocked: newZoneIsBlocked,
       sortOrder: zones.length + 1,
@@ -615,6 +628,7 @@ export const VisualZoneEditor = ({
       setNewZoneHeightCm(25);
       setNewZoneShape('rect');
       setNewZoneIsBlocked(false);
+      setNewZonePrice(0);
       setSelectedZoneId(created.id);
       onZonesChange?.([...zones, createdWithType]);
     } catch (err) {
@@ -646,8 +660,12 @@ export const VisualZoneEditor = ({
         positionY: zone.positionY,
         maxWidth: zone.maxWidth,
         maxHeight: zone.maxHeight,
+        price: editablePrice,
       });
+      // Actualizar el precio en el estado local
+      setZones(prev => prev.map(z => z.id === zone.id ? { ...z, price: editablePrice } : z));
       onZonesChange?.(zones);
+      alert('Zona guardada correctamente');
     } catch (err) {
       alert('Error al guardar la zona');
       console.error(err);
@@ -952,8 +970,25 @@ export const VisualZoneEditor = ({
                 </p>
               </div>
 
+              {/* Precio */}
+              <div className="bg-white border border-gray-200 rounded-md p-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Precio ($)</label>
+                <input
+                  type="number"
+                  value={newZonePrice}
+                  onChange={(e) => setNewZonePrice(parseFloat(e.target.value) || 0)}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Costo adicional por personalizar esta zona
+                </p>
+              </div>
+
               <div className="flex gap-2">
-                <Button onClick={() => { setIsCreatingZone(false); setNewZoneIsBlocked(false); setNewZoneShape('rect'); }} variant="admin-secondary" className="flex-1">
+                <Button onClick={() => { setIsCreatingZone(false); setNewZoneIsBlocked(false); setNewZoneShape('rect'); setNewZonePrice(0); }} variant="admin-secondary" className="flex-1">
                   Cancelar
                 </Button>
                 <Button onClick={handleCreateZone} variant={newZoneIsBlocked ? 'admin-danger' : 'admin-primary'} className="flex-1">
@@ -1053,6 +1088,19 @@ export const VisualZoneEditor = ({
                 <div className="font-medium text-gray-900">
                   {percentToCm(selectedZone.maxWidth, true)} × {percentToCm(selectedZone.maxHeight, false)} cm
                 </div>
+              </div>
+
+              {/* Precio */}
+              <div className="bg-white border border-gray-200 rounded-md p-2">
+                <label className="block text-xs text-gray-500 mb-1">Precio ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editablePrice}
+                  onChange={(e) => setEditablePrice(parseFloat(e.target.value) || 0)}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                />
               </div>
 
               {/* Posición */}

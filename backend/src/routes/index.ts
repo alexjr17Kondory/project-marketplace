@@ -11,6 +11,7 @@ import webhooksRoutes from './webhooks.routes';
 import templatesRoutes from './templates.routes';
 import zoneTypesRoutes from './zone-types.routes';
 import templateZonesRoutes from './template-zones.routes';
+import templateRecipesRoutes from './template-recipes.routes';
 import inputTypesRoutes from './input-types.routes';
 import inputsRoutes from './inputs.routes';
 import inputBatchesRoutes from './input-batches.routes';
@@ -115,6 +116,9 @@ router.use('/zone-types', zoneTypesRoutes);
 
 // Rutas de zonas de template
 router.use('/template-zones', templateZonesRoutes);
+
+// Rutas de recetas de template (asociación con insumos)
+router.use('/template-recipes', templateRecipesRoutes);
 
 // Rutas de tipos de insumo
 router.use('/input-types', inputTypesRoutes);

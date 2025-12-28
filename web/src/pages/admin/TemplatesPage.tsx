@@ -10,10 +10,13 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
+import { useNavigate } from 'react-router-dom';
 import { templatesService, type Template } from '../../services/templates.service';
 import { TemplateForm, type TemplateFormData } from '../../components/admin/TemplateForm';
 import { TemplateZonesManager } from '../../components/admin/TemplateZonesManager';
 import { VisualZoneEditor } from '../../components/admin/VisualZoneEditor';
+import { TemplateRecipesSection } from '../../components/admin/TemplateRecipesSection';
+import { templateRecipesService } from '../../services/template-recipes.service';
 import { useToast } from '../../context/ToastContext';
 import { useCatalogs } from '../../context/CatalogsContext';
 import { Modal } from '../../components/shared/Modal';
@@ -28,8 +31,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
-  Palette
+  Palette,
+  Printer,
+  Grid3x3
 } from 'lucide-react';
+import * as variantsService from '../../services/variants.service';
 
 type ViewMode = 'list' | 'add' | 'edit';
 
@@ -38,6 +44,7 @@ const columnHelper = createColumnHelper<Template>();
 export const TemplatesPage = () => {
   const { showToast } = useToast();
   const { categories, productTypes } = useCatalogs();
+  const navigate = useNavigate();
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +54,10 @@ export const TemplatesPage = () => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [generatingVariantsFor, setGeneratingVariantsFor] = useState<Template | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [templatesWithVariants, setTemplatesWithVariants] = useState<Set<number>>(new Set());
+  const [selectedInputIds, setSelectedInputIds] = useState<number[]>([]);
 
   useEffect(() => {
     loadTemplates();
@@ -93,6 +104,11 @@ export const TemplatesPage = () => {
     if (!selectedTemplate) return;
 
     try {
+      console.log('=== GUARDANDO TEMPLATE ===');
+      console.log('Template ID:', selectedTemplate.id);
+      console.log('Selected Input IDs:', selectedInputIds);
+
+      // Actualizar datos del template
       await templatesService.updateTemplate(selectedTemplate.id, {
         name: data.name,
         description: data.description,
@@ -106,11 +122,18 @@ export const TemplatesPage = () => {
         sizeIds: data.sizeIds,
       });
 
-      showToast('Modelo actualizado exitosamente', 'success');
+      // Guardar insumos asociados
+      console.log('Llamando a associateInputs...');
+      const result = await templateRecipesService.associateInputs(selectedTemplate.id, selectedInputIds);
+      console.log('Resultado de associateInputs:', result);
+
+      showToast('Modelo y recetas actualizados exitosamente', 'success');
       await loadTemplates();
       setViewMode('list');
       setSelectedTemplate(null);
+      setSelectedInputIds([]);
     } catch (error: any) {
+      console.error('Error al guardar:', error);
       showToast(error.response?.data?.message || 'Error al actualizar modelo', 'error');
     }
   };
@@ -128,14 +151,82 @@ export const TemplatesPage = () => {
     }
   };
 
-  const startEdit = (template: Template) => {
+  const startEdit = async (template: Template) => {
     setSelectedTemplate(template);
     setViewMode('edit');
+
+    // Cargar insumos asociados a este template
+    try {
+      console.log('=== CARGANDO INPUTS ASOCIADOS ===');
+      console.log('Template ID:', template.id);
+      const inputIds = await templateRecipesService.getAssociatedInputIds(template.id);
+      console.log('Input IDs cargados:', inputIds);
+      setSelectedInputIds(inputIds);
+    } catch (error) {
+      console.error('Error loading associated inputs:', error);
+      setSelectedInputIds([]);
+    }
   };
 
   const cancelEdit = () => {
     setViewMode('list');
     setSelectedTemplate(null);
+    setSelectedInputIds([]);
+  };
+
+  const handlePrintBarcodes = (template: Template) => {
+    navigate(`/admin-panel/barcodes/print/${template.id}`);
+  };
+
+  // Verificar qué templates tienen variantes
+  const checkTemplateVariants = async () => {
+    const templateIds = new Set<number>();
+    for (const template of templates) {
+      try {
+        const variants = await variantsService.getVariants({ productId: template.id });
+        if (variants.length > 0) {
+          templateIds.add(template.id);
+        }
+      } catch (error) {
+        console.error(`Error checking variants for template ${template.id}:`, error);
+      }
+    }
+    setTemplatesWithVariants(templateIds);
+  };
+
+  // Cargar información de variantes al montar o cuando cambian los templates
+  useMemo(() => {
+    if (templates.length > 0 && viewMode === 'list') {
+      checkTemplateVariants();
+    }
+  }, [templates, viewMode]);
+
+  const handleGenerateVariants = async () => {
+    if (!generatingVariantsFor) return;
+
+    try {
+      setIsGenerating(true);
+      const result = await variantsService.generateVariantsForProduct(
+        generatingVariantsFor.id,
+        0 // Stock inicial
+      );
+
+      if (result.created > 0) {
+        showToast(`${result.created} variantes creadas exitosamente`, 'success');
+        // Actualizar lista de templates con variantes
+        setTemplatesWithVariants(prev => new Set(prev).add(generatingVariantsFor.id));
+      }
+
+      if (result.errors && result.errors.length > 0) {
+        showToast(`${result.errors.length} errores al crear variantes`, 'error');
+      }
+
+      setGeneratingVariantsFor(null);
+    } catch (error: any) {
+      showToast('Error al generar variantes: ' + (error.response?.data?.message || error.message), 'error');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // Definir columnas
@@ -247,20 +338,42 @@ export const TemplatesPage = () => {
       columnHelper.display({
         id: 'actions',
         header: () => <div className="text-right">Acciones</div>,
-        cell: (info) => (
-          <div className="flex justify-end">
-            <button
-              onClick={() => startEdit(info.row.original)}
-              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Editar"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          </div>
-        ),
+        cell: (info) => {
+          const template = info.row.original;
+          const hasVariants = templatesWithVariants.has(template.id);
+
+          return (
+            <div className="flex justify-end gap-2">
+              {hasVariants ? (
+                <button
+                  onClick={() => handlePrintBarcodes(template)}
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  title="Imprimir Códigos de Barras"
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setGeneratingVariantsFor(template)}
+                  className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                  title="Generar Variantes"
+                >
+                  <Grid3x3 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={() => startEdit(template)}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Editar"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        },
       }),
     ],
-    []
+    [templatesWithVariants]
   );
 
   const table = useReactTable({
@@ -348,43 +461,45 @@ export const TemplatesPage = () => {
           />
         </div>
 
+        {/* Template Recipes Section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 md:p-8 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Insumos / Recetas</h2>
+          <TemplateRecipesSection
+            templateId={selectedTemplate.id}
+            selectedInputIds={selectedInputIds}
+            onInputsChange={setSelectedInputIds}
+          />
+        </div>
+
         {/* Template Zones Section - Editor Visual */}
-        {selectedTemplate.images?.front && (
-          <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
-            <VisualZoneEditor
-              templateId={selectedTemplate.id}
-              templateImage={selectedTemplate.images.front}
-              templateImageBack={selectedTemplate.images.back}
-              zoneTypeImages={selectedTemplate.zoneTypeImages || undefined}
-              onZoneTypeImagesChange={async (images) => {
-                try {
-                  await templatesService.updateTemplate(selectedTemplate.id, {
-                    zoneTypeImages: images,
-                  });
-                  // Actualizar el template seleccionado localmente
-                  setSelectedTemplate(prev => prev ? { ...prev, zoneTypeImages: images } : null);
-                  showToast('Imágenes guardadas', 'success');
-                } catch (error) {
-                  console.error('Error al guardar imágenes:', error);
-                  showToast('Error al guardar las imágenes', 'error');
-                }
-              }}
-            />
-
-          </div>
-        )}
-
-        {/* Si no hay imagen, mostrar el editor de texto */}
-        {!selectedTemplate.images?.front && (
-          <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
+        <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
+          {!selectedTemplate.images?.front && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4">
               <p className="text-sm">
-                <strong>Nota:</strong> Agrega una imagen frontal al modelo para usar el editor visual de zonas.
+                <strong>Nota:</strong> Agrega una imagen frontal al modelo para visualizar las zonas sobre la imagen.
               </p>
             </div>
-            <TemplateZonesManager templateId={selectedTemplate.id} />
-          </div>
-        )}
+          )}
+          <VisualZoneEditor
+            templateId={selectedTemplate.id}
+            templateImage={selectedTemplate.images?.front || ''}
+            templateImageBack={selectedTemplate.images?.back}
+            zoneTypeImages={selectedTemplate.zoneTypeImages || undefined}
+            onZoneTypeImagesChange={async (images) => {
+              try {
+                await templatesService.updateTemplate(selectedTemplate.id, {
+                  zoneTypeImages: images,
+                });
+                // Actualizar el template seleccionado localmente
+                setSelectedTemplate(prev => prev ? { ...prev, zoneTypeImages: images } : null);
+                showToast('Imágenes guardadas', 'success');
+              } catch (error) {
+                console.error('Error al guardar imágenes:', error);
+                showToast('Error al guardar las imágenes', 'error');
+              }
+            }}
+          />
+        </div>
 
         {/* Delete Confirmation Modal */}
         {deleteConfirmId && (
@@ -563,6 +678,64 @@ export const TemplatesPage = () => {
           </div>
         )}
       </div>
+
+      {/* Generate Variants Modal */}
+      {generatingVariantsFor && (
+        <Modal
+          isOpen={true}
+          onClose={() => !isGenerating && setGeneratingVariantsFor(null)}
+          title="Generar Variantes"
+        >
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Grid3x3 className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-medium text-blue-900 mb-1">
+                    {generatingVariantsFor.name}
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    Se generarán todas las combinaciones de colores y tallas configuradas para este template con códigos de barras únicos.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-sm text-gray-600">
+              <p className="flex items-center gap-2">
+                <span className="font-medium">•</span>
+                Cada variante tendrá un código de barras EAN-13 único
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="font-medium">•</span>
+                El stock inicial será 0 (puedes ajustarlo después)
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="font-medium">•</span>
+                Las variantes existentes no se duplicarán
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="admin-secondary"
+                onClick={() => setGeneratingVariantsFor(null)}
+                disabled={isGenerating}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="admin-primary"
+                onClick={handleGenerateVariants}
+                disabled={isGenerating}
+              >
+                {isGenerating ? 'Generando...' : 'Generar Variantes'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
     </div>
   );
 };

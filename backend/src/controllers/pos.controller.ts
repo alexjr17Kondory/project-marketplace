@@ -52,6 +52,37 @@ export async function scanProduct(req: AuthenticatedRequest, res: Response): Pro
 }
 
 /**
+ * Buscar productos y templates
+ * POST /api/pos/search
+ */
+export async function searchProductsAndTemplates(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { query } = req.body;
+
+    if (!query || typeof query !== 'string') {
+      res.status(400).json({
+        success: false,
+        message: 'El parámetro query es requerido',
+      });
+      return;
+    }
+
+    const results = await posService.searchProductsAndTemplates(query.trim());
+
+    res.json({
+      success: true,
+      data: results,
+    });
+  } catch (error: any) {
+    console.error('Error searching products:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al buscar productos',
+    });
+  }
+}
+
+/**
  * Crear venta POS
  * POST /api/pos/sale
  */

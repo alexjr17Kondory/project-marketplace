@@ -8,6 +8,9 @@ const router = Router();
 // Estadísticas (antes de las rutas con :id para evitar conflicto)
 router.get('/stats', authenticate, requirePermission('inventory.view'), controller.getConversionStats);
 
+// Crear conversión desde plantilla (antes de las rutas con :id)
+router.post('/from-template', authenticate, requirePermission('inventory.manage'), controller.createConversionFromTemplate);
+
 // CRUD básico
 router.get('/', authenticate, requirePermission('inventory.view'), controller.listConversions);
 router.get('/:id', authenticate, requirePermission('inventory.view'), controller.getConversionById);

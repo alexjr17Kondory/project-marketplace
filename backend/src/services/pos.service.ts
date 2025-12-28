@@ -1,6 +1,7 @@
 import { PrismaClient, SaleChannel, OrderStatus } from '@prisma/client';
 import { getVariantByBarcode } from './variants.service';
 import { getCurrentSession } from './cash-register.service';
+import { getAvailableStockForTemplate } from './template-recipes.service';
 
 const prisma = new PrismaClient();
 
@@ -78,8 +79,17 @@ export async function scanProduct(barcode: string) {
     return null;
   }
 
+  // Calcular stock: usar stock dinámico si es template, stock directo si es producto
+  let stock = variant.stock;
+
+  if (variant.product.isTemplate) {
+    // Para templates, calcular stock basado en insumos
+    const availableStock = await getAvailableStockForTemplate(variant.id);
+    stock = availableStock;
+  }
+
   // Verificar que haya stock disponible
-  if (variant.stock <= 0) {
+  if (stock <= 0) {
     throw new Error('Producto sin stock disponible');
   }
 
@@ -97,8 +107,348 @@ export async function scanProduct(barcode: string) {
     sku: variant.sku,
     barcode: variant.barcode,
     price: variant.finalPrice,
-    stock: variant.stock,
-    available: variant.stock > 0,
+    stock,
+    available: stock > 0,
+  };
+}
+
+/**
+ * Buscar productos y templates por código de barras o nombre
+ * - Si es código de barras (único): retorna resultado único
+ * - Si es nombre: retorna lista de coincidencias
+ */
+export async function searchProductsAndTemplates(query: string) {
+  const trimmedQuery = query.trim();
+
+  if (!trimmedQuery) {
+    return { type: 'list', results: [] };
+  }
+
+  // Primero intentar buscar por código de barras exacto en variantes de productos
+  const variantByBarcode = await getVariantByBarcode(trimmedQuery);
+
+  if (variantByBarcode) {
+    // Si la variante pertenece a un template, buscar el template completo con sus zonas
+    if (variantByBarcode.product.isTemplate) {
+      const template = await prisma.product.findUnique({
+        where: { id: variantByBarcode.product.id },
+        include: {
+          templateZones: {
+            where: { isActive: true },
+            include: {
+              zoneType: true,
+            },
+          },
+          productColors: {
+            include: {
+              color: true,
+            },
+          },
+          productSizes: {
+            include: {
+              size: true,
+            },
+          },
+        },
+      });
+
+      if (template && template.templateZones) {
+        return {
+          type: 'single',
+          result: {
+            type: 'template',
+            productId: template.id,
+            templateId: template.id,
+            name: template.name,
+            image: (Array.isArray(template.images) && template.images.length > 0
+              ? template.images[0]
+              : null),
+            sku: template.sku,
+            barcode: variantByBarcode.barcode,
+            basePrice: template.basePrice,
+            zoneTypeImages: template.zoneTypeImages,
+            // Información de la variante escaneada
+            scannedVariant: {
+              variantId: variantByBarcode.id,
+              colorId: variantByBarcode.colorId,
+              colorName: variantByBarcode.color?.name || null,
+              colorHex: variantByBarcode.color?.hexCode || null,
+              sizeId: variantByBarcode.sizeId,
+              sizeName: variantByBarcode.size?.name || null,
+              sizeAbbr: variantByBarcode.size?.abbreviation || null,
+            },
+            colors: template.productColors?.map((pc: any) => ({
+              id: pc.color.id,
+              name: pc.color.name,
+              slug: pc.color.slug,
+              hexCode: pc.color.hexCode,
+            })) || [],
+            sizes: template.productSizes?.map((ps: any) => ({
+              id: ps.size.id,
+              name: ps.size.name,
+              abbreviation: ps.size.abbreviation,
+            })) || [],
+            zones: template.templateZones.map((zone: any) => ({
+              id: zone.id,
+              name: zone.name,
+              price: zone.price,
+              zoneType: zone.zoneType?.name,
+              zoneTypeSlug: zone.zoneType?.slug,
+              isRequired: zone.isRequired,
+              isBlocked: zone.isBlocked,
+              positionX: zone.positionX,
+              positionY: zone.positionY,
+              maxWidth: zone.maxWidth,
+              maxHeight: zone.maxHeight,
+              shape: zone.shape,
+            })),
+          },
+        };
+      }
+    }
+
+    // Es un producto regular, calcular stock
+    const stock = variantByBarcode.stock;
+
+    // Si encuentra por código de barras, retornar resultado único
+    return {
+      type: 'single',
+      result: {
+        type: 'product',
+        variantId: variantByBarcode.id,
+        productId: variantByBarcode.product.id,
+        name: variantByBarcode.product.name,
+        image: (Array.isArray(variantByBarcode.product.images) && variantByBarcode.product.images.length > 0
+          ? variantByBarcode.product.images[0]
+          : null),
+        color: variantByBarcode.color?.name || 'N/A',
+        size: variantByBarcode.size?.name || 'N/A',
+        sku: variantByBarcode.sku,
+        barcode: variantByBarcode.barcode,
+        price: variantByBarcode.finalPrice,
+        stock,
+        available: stock > 0,
+      },
+    };
+  }
+
+  // Intentar buscar template por código de barras exacto
+  const templateByBarcode = await prisma.product.findUnique({
+    where: {
+      barcode: trimmedQuery,
+      isActive: true,
+      isTemplate: true,
+    },
+    include: {
+      templateZones: {
+        where: { isActive: true },
+        include: {
+          zoneType: true,
+        },
+      },
+      productColors: {
+        include: {
+          color: true,
+        },
+      },
+      productSizes: {
+        include: {
+          size: true,
+        },
+      },
+    },
+  });
+
+  if (templateByBarcode && templateByBarcode.templateZones) {
+    // Si encuentra template por código de barras, retornar resultado único
+    return {
+      type: 'single',
+      result: {
+        type: 'template',
+        productId: templateByBarcode.id,
+        templateId: templateByBarcode.id,
+        name: templateByBarcode.name,
+        image: (Array.isArray(templateByBarcode.images) && templateByBarcode.images.length > 0
+          ? templateByBarcode.images[0]
+          : null),
+        sku: templateByBarcode.sku,
+        barcode: templateByBarcode.barcode,
+        basePrice: templateByBarcode.basePrice,
+        zoneTypeImages: templateByBarcode.zoneTypeImages,
+        colors: templateByBarcode.productColors?.map((pc: any) => ({
+          id: pc.color.id,
+          name: pc.color.name,
+          slug: pc.color.slug,
+          hexCode: pc.color.hexCode,
+        })) || [],
+        sizes: templateByBarcode.productSizes?.map((ps: any) => ({
+          id: ps.size.id,
+          name: ps.size.name,
+          abbreviation: ps.size.abbreviation,
+        })) || [],
+        zones: templateByBarcode.templateZones.map((zone: any) => ({
+          id: zone.id,
+          name: zone.name,
+          price: zone.price,
+          zoneType: zone.zoneType?.name,
+          zoneTypeSlug: zone.zoneType?.slug,
+          isRequired: zone.isRequired,
+          isBlocked: zone.isBlocked,
+          positionX: zone.positionX,
+          positionY: zone.positionY,
+          maxWidth: zone.maxWidth,
+          maxHeight: zone.maxHeight,
+          shape: zone.shape,
+        })),
+      },
+    };
+  }
+
+  // Si no encuentra por código de barras, buscar por nombre
+  const searchTerm = trimmedQuery.toLowerCase();
+
+  // Buscar productos regulares (no templates)
+  const products = await prisma.product.findMany({
+    where: {
+      AND: [
+        { isActive: true },
+        { isTemplate: false },
+        {
+          OR: [
+            { name: { contains: searchTerm } },
+            { sku: { contains: searchTerm } },
+          ],
+        },
+      ],
+    },
+    include: {
+      variants: {
+        where: { isActive: true },
+        include: {
+          color: true,
+          size: true,
+        },
+        take: 1, // Solo tomar la primera variante para mostrar en búsqueda
+      },
+    },
+    take: 20,
+  });
+
+  // Buscar templates
+  const templates = await prisma.product.findMany({
+    where: {
+      AND: [
+        { isActive: true },
+        { isTemplate: true },
+        {
+          OR: [
+            { name: { contains: searchTerm } },
+            { sku: { contains: searchTerm } },
+            { barcode: { contains: searchTerm } },
+          ],
+        },
+      ],
+    },
+    include: {
+      templateZones: {
+        where: { isActive: true },
+        include: {
+          zoneType: true,
+        },
+      },
+      productColors: {
+        include: {
+          color: true,
+        },
+      },
+      productSizes: {
+        include: {
+          size: true,
+        },
+      },
+    },
+    take: 20,
+  });
+
+  const results = [];
+
+  // Agregar productos regulares a resultados
+  for (const product of products) {
+    if (product.variants && product.variants.length > 0) {
+      const variant = product.variants[0];
+      if (!variant) continue;
+
+      // Calcular precio final
+      const basePrice = parseFloat(product.basePrice.toString());
+      const adjustment = variant.priceAdjustment ? parseFloat(variant.priceAdjustment.toString()) : 0;
+      const finalPrice = basePrice + adjustment;
+
+      results.push({
+        type: 'product',
+        variantId: variant.id,
+        productId: product.id,
+        name: product.name,
+        image: (Array.isArray(product.images) && product.images.length > 0
+          ? product.images[0]
+          : null),
+        color: variant.color?.name || 'N/A',
+        size: variant.size?.name || 'N/A',
+        sku: variant.sku || product.sku,
+        barcode: variant.barcode,
+        price: finalPrice,
+        stock: variant.stock,
+        available: variant.stock > 0,
+      });
+    }
+  }
+
+  // Agregar templates a resultados
+  for (const template of templates) {
+    if (template.templateZones) {
+      results.push({
+        type: 'template',
+        productId: template.id,
+        templateId: template.id,
+        name: template.name,
+        image: (Array.isArray(template.images) && template.images.length > 0
+          ? template.images[0]
+          : null),
+        sku: template.sku,
+        barcode: template.barcode,
+        basePrice: template.basePrice,
+        zoneTypeImages: template.zoneTypeImages,
+        colors: template.productColors?.map((pc: any) => ({
+          id: pc.color.id,
+          name: pc.color.name,
+          slug: pc.color.slug,
+          hexCode: pc.color.hexCode,
+        })) || [],
+        sizes: template.productSizes?.map((ps: any) => ({
+          id: ps.size.id,
+          name: ps.size.name,
+          abbreviation: ps.size.abbreviation,
+        })) || [],
+        zones: template.templateZones.map((zone: any) => ({
+          id: zone.id,
+          name: zone.name,
+          price: zone.price,
+          zoneType: zone.zoneType?.name,
+          zoneTypeSlug: zone.zoneType?.slug,
+          isRequired: zone.isRequired,
+          isBlocked: zone.isBlocked,
+          positionX: zone.positionX,
+          positionY: zone.positionY,
+          maxWidth: zone.maxWidth,
+          maxHeight: zone.maxHeight,
+          shape: zone.shape,
+        })),
+      });
+    }
+  }
+
+  return {
+    type: 'list',
+    results,
   };
 }
 
@@ -184,15 +534,26 @@ export async function createSale(data: CreateSaleInput) {
   for (const item of data.items) {
     const variant = await prisma.productVariant.findUnique({
       where: { id: item.variantId },
+      include: {
+        product: true,
+      },
     });
 
     if (!variant) {
       throw new Error(`Variante ${item.variantId} no encontrada`);
     }
 
-    if (variant.stock < item.quantity) {
+    // Calcular stock disponible (dinámico para templates, directo para productos)
+    let availableStock = variant.stock;
+
+    if (variant.product.isTemplate) {
+      // Para templates, usar stock dinámico basado en insumos
+      availableStock = await getAvailableStockForTemplate(variant.id);
+    }
+
+    if (availableStock < item.quantity) {
       throw new Error(
-        `Stock insuficiente para ${variant.sku}. Disponible: ${variant.stock}, Solicitado: ${item.quantity}`
+        `Stock insuficiente para ${variant.sku}. Disponible: ${availableStock}, Solicitado: ${item.quantity}`
       );
     }
   }
@@ -261,14 +622,72 @@ export async function createSale(data: CreateSaleInput) {
       });
 
       // Descontar stock
-      await tx.productVariant.update({
-        where: { id: item.variantId },
-        data: {
-          stock: {
-            decrement: item.quantity,
+      if (variant.product.isTemplate) {
+        // Para templates, descontar del inventario de TODOS los insumos (múltiples ingredientes)
+        const recipes = await tx.templateRecipe.findMany({
+          where: { variantId: variant.id },
+        });
+
+        // Procesar cada ingrediente/receta
+        for (const recipe of recipes) {
+          // Calcular cantidad de insumo a consumir
+          const inputQuantityToConsume = Number(recipe.quantity) * item.quantity;
+
+          // Descontar del stock del insumo
+          await tx.inputVariant.update({
+            where: { id: recipe.inputVariantId },
+            data: {
+              currentStock: {
+                decrement: inputQuantityToConsume,
+              },
+            },
+          });
+
+          // Registrar movimiento de insumo
+          const inputVariant = await tx.inputVariant.findUnique({
+            where: { id: recipe.inputVariantId },
+          });
+
+          if (inputVariant) {
+            await tx.inputVariantMovement.create({
+              data: {
+                inputVariantId: recipe.inputVariantId,
+                movementType: 'SALIDA',
+                quantity: -inputQuantityToConsume,
+                previousStock: inputVariant.currentStock,
+                newStock: Number(inputVariant.currentStock) - inputQuantityToConsume,
+                referenceType: 'sale',
+                referenceId: order.id,
+                reason: `Venta POS - Template ${variant.product.name}`,
+              },
+            });
+          }
+        }
+      } else {
+        // Para productos regulares, descontar del stock de la variante
+        await tx.productVariant.update({
+          where: { id: item.variantId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
           },
-        },
-      });
+        });
+
+        // Registrar movimiento de variante
+        await tx.variantMovement.create({
+          data: {
+            variantId: variant.id,
+            movementType: 'SALE',
+            quantity: -item.quantity,
+            previousStock: variant.stock,
+            newStock: variant.stock - item.quantity,
+            referenceType: 'sale',
+            referenceId: order.id,
+            reason: 'Venta POS',
+          },
+        });
+      }
     }
 
     // Actualizar contadores de sesión

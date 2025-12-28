@@ -175,3 +175,20 @@ export async function getConversionStats(req: Request, res: Response, next: Next
     next(error);
   }
 }
+
+// Crear conversión desde plantilla
+export async function createConversionFromTemplate(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = (req as any).user;
+    const data = {
+      ...req.body,
+      createdById: user?.userId,
+      createdByName: user?.email,
+    };
+
+    const conversion = await inventoryConversionsService.createConversionFromTemplate(data);
+    res.status(201).json({ success: true, data: conversion });
+  } catch (error) {
+    next(error);
+  }
+}

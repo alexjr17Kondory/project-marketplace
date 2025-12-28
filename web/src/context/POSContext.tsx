@@ -1,16 +1,37 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as posService from '../services/pos.service';
 import * as cashRegisterService from '../services/cash-register.service';
-import type { ScanProductResponse, Sale, SaleItem, CreateSaleRequest } from '../services/pos.service';
+import type { ScanProductResponse, Sale, SaleItem, CreateSaleRequest, TemplateZoneInfo } from '../services/pos.service';
 import type { CashSession } from '../services/cash-register.service';
 import { useToast } from './ToastContext';
 
 // ==================== TYPES ====================
 
-export interface CartItem extends ScanProductResponse {
+// Product cart item (variant-based)
+export interface ProductCartItem extends ScanProductResponse {
+  itemType: 'product';
   quantity: number;
   subtotal: number;
 }
+
+// Template cart item (customizable)
+export interface TemplateCartItem {
+  itemType: 'template';
+  templateId: number;
+  product: {
+    id: number;
+    name: string;
+    image: string;
+  };
+  basePrice: number;
+  selectedZones: TemplateZoneInfo[];
+  quantity: number;
+  price: number; // basePrice + sum of zone prices
+  subtotal: number; // price * quantity
+}
+
+// Union type for cart items
+export type CartItem = ProductCartItem | TemplateCartItem;
 
 interface POSContextType {
   // Session
@@ -21,8 +42,9 @@ interface POSContextType {
   // Cart
   cart: CartItem[];
   addToCart: (product: ScanProductResponse, quantity?: number) => void;
-  removeFromCart: (variantId: number) => void;
-  updateQuantity: (variantId: number, quantity: number) => void;
+  addTemplateToCart: (templateId: number, templateName: string, templateImage: string, basePrice: number, selectedZones: TemplateZoneInfo[], totalPrice: number, quantity?: number) => void;
+  removeFromCart: (itemId: string) => void;
+  updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
 
   // Totals
@@ -86,9 +108,13 @@ export function POSProvider({ children }: { children: React.ReactNode }) {
    */
   const addToCart = useCallback(
     (product: ScanProductResponse, quantity: number = 1) => {
+      let added = false;
+
       setCart((prevCart) => {
         // Check if product already in cart
-        const existingItem = prevCart.find((item) => item.variantId === product.variantId);
+        const existingItem = prevCart.find(
+          (item) => item.itemType === 'product' && (item as ProductCartItem).variantId === product.variantId
+        ) as ProductCartItem | undefined;
 
         if (existingItem) {
           // Update quantity
@@ -100,8 +126,9 @@ export function POSProvider({ children }: { children: React.ReactNode }) {
             return prevCart;
           }
 
+          added = true;
           return prevCart.map((item) =>
-            item.variantId === product.variantId
+            item.itemType === 'product' && (item as ProductCartItem).variantId === product.variantId
               ? {
                   ...item,
                   quantity: newQuantity,
@@ -116,44 +143,85 @@ export function POSProvider({ children }: { children: React.ReactNode }) {
             return prevCart;
           }
 
+          added = true;
           return [
             ...prevCart,
             {
+              itemType: 'product' as const,
               ...product,
               quantity,
               subtotal: quantity * product.price,
-            },
+            } as ProductCartItem,
           ];
         }
       });
 
-      showToast('Producto agregado al carrito', 'success');
+      if (added) {
+        showToast('Producto agregado al carrito', 'success');
+      }
     },
     [showToast]
   );
 
   /**
-   * Remove product from cart
+   * Add template to cart
    */
-  const removeFromCart = useCallback((variantId: number) => {
-    setCart((prevCart) => prevCart.filter((item) => item.variantId !== variantId));
+  const addTemplateToCart = useCallback(
+    (
+      templateId: number,
+      templateName: string,
+      templateImage: string,
+      basePrice: number,
+      selectedZones: TemplateZoneInfo[],
+      totalPrice: number,
+      quantity: number = 1
+    ) => {
+      const newItem: TemplateCartItem = {
+        itemType: 'template',
+        templateId,
+        product: {
+          id: templateId,
+          name: templateName,
+          image: templateImage,
+        },
+        basePrice,
+        selectedZones,
+        quantity,
+        price: totalPrice,
+        subtotal: totalPrice * quantity,
+      };
+
+      setCart((prevCart) => [...prevCart, newItem]);
+      showToast('Template agregado al carrito', 'success');
+    },
+    [showToast]
+  );
+
+  /**
+   * Remove item from cart by index
+   */
+  const removeFromCart = useCallback((itemId: string) => {
+    const index = parseInt(itemId);
+    setCart((prevCart) => prevCart.filter((_, i) => i !== index));
   }, []);
 
   /**
-   * Update product quantity
+   * Update item quantity by index
    */
   const updateQuantity = useCallback(
-    (variantId: number, quantity: number) => {
+    (itemId: string, quantity: number) => {
+      const index = parseInt(itemId);
+
       if (quantity <= 0) {
-        removeFromCart(variantId);
+        removeFromCart(itemId);
         return;
       }
 
       setCart((prevCart) =>
-        prevCart.map((item) => {
-          if (item.variantId === variantId) {
-            // Check stock
-            if (quantity > item.stock) {
+        prevCart.map((item, i) => {
+          if (i === index) {
+            // Check stock for products only
+            if (item.itemType === 'product' && quantity > (item as ProductCartItem).stock) {
               showToast('Stock insuficiente', 'error');
               return item;
             }
@@ -271,6 +339,7 @@ export function POSProvider({ children }: { children: React.ReactNode }) {
     // Cart
     cart,
     addToCart,
+    addTemplateToCart,
     removeFromCart,
     updateQuantity,
     clearCart,

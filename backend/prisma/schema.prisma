@@ -85,11 +85,12 @@ enum UserStatus {
 // ==================== PRODUCTOS ====================
 
 model Product {
-  id          Int    @id @default(autoincrement())
-  sku         String @unique
-  slug        String @unique
+  id          Int     @id @default(autoincrement())
+  sku         String  @unique
+  slug        String  @unique
   name        String
-  description String @db.Text
+  description String  @db.Text
+  barcode     String? @unique // Código de barras para templates (productos usan variant.barcode)
 
   // Relaciones con categoría y tipo de producto
   categoryId Int?
@@ -152,6 +153,7 @@ model Size {
 
   // Relaciones para insumos con variantes
   inputTypeSizes InputTypeSize[]
+  inputSizes     InputSize[]
   inputVariants  InputVariant[]
 
   createdAt DateTime @default(now())
@@ -242,6 +244,7 @@ model ProductVariant {
   orderItems         OrderItem[]
   purchaseOrderItems PurchaseOrderItem[]
   movements          VariantMovement[]
+  templateRecipes    TemplateRecipe[] // Recipes for template variants (1:N - multiple ingredients)
 
   @@index([productId])
   @@index([barcode])
@@ -590,6 +593,9 @@ model TemplateZone {
   // NUEVO: Si es zona bloqueada (donde NO se puede poner diseño)
   isBlocked Boolean @default(false) // true = zona bloqueada (roja), false = zona de diseño (normal)
 
+  // Precio de la zona (para ventas POS de productos personalizados)
+  price Decimal @default(0) @db.Decimal(10, 2) // Precio adicional por personalizar esta zona
+
   sortOrder Int     @default(0)
   isActive  Boolean @default(true)
 
@@ -637,6 +643,32 @@ model ZoneInput {
 
   @@index([inputId])
   @@map("zone_inputs")
+}
+
+// ==================== RECETAS DE TEMPLATES ====================
+
+// Receta de template (asocia variante de template con múltiples insumos)
+model TemplateRecipe {
+  id        Int @id @default(autoincrement())
+
+  // Variante de template (producto donde isTemplate = true)
+  variantId Int // Relación 1:N - cada variante puede tener MÚLTIPLES insumos
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  // Variante de insumo
+  inputVariantId Int
+  inputVariant   InputVariant @relation(fields: [inputVariantId], references: [id])
+
+  // Cantidad de insumo necesaria por unidad de template
+  quantity Decimal @default(1) @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([variantId, inputVariantId]) // Prevenir duplicados de mismo insumo en misma variante
+  @@index([variantId])
+  @@index([inputVariantId])
+  @@map("template_recipes")
 }
 
 // ==================== INVENTARIO DE INSUMOS ====================
@@ -710,6 +742,7 @@ model Input {
 
   // Relaciones para variantes (cuando InputType.hasVariants = true)
   inputColors InputColor[] // Colores disponibles para este insumo
+  inputSizes  InputSize[] // Tallas disponibles para este insumo
   variants    InputVariant[] // Variantes (combinaciones color+talla)
 
   createdAt DateTime @default(now())
@@ -731,6 +764,20 @@ model InputColor {
 
   @@unique([inputId, colorId])
   @@map("input_colors")
+}
+
+// Tabla intermedia para insumos y tallas
+model InputSize {
+  id      Int   @id @default(autoincrement())
+  inputId Int
+  input   Input @relation(fields: [inputId], references: [id], onDelete: Cascade)
+  sizeId  Int
+  size    Size  @relation(fields: [sizeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([inputId, sizeId])
+  @@map("input_sizes")
 }
 
 // Variante de Insumo (combinación específica de color+talla)
@@ -761,6 +808,7 @@ model InputVariant {
   // Relaciones
   purchaseOrderItems PurchaseOrderItem[] // Items de órdenes de compra
   movements          InputVariantMovement[] // Movimientos de inventario
+  templateRecipes    TemplateRecipe[] // Templates que usan este insumo como base
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1295,6 +1343,13 @@ model InventoryConversion {
   id               Int    @id @default(autoincrement())
   conversionNumber String @unique // Número de conversión (ej: CONV-2025-0001)
 
+  // Tipo de conversión
+  conversionType ConversionType @default(MANUAL) // MANUAL o TEMPLATE
+
+  // Referencia a plantilla (solo para conversiones de tipo TEMPLATE)
+  templateId Int? // ID del producto plantilla
+  templateVariantId Int? // ID de la variante de plantilla (para obtener color/talla)
+
   // Estado
   status ConversionStatus @default(DRAFT)
 
@@ -1330,6 +1385,8 @@ model InventoryConversion {
   @@index([status])
   @@index([conversionDate])
   @@index([createdById])
+  @@index([conversionType])
+  @@index([templateId])
   @@map("inventory_conversions")
 }
 
@@ -1339,12 +1396,15 @@ model ConversionInputItem {
   conversionId Int
   conversion   InventoryConversion @relation(fields: [conversionId], references: [id], onDelete: Cascade)
 
-  // Referencia al insumo
-  inputId Int
+  // Referencia a la variante del insumo
+  inputVariantId Int
 
-  // Datos del insumo al momento de la conversión (snapshot)
+  // Datos del insumo/variante al momento de la conversión (snapshot)
   inputCode     String
   inputName     String
+  variantSku    String
+  colorName     String?
+  sizeName      String?
   unitOfMeasure String
   unitCost      Decimal @db.Decimal(10, 2)
 
@@ -1359,7 +1419,7 @@ model ConversionInputItem {
   createdAt DateTime @default(now())
 
   @@index([conversionId])
-  @@index([inputId])
+  @@index([inputVariantId])
   @@map("conversion_input_items")
 }
 
@@ -1399,4 +1459,9 @@ enum ConversionStatus {
   PENDING   // Pendiente de aprobación
   APPROVED  // Aprobada - inventario actualizado
   CANCELLED // Cancelada
+}
+
+enum ConversionType {
+  MANUAL   // Conversión manual: insumos → productos
+  TEMPLATE // Conversión desde plantilla: plantilla + insumo → producto terminado
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { inputsService, type CreateInputDto, type UpdateInputDto, type Input, type InputVariant, type InputVariantMovement } from '../../services/inputs.service';
 import { inputTypesService, type InputType } from '../../services/input-types.service';
-import { catalogsService, type Color } from '../../services/catalogs.service';
+import { catalogsService, type Color, type Size } from '../../services/catalogs.service';
 import { Button } from '../../components/shared/Button';
 import { ArrowLeft, Save, Trash2, Plus, X, Palette, Grid3X3, History, ArrowDownCircle, ArrowUpCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
@@ -36,6 +36,7 @@ export default function InputDetailPage() {
 
   const [loading, setLoading] = useState(false);
   const [savingColor, setSavingColor] = useState(false);
+  const [savingSize, setSavingSize] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Movements state
@@ -248,6 +249,49 @@ export default function InputDetailPage() {
     return availableColors.filter(c => !assignedColorIds.includes(c.id));
   };
 
+  // Add size to existing input
+  const handleAddSize = async (sizeId: number) => {
+    if (!currentInput) return;
+
+    try {
+      setSavingSize(true);
+      const updated = await inputsService.addSize(currentInput.id, sizeId);
+      setCurrentInput(updated);
+      showToast('Talla agregada', 'success');
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Error al agregar talla', 'error');
+    } finally {
+      setSavingSize(false);
+    }
+  };
+
+  // Remove size from existing input
+  const handleRemoveSize = async (sizeId: number) => {
+    if (!currentInput) return;
+
+    if (!confirm('¿Eliminar esta talla? Se eliminarán las variantes asociadas si no tienen stock.')) return;
+
+    try {
+      setSavingSize(true);
+      const updated = await inputsService.removeSize(currentInput.id, sizeId);
+      setCurrentInput(updated);
+      showToast('Talla eliminada', 'success');
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Error al eliminar talla', 'error');
+    } finally {
+      setSavingSize(false);
+    }
+  };
+
+  // Get available sizes (not yet assigned)
+  const getAvailableSizesForInput = () => {
+    const assignedSizeIds = currentInput?.inputSizes?.map(is => is.sizeId) || [];
+    // Get all sizes from catalogsService
+    const allSizes = selectedInputType?.inputTypeSizes?.map(its => its.size) ||
+                     currentInput?.inputType?.inputTypeSizes?.map(its => its.size) || [];
+    return allSizes.filter(s => !assignedSizeIds.includes(s.id));
+  };
+
   // Format currency
   const formatCurrency = (value: number | string) => {
     return new Intl.NumberFormat('es-CO', {
@@ -257,8 +301,13 @@ export default function InputDetailPage() {
     }).format(Number(value));
   };
 
-  // Get sizes from input type
+  // Get sizes from input (prioritize inputSizes over inputTypeSizes)
   const getSizes = () => {
+    // When editing, use inputSizes (sizes assigned to this specific input)
+    if (currentInput?.inputSizes && currentInput.inputSizes.length > 0) {
+      return currentInput.inputSizes.map(is => is.size);
+    }
+    // When creating, use inputTypeSizes (sizes available for this type)
     return selectedInputType?.inputTypeSizes?.map(its => its.size) ||
            currentInput?.inputType?.inputTypeSizes?.map(its => its.size) || [];
   };
@@ -701,6 +750,65 @@ export default function InputDetailPage() {
                           style={{ backgroundColor: color.hexCode }}
                         />
                         {color.name}
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Sizes Management */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Grid3X3 className="w-5 h-5 text-purple-600" />
+                  <h3 className="font-semibold text-gray-900">Tallas</h3>
+                </div>
+              </div>
+
+              {/* Current Sizes */}
+              <div className="space-y-2 mb-4">
+                {currentInput.inputSizes?.map((is) => (
+                  <div
+                    key={is.id}
+                    className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{is.size.name}</span>
+                      <span className="text-xs text-gray-500">({is.size.abbreviation})</span>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveSize(is.sizeId)}
+                      disabled={savingSize}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {(!currentInput.inputSizes || currentInput.inputSizes.length === 0) && (
+                  <p className="text-sm text-gray-500 text-center py-2">
+                    Sin tallas asignadas
+                  </p>
+                )}
+              </div>
+
+              {/* Add Size */}
+              {getAvailableSizesForInput().length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-2">
+                    Agregar talla
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    {getAvailableSizesForInput().map((size) => (
+                      <button
+                        key={size.id}
+                        onClick={() => handleAddSize(size.id)}
+                        disabled={savingSize}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50"
+                      >
+                        {size.name}
                         <Plus className="w-3 h-3" />
                       </button>
                     ))}

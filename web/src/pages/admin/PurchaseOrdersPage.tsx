@@ -116,10 +116,17 @@ export default function PurchaseOrdersPage() {
       },
       {
         accessorKey: 'items',
-        header: 'Items',
-        cell: ({ row }) => (
-          <span className="text-sm text-gray-600">{row.original.items.length}</span>
-        ),
+        header: 'Items / Unidades',
+        cell: ({ row }) => {
+          const totalUnits = row.original.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+          return (
+            <div className="text-sm">
+              <span className="font-medium text-gray-900">{row.original.items.length}</span>
+              <span className="text-gray-500"> items</span>
+              <div className="text-xs text-gray-500">{totalUnits} unidades</div>
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'status',

@@ -23,6 +23,7 @@ export interface Template {
   slug: string;
   name: string;
   description: string;
+  barcode: string | null;
   categoryId: number | null;
   categorySlug: string | null;
   categoryName: string | null;
@@ -60,6 +61,7 @@ export interface CreateTemplateInput {
   description: string;
   sku: string;
   slug: string;
+  barcode?: string;
   categoryId?: number;
   typeId?: number;
   basePrice: number;
@@ -79,6 +81,7 @@ export interface CreateTemplateInput {
 export interface UpdateTemplateInput {
   name?: string;
   description?: string;
+  barcode?: string | null;
   categoryId?: number | null;
   typeId?: number | null;
   basePrice?: number;

@@ -286,59 +286,22 @@ async function main() {
     console.log(`  ✅ Categoría: ${cat.name}`);
   }
 
-  // ==================== TIPOS DE PRODUCTO ====================
-  console.log('\n🏷️ Creando tipos de producto...');
-
-  const productTypes = [
-    { name: 'Camiseta', slug: 'camiseta', description: 'Camisetas sublimables' },
-    { name: 'Hoodie', slug: 'hoodie', description: 'Sudaderas con capucha' },
-    { name: 'Suéter', slug: 'sueter', description: 'Suéteres y buzos' },
-    { name: 'Polo', slug: 'polo', description: 'Polos deportivos' },
-    { name: 'Gorra', slug: 'gorra', description: 'Gorras y cachuchas' },
-    { name: 'Taza', slug: 'taza', description: 'Tazas de cerámica' },
-    { name: 'Taza Mágica', slug: 'taza-magica', description: 'Tazas termosensibles' },
-    { name: 'Termo', slug: 'termo', description: 'Botellas térmicas' },
-    { name: 'Vaso Térmico', slug: 'vaso-termico', description: 'Vasos tipo tumbler' },
-    { name: 'Cuadro Aluminio', slug: 'cuadro-aluminio', description: 'Cuadros en aluminio' },
-    { name: 'Posa Vasos', slug: 'posa-vasos', description: 'Sets de posa vasos' },
-    { name: 'Cojín', slug: 'cojin', description: 'Cojines decorativos' },
-    { name: 'Reloj', slug: 'reloj', description: 'Relojes de pared' },
-    { name: 'Rompecabezas', slug: 'rompecabezas', description: 'Puzzles personalizados' },
-    { name: 'Manta', slug: 'manta', description: 'Mantas sublimables' },
-    { name: 'Llavero', slug: 'llavero', description: 'Llaveros MDF' },
-    { name: 'Mouse Pad', slug: 'mouse-pad', description: 'Mouse pads gaming' },
-    { name: 'Funda Celular', slug: 'funda-celular', description: 'Fundas para smartphone' },
-    { name: 'Bolsa Tote', slug: 'bolsa-tote', description: 'Bolsas tote bag' },
-    { name: 'Lanyard', slug: 'lanyard', description: 'Cordones para credenciales' },
-    { name: 'Libreta', slug: 'libreta', description: 'Libretas y cuadernos' },
-    { name: 'Calendario', slug: 'calendario', description: 'Calendarios personalizados' },
-  ];
-
-  for (const type of productTypes) {
-    await prisma.productType.upsert({
-      where: { slug: type.slug },
-      update: { name: type.name, description: type.description },
-      create: {
-        name: type.name,
-        slug: type.slug,
-        description: type.description,
-        isActive: true,
-      },
-    });
-    console.log(`  ✅ Tipo: ${type.name}`);
-  }
-
   // ==================== TALLAS ====================
   console.log('\n📏 Creando tallas...');
 
   const sizes = [
+    // Tallas de ropa
     { name: 'Extra Small', abbreviation: 'XS', order: 1 },
     { name: 'Small', abbreviation: 'S', order: 2 },
     { name: 'Medium', abbreviation: 'M', order: 3 },
     { name: 'Large', abbreviation: 'L', order: 4 },
     { name: 'Extra Large', abbreviation: 'XL', order: 5 },
     { name: 'Extra Extra Large', abbreviation: 'XXL', order: 6 },
-    { name: 'Talla Única', abbreviation: 'Unica', order: 10 },
+    { name: 'Talla Única', abbreviation: 'Unica', order: 7 },
+    // Tallas de tazas
+    { name: '11 onzas', abbreviation: '11oz', order: 20 },
+    { name: '15 onzas', abbreviation: '15oz', order: 21 },
+    { name: '20 onzas', abbreviation: '20oz', order: 22 },
   ];
 
   for (const size of sizes) {
@@ -358,22 +321,14 @@ async function main() {
   // ==================== COLORES ====================
   console.log('\n🎨 Creando colores...');
 
+  // Solo los colores que se usan en los productos
   const colors = [
     { name: 'Negro', slug: 'negro', hex: '#000000' },
     { name: 'Blanco', slug: 'blanco', hex: '#FFFFFF' },
     { name: 'Gris', slug: 'gris', hex: '#9CA3AF' },
-    { name: 'Gris Claro', slug: 'gris-claro', hex: '#D1D5DB' },
-    { name: 'Rojo', slug: 'rojo', hex: '#DC2626' },
     { name: 'Azul', slug: 'azul', hex: '#2563EB' },
-    { name: 'Azul Claro', slug: 'azul-claro', hex: '#93C5FD' },
+    { name: 'Rojo', slug: 'rojo', hex: '#DC2626' },
     { name: 'Verde', slug: 'verde', hex: '#16A34A' },
-    { name: 'Verde Neón', slug: 'verde-neon', hex: '#4ADE80' },
-    { name: 'Amarillo', slug: 'amarillo', hex: '#FDE047' },
-    { name: 'Naranja', slug: 'naranja', hex: '#F97316' },
-    { name: 'Rosa', slug: 'rosa', hex: '#EC4899' },
-    { name: 'Morado', slug: 'morado', hex: '#9333EA' },
-    { name: 'Beige', slug: 'beige', hex: '#D4B896' },
-    { name: 'Plateado', slug: 'plateado', hex: '#C0C0C0' },
   ];
 
   for (const color of colors) {
@@ -390,10 +345,85 @@ async function main() {
     console.log(`  ✅ Color: ${color.name}`);
   }
 
-  // ==================== PRODUCTOS ====================
-  console.log('\n👕 Creando productos...');
+  // ==================== TIPOS DE PRODUCTO ====================
+  console.log('\n🏷️ Creando tipos de producto...');
 
-  const products = [
+  // Buscar categorías
+  const ropaCat = await prisma.category.findUnique({ where: { slug: 'ropa' } });
+  const bebidasCat = await prisma.category.findUnique({ where: { slug: 'bebidas' } });
+
+  // Solo 3 tipos para las 3 plantillas
+  const productTypes = [
+    {
+      name: 'Suéter',
+      slug: 'sueter',
+      description: 'Suéteres personalizables',
+      categoryId: ropaCat?.id,
+      sizes: ['M', 'L', 'XL']
+    },
+    {
+      name: 'Blusa',
+      slug: 'blusa',
+      description: 'Blusas personalizables',
+      categoryId: ropaCat?.id,
+      sizes: ['Unica']
+    },
+    {
+      name: 'Taza',
+      slug: 'taza',
+      description: 'Tazas de cerámica',
+      categoryId: bebidasCat?.id,
+      sizes: ['11oz', '15oz', '20oz']
+    },
+  ];
+
+  for (const type of productTypes) {
+    const productType = await prisma.productType.upsert({
+      where: { slug: type.slug },
+      update: {
+        name: type.name,
+        description: type.description,
+        categoryId: type.categoryId
+      },
+      create: {
+        name: type.name,
+        slug: type.slug,
+        description: type.description,
+        categoryId: type.categoryId,
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Tipo: ${type.name}`);
+
+    // Asignar tallas al tipo de producto
+    if (type.sizes && type.sizes.length > 0) {
+      for (const sizeAbbr of type.sizes) {
+        const size = await prisma.size.findFirst({ where: { abbreviation: sizeAbbr } });
+        if (size) {
+          await prisma.productTypeSize.upsert({
+            where: {
+              productTypeId_sizeId: {
+                productTypeId: productType.id,
+                sizeId: size.id,
+              },
+            },
+            update: {},
+            create: {
+              productTypeId: productType.id,
+              sizeId: size.id,
+            },
+          });
+        }
+      }
+      console.log(`    ✅ Asignadas ${type.sizes.length} tallas`);
+    }
+  }
+
+  // ==================== PRODUCTOS ====================
+  // Los productos de ejemplo se crean después de los insumos
+  // console.log('\n👕 Creando productos...');
+
+  /*const products = [
     // ROPA
     {
       sku: 'CAM-0001',
@@ -1053,7 +1083,7 @@ async function main() {
     }
 
     console.log(`  ✅ Producto: ${product.name} (SKU: ${product.sku})`);
-  }
+  }*/
 
   // ==================== CAJAS REGISTRADORAS ====================
   console.log('\n💰 Creando cajas registradoras...');
@@ -1194,43 +1224,93 @@ async function main() {
 
   // Buscar categorías y tipos
   const ropaCategoryRecord = await prisma.category.findUnique({ where: { slug: 'ropa' } });
-  const camisetaTypeRecord = await prisma.productType.findUnique({ where: { slug: 'camiseta' } });
+  const sueterTypeRecord = await prisma.productType.findUnique({ where: { slug: 'sueter' } });
+  const blusaTypeRecord = await prisma.productType.findUnique({ where: { slug: 'blusa' } });
   const tazaTypeRecord = await prisma.productType.findUnique({ where: { slug: 'taza' } });
+  const bebidasCategoryRecord = await prisma.category.findUnique({ where: { slug: 'bebidas' } });
 
-  // Template 1: Camiseta con zonas Front, Back y Mangas
-  const templateCamiseta = await prisma.product.upsert({
-    where: { sku: 'TMPL-CAM-001' },
+  // Buscar colores y tallas para usar en templates y productos
+  const colorNegro = await prisma.color.findFirst({ where: { slug: 'negro' } });
+  const colorBlanco = await prisma.color.findFirst({ where: { slug: 'blanco' } });
+  const colorGris = await prisma.color.findFirst({ where: { slug: 'gris' } });
+  const colorAzul = await prisma.color.findFirst({ where: { slug: 'azul' } });
+  const colorRojo = await prisma.color.findFirst({ where: { slug: 'rojo' } });
+
+  const tallaSM = await prisma.size.findFirst({ where: { abbreviation: 'S' } });
+  const tallaM = await prisma.size.findFirst({ where: { abbreviation: 'M' } });
+  const tallaL = await prisma.size.findFirst({ where: { abbreviation: 'L' } });
+  const tallaXL = await prisma.size.findFirst({ where: { abbreviation: 'XL' } });
+  const tallaUnica = await prisma.size.findFirst({ where: { abbreviation: 'Unica' } });
+
+  // Template 1: Suéter en U con zonas Front y Back
+  const templateSueter = await prisma.product.upsert({
+    where: { sku: 'TMPL-SUE-001' },
     update: {},
     create: {
-      sku: 'TMPL-CAM-001',
-      slug: 'camiseta-personalizable',
-      name: 'Camiseta Personalizable',
-      description: 'Camiseta 100% algodón con áreas personalizables en frente, espalda y mangas',
+      sku: 'TMPL-SUE-001',
+      slug: 'sueter-personalizable',
+      name: 'Suéter en U Personalizable',
+      description: 'Suéter con cuello en U con áreas personalizables en frente y espalda',
       categoryId: ropaCategoryRecord?.id,
-      typeId: camisetaTypeRecord?.id,
-      basePrice: 35000,
-      stock: 500,
+      typeId: sueterTypeRecord?.id,
+      basePrice: 45000,
+      stock: 0,
       featured: true,
       isTemplate: true,
-      images: {
-        front: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
-        back: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80',
-      },
-      tags: ['camiseta', 'personalizable', 'template'],
+      images: {},
+      tags: ['sueter', 'personalizable', 'template'],
       isActive: true,
     },
   });
-  console.log(`  ✅ Template: ${templateCamiseta.name}`);
+  console.log(`  ✅ Template: ${templateSueter.name}`);
 
-  // Crear zonas para la camiseta
+  // Asociar colores al template suéter
+  const coloresSueter = [colorNegro, colorGris, colorAzul].filter(c => c !== null);
+  for (const color of coloresSueter) {
+    await prisma.productColor.upsert({
+      where: {
+        productId_colorId: {
+          productId: templateSueter.id,
+          colorId: color!.id,
+        },
+      },
+      update: {},
+      create: {
+        productId: templateSueter.id,
+        colorId: color!.id,
+      },
+    });
+  }
+  console.log(`    ✅ Asociados ${coloresSueter.length} colores`);
+
+  // Asociar tallas al template suéter
+  const tallasSueter = [tallaM, tallaL, tallaXL].filter(t => t !== null);
+  for (const talla of tallasSueter) {
+    await prisma.productSize.upsert({
+      where: {
+        productId_sizeId: {
+          productId: templateSueter.id,
+          sizeId: talla!.id,
+        },
+      },
+      update: {},
+      create: {
+        productId: templateSueter.id,
+        sizeId: talla!.id,
+      },
+    });
+  }
+  console.log(`    ✅ Asociadas ${tallasSueter.length} tallas`);
+
+  // Crear zonas para el suéter
   if (frontZoneType) {
-    const zone1 = await prisma.templateZone.create({
+    await prisma.templateZone.create({
       data: {
-        templateId: templateCamiseta.id,
+        templateId: templateSueter.id,
         zoneTypeId: frontZoneType.id,
         zoneId: 'front-regular',
-        name: 'Pecho Central (20x15cm)',
-        description: 'Área central del frente ideal para logos y textos',
+        name: 'Frente (20x15cm)',
+        description: 'Área frontal para diseños',
         positionX: 50,
         positionY: 30,
         maxWidth: 200,
@@ -1241,17 +1321,17 @@ async function main() {
         isActive: true,
       },
     });
-    console.log(`    ✅ Zona: ${zone1.name}`);
+    console.log(`    ✅ Zona: Frente`);
   }
 
   if (backZoneType) {
-    const zone2 = await prisma.templateZone.create({
+    await prisma.templateZone.create({
       data: {
-        templateId: templateCamiseta.id,
+        templateId: templateSueter.id,
         zoneTypeId: backZoneType.id,
         zoneId: 'back-large',
-        name: 'Espalda Completa (25x30cm)',
-        description: 'Área completa de la espalda para diseños grandes',
+        name: 'Espalda (25x30cm)',
+        description: 'Área de la espalda para diseños grandes',
         positionX: 50,
         positionY: 40,
         maxWidth: 250,
@@ -1262,50 +1342,112 @@ async function main() {
         isActive: true,
       },
     });
-    console.log(`    ✅ Zona: ${zone2.name}`);
+    console.log(`    ✅ Zona: Espalda`);
   }
 
-  if (sleeveZoneType) {
-    const zone3 = await prisma.templateZone.create({
+  // Template 2: Blusa Única Talla con zonas Front y Back
+  const templateBlusa = await prisma.product.upsert({
+    where: { sku: 'TMPL-BLU-001' },
+    update: {},
+    create: {
+      sku: 'TMPL-BLU-001',
+      slug: 'blusa-personalizable',
+      name: 'Blusa Única Talla Personalizable',
+      description: 'Blusa talla única con áreas personalizables en frente y espalda',
+      categoryId: ropaCategoryRecord?.id,
+      typeId: blusaTypeRecord?.id,
+      basePrice: 35000,
+      stock: 0,
+      featured: true,
+      isTemplate: true,
+      images: {},
+      tags: ['blusa', 'personalizable', 'template'],
+      isActive: true,
+    },
+  });
+  console.log(`  ✅ Template: ${templateBlusa.name}`);
+
+  // Asociar colores al template blusa
+  const coloresBlusa = [colorBlanco, colorNegro, colorAzul].filter(c => c !== null);
+  for (const color of coloresBlusa) {
+    await prisma.productColor.upsert({
+      where: {
+        productId_colorId: {
+          productId: templateBlusa.id,
+          colorId: color!.id,
+        },
+      },
+      update: {},
+      create: {
+        productId: templateBlusa.id,
+        colorId: color!.id,
+      },
+    });
+  }
+  console.log(`    ✅ Asociados ${coloresBlusa.length} colores`);
+
+  // Asociar talla única al template blusa
+  if (tallaUnica) {
+    await prisma.productSize.upsert({
+      where: {
+        productId_sizeId: {
+          productId: templateBlusa.id,
+          sizeId: tallaUnica.id,
+        },
+      },
+      update: {},
+      create: {
+        productId: templateBlusa.id,
+        sizeId: tallaUnica.id,
+      },
+    });
+    console.log(`    ✅ Asociada talla única`);
+  }
+
+  // Crear zonas para la blusa
+  if (frontZoneType) {
+    await prisma.templateZone.create({
       data: {
-        templateId: templateCamiseta.id,
-        zoneTypeId: sleeveZoneType.id,
-        zoneId: 'sleeve-left',
-        name: 'Manga Izquierda (8x8cm)',
-        description: 'Área pequeña en la manga izquierda',
-        positionX: 20,
-        positionY: 25,
-        maxWidth: 80,
-        maxHeight: 80,
+        templateId: templateBlusa.id,
+        zoneTypeId: frontZoneType.id,
+        zoneId: 'front-regular',
+        name: 'Frente (18x13cm)',
+        description: 'Área frontal para diseños',
+        positionX: 50,
+        positionY: 30,
+        maxWidth: 180,
+        maxHeight: 130,
         isEditable: true,
         isRequired: false,
-        sortOrder: 3,
+        sortOrder: 1,
         isActive: true,
       },
     });
-    console.log(`    ✅ Zona: ${zone3.name}`);
+    console.log(`    ✅ Zona: Frente`);
+  }
 
-    const zone4 = await prisma.templateZone.create({
+  if (backZoneType) {
+    await prisma.templateZone.create({
       data: {
-        templateId: templateCamiseta.id,
-        zoneTypeId: sleeveZoneType.id,
-        zoneId: 'sleeve-right',
-        name: 'Manga Derecha (8x8cm)',
-        description: 'Área pequeña en la manga derecha',
-        positionX: 80,
-        positionY: 25,
-        maxWidth: 80,
-        maxHeight: 80,
+        templateId: templateBlusa.id,
+        zoneTypeId: backZoneType.id,
+        zoneId: 'back-large',
+        name: 'Espalda (22x28cm)',
+        description: 'Área de la espalda para diseños',
+        positionX: 50,
+        positionY: 40,
+        maxWidth: 220,
+        maxHeight: 280,
         isEditable: true,
         isRequired: false,
-        sortOrder: 4,
+        sortOrder: 2,
         isActive: true,
       },
     });
-    console.log(`    ✅ Zona: ${zone4.name}`);
+    console.log(`    ✅ Zona: Espalda`);
   }
 
-  // Template 2: Taza con zona alrededor
+  // Template 3: Taza con zona alrededor
   const templateTaza = await prisma.product.upsert({
     where: { sku: 'TMPL-TAZ-001' },
     update: {},
@@ -1314,24 +1456,62 @@ async function main() {
       slug: 'taza-personalizable',
       name: 'Taza Personalizable 11oz',
       description: 'Taza de cerámica blanca 11oz con área de personalización completa',
-      categoryId: await prisma.category.findUnique({ where: { slug: 'hogar' } }).then(c => c?.id),
+      categoryId: bebidasCategoryRecord?.id,
       typeId: tazaTypeRecord?.id,
-      basePrice: 15000,
-      stock: 300,
+      basePrice: 18000,
+      stock: 0,
       featured: true,
       isTemplate: true,
-      images: {
-        front: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=800&q=80',
-      },
+      images: {},
       tags: ['taza', 'personalizable', 'template', 'sublimacion'],
       isActive: true,
     },
   });
   console.log(`  ✅ Template: ${templateTaza.name}`);
 
+  // Asociar color blanco al template taza
+  if (colorBlanco) {
+    await prisma.productColor.upsert({
+      where: {
+        productId_colorId: {
+          productId: templateTaza.id,
+          colorId: colorBlanco.id,
+        },
+      },
+      update: {},
+      create: {
+        productId: templateTaza.id,
+        colorId: colorBlanco.id,
+      },
+    });
+    console.log(`    ✅ Asociado color blanco`);
+  }
+
+  // Asociar tallas de taza (11oz, 15oz, 20oz)
+  const talla15oz = await prisma.size.findFirst({ where: { abbreviation: '15oz' } });
+  const talla20oz = await prisma.size.findFirst({ where: { abbreviation: '20oz' } });
+  const talla11oz = await prisma.size.findFirst({ where: { abbreviation: '11oz' } });
+  const tallasTaza = [talla11oz, talla15oz, talla20oz].filter(t => t !== null);
+  for (const talla of tallasTaza) {
+    await prisma.productSize.upsert({
+      where: {
+        productId_sizeId: {
+          productId: templateTaza.id,
+          sizeId: talla!.id,
+        },
+      },
+      update: {},
+      create: {
+        productId: templateTaza.id,
+        sizeId: talla!.id,
+      },
+    });
+  }
+  console.log(`    ✅ Asociadas ${tallasTaza.length} tallas de taza`);
+
   // Crear zona alrededor para la taza
   if (aroundZoneType) {
-    const zoneTaza = await prisma.templateZone.create({
+    await prisma.templateZone.create({
       data: {
         templateId: templateTaza.id,
         zoneTypeId: aroundZoneType.id,
@@ -1348,7 +1528,7 @@ async function main() {
         isActive: true,
       },
     });
-    console.log(`    ✅ Zona: ${zoneTaza.name}`);
+    console.log(`    ✅ Zona: Alrededor`);
   }
 
   // ==================== TIPOS DE INSUMO ====================
@@ -1359,175 +1539,612 @@ async function main() {
       name: 'DTF (Direct to Film)',
       slug: 'dtf',
       description: 'Transferencia directa a film para aplicación en prendas',
+      hasVariants: false,
       order: 1,
     },
     {
-      name: 'Vinilo Textil',
-      slug: 'vinilo-textil',
-      description: 'Vinilo termotransferible para telas',
+      name: 'Prendas',
+      slug: 'prendas',
+      description: 'Prendas de vestir para sublimación o personalización',
+      hasVariants: true, // Tiene tallas y colores
       order: 2,
     },
     {
-      name: 'Sublimación',
-      slug: 'sublimacion',
-      description: 'Tinta sublimable para impresión en poliéster',
+      name: 'Insumo Único',
+      slug: 'insumo-unico',
+      description: 'Insumos que no tienen variantes de color o talla',
+      hasVariants: false,
       order: 3,
     },
     {
-      name: 'Vinilo Adhesivo',
-      slug: 'vinilo-adhesivo',
-      description: 'Vinilo autoadhesivo para superficies rígidas',
+      name: 'Empaque',
+      slug: 'empaque',
+      description: 'Materiales de empaque y presentación',
+      hasVariants: false,
       order: 4,
     },
     {
-      name: 'Serigrafía',
-      slug: 'serigrafia',
-      description: 'Tintas para serigrafía textil',
+      name: 'Adhesivos',
+      slug: 'adhesivos',
+      description: 'Cintas, pegamentos y adhesivos',
+      hasVariants: false,
       order: 5,
-    },
-    {
-      name: 'Bordado',
-      slug: 'bordado',
-      description: 'Hilos y materiales para bordado',
-      order: 6,
     },
   ];
 
   for (const inputType of inputTypes) {
     await prisma.inputType.upsert({
       where: { slug: inputType.slug },
-      update: { name: inputType.name, description: inputType.description },
+      update: {
+        name: inputType.name,
+        description: inputType.description,
+        hasVariants: inputType.hasVariants,
+      },
       create: {
         name: inputType.name,
         slug: inputType.slug,
         description: inputType.description,
+        hasVariants: inputType.hasVariants,
         sortOrder: inputType.order,
         isActive: true,
       },
     });
-    console.log(`  ✅ Tipo de Insumo: ${inputType.name}`);
+    console.log(`  ✅ Tipo de Insumo: ${inputType.name}${inputType.hasVariants ? ' (con variantes)' : ''}`);
   }
 
   // ==================== INSUMOS ====================
-  console.log('\n📦 Creando insumos de ejemplo...');
+  console.log('\n📦 Creando insumos...');
 
   // Obtener IDs de tipos de insumo
-  const sublimacionType = await prisma.inputType.findUnique({ where: { slug: 'sublimacion' } });
-  const vitroimpressionType = await prisma.inputType.findUnique({ where: { slug: 'vitroimpression' } });
+  const prendasType = await prisma.inputType.findUnique({ where: { slug: 'prendas' } });
+  const insumoUnicoType = await prisma.inputType.findUnique({ where: { slug: 'insumo-unico' } });
   const dtfType = await prisma.inputType.findUnique({ where: { slug: 'dtf' } });
+  const empaqueType = await prisma.inputType.findUnique({ where: { slug: 'empaque' } });
+  const adhesivosType = await prisma.inputType.findUnique({ where: { slug: 'adhesivos' } });
 
-  if (sublimacionType) {
-    // Insumos de Sublimación
-    await prisma.input.upsert({
-      where: { code: 'SUB-TELA-POLY-BL' },
+  // Camisa en U no se usa en este proyecto
+  /*// 1. CAMISA EN U (con variantes)
+  if (prendasType) {
+    const camisaEnU = await prisma.input.upsert({
+      where: { code: 'INS-CAM-U' },
       update: {},
       create: {
-        code: 'SUB-TELA-POLY-BL',
-        inputTypeId: sublimacionType.id,
-        name: 'Tela Polyester Blanca',
-        description: 'Tela 100% polyester para sublimación, color blanco',
-        unitOfMeasure: 'metros',
-        currentStock: 150,
-        minStock: 50,
-        maxStock: 300,
-        unitCost: 8500,
-        isActive: true,
-      },
-    });
-
-    await prisma.input.upsert({
-      where: { code: 'SUB-TINTA-CYAN' },
-      update: {},
-      create: {
-        code: 'SUB-TINTA-CYAN',
-        inputTypeId: sublimacionType.id,
-        name: 'Tinta Sublimación Cyan',
-        description: 'Tinta para impresora de sublimación, color cyan',
-        unitOfMeasure: 'ml',
-        currentStock: 2500,
-        minStock: 500,
-        maxStock: 5000,
-        unitCost: 45,
-        isActive: true,
-      },
-    });
-
-    await prisma.input.upsert({
-      where: { code: 'SUB-TINTA-MAG' },
-      update: {},
-      create: {
-        code: 'SUB-TINTA-MAG',
-        inputTypeId: sublimacionType.id,
-        name: 'Tinta Sublimación Magenta',
-        description: 'Tinta para impresora de sublimación, color magenta',
-        unitOfMeasure: 'ml',
-        currentStock: 2300,
-        minStock: 500,
-        maxStock: 5000,
-        unitCost: 45,
-        isActive: true,
-      },
-    });
-  }
-
-  if (dtfType) {
-    // Insumos DTF
-    await prisma.input.upsert({
-      where: { code: 'DTF-FILM-A3' },
-      update: {},
-      create: {
-        code: 'DTF-FILM-A3',
-        inputTypeId: dtfType.id,
-        name: 'Film DTF A3',
-        description: 'Película para impresión DTF, tamaño A3',
-        unitOfMeasure: 'hojas',
-        currentStock: 500,
-        minStock: 100,
-        maxStock: 1000,
-        unitCost: 2500,
-        isActive: true,
-      },
-    });
-
-    await prisma.input.upsert({
-      where: { code: 'DTF-POLVO-ADH' },
-      update: {},
-      create: {
-        code: 'DTF-POLVO-ADH',
-        inputTypeId: dtfType.id,
-        name: 'Polvo Adhesivo DTF',
-        description: 'Polvo termoadhesivo for transfers DTF',
-        unitOfMeasure: 'kg',
-        currentStock: 25,
-        minStock: 5,
-        maxStock: 50,
-        unitCost: 85000,
-        isActive: true,
-      },
-    });
-  }
-
-  if (vitroimpressionType) {
-    // Insumos Vitroimpresión
-    await prisma.input.upsert({
-      where: { code: 'VIT-TAZA-11OZ' },
-      update: {},
-      create: {
-        code: 'VIT-TAZA-11OZ',
-        inputTypeId: vitroimpressionType.id,
-        name: 'Taza Cerámica Blanca 11oz',
-        description: 'Taza de cerámica apta para sublimación, 11 onzas',
+        code: 'INS-CAM-U',
+        inputTypeId: prendasType.id,
+        name: 'Camisa en U',
+        description: 'Camiseta con cuello en U para personalización',
         unitOfMeasure: 'unidades',
-        currentStock: 200,
+        currentStock: 0, // Se calcula desde variantes
+        minStock: 20,
+        maxStock: 200,
+        unitCost: 12000,
+        supplier: 'Abba',
+        notes: 'Tiene variantes de talla y color',
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Insumo: ${camisaEnU.name} (con variantes)`);
+
+    // Asignar colores al inputType para generar variantes
+    if (prendasType) {
+      // Primero, agregar las tallas al InputType
+      const tallasParaVariantes = [tallaSM, tallaM, tallaL, tallaXL].filter(t => t !== null);
+      for (const talla of tallasParaVariantes) {
+        await prisma.inputTypeSize.upsert({
+          where: {
+            inputTypeId_sizeId: {
+              inputTypeId: prendasType.id,
+              sizeId: talla!.id,
+            },
+          },
+          update: {},
+          create: {
+            inputTypeId: prendasType.id,
+            sizeId: talla!.id,
+          },
+        });
+      }
+
+      // Asignar colores a la camisa
+      const coloresParaVariantes = [colorNegro, colorBlanco, colorGris, colorAzul].filter(c => c !== null);
+      for (const color of coloresParaVariantes) {
+        await prisma.inputColor.upsert({
+          where: {
+            inputId_colorId: {
+              inputId: camisaEnU.id,
+              colorId: color!.id,
+            },
+          },
+          update: {},
+          create: {
+            inputId: camisaEnU.id,
+            colorId: color!.id,
+          },
+        });
+
+        // Crear variantes para cada combinación color + talla
+        for (const talla of tallasParaVariantes) {
+          const sku = `CAM-U-${color!.slug.toUpperCase().substring(0, 3)}-${talla!.abbreviation}`;
+          await prisma.inputVariant.upsert({
+            where: { sku },
+            update: {},
+            create: {
+              inputId: camisaEnU.id,
+              sku,
+              colorId: color!.id,
+              sizeId: talla!.id,
+              currentStock: 0,
+              minStock: 5,
+              maxStock: 50,
+              unitCost: 12000,
+              isActive: true,
+            },
+          });
+        }
+      }
+      console.log(`    ✅ Generadas ${coloresParaVariantes.length * tallasParaVariantes.length} variantes`);
+    }
+  }*/
+
+  // 1. SUÉTER EN U (con variantes)
+  if (prendasType) {
+    const sueterEnU = await prisma.input.upsert({
+      where: { code: 'INS-SUE-U' },
+      update: {},
+      create: {
+        code: 'INS-SUE-U',
+        inputTypeId: prendasType.id,
+        name: 'Suéter en U',
+        description: 'Suéter con cuello en U para personalización',
+        unitOfMeasure: 'unidades',
+        currentStock: 0,
+        minStock: 15,
+        maxStock: 150,
+        unitCost: 25000,
+        supplier: 'Abba',
+        notes: 'Tiene variantes de talla y color',
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Insumo: ${sueterEnU.name} (con variantes)`);
+
+    // Asignar colores y tallas
+    const coloresSueter = [colorNegro, colorGris, colorAzul].filter(c => c !== null);
+    const tallasSueter = [tallaM, tallaL, tallaXL].filter(t => t !== null);
+
+    // Asociar colores al insumo
+    for (const color of coloresSueter) {
+      await prisma.inputColor.upsert({
+        where: {
+          inputId_colorId: {
+            inputId: sueterEnU.id,
+            colorId: color!.id,
+          },
+        },
+        update: {},
+        create: {
+          inputId: sueterEnU.id,
+          colorId: color!.id,
+        },
+      });
+
+      // Generación de variantes comentada - se crearán manualmente
+      /*for (const talla of tallasSueter) {
+        const sku = `SUE-U-${color!.slug.toUpperCase().substring(0, 3)}-${talla!.abbreviation}`;
+        await prisma.inputVariant.upsert({
+          where: { sku },
+          update: {},
+          create: {
+            inputId: sueterEnU.id,
+            sku,
+            colorId: color!.id,
+            sizeId: talla!.id,
+            currentStock: 0,
+            minStock: 3,
+            maxStock: 30,
+            unitCost: 25000,
+            isActive: true,
+          },
+        });
+      }*/
+    }
+    console.log(`    ✅ Asociados ${coloresSueter.length} colores`);
+
+    // Asociar tallas al insumo (similar a los colores)
+    for (const talla of tallasSueter) {
+      await prisma.inputSize.upsert({
+        where: {
+          inputId_sizeId: {
+            inputId: sueterEnU.id,
+            sizeId: talla!.id,
+          },
+        },
+        update: {},
+        create: {
+          inputId: sueterEnU.id,
+          sizeId: talla!.id,
+        },
+      });
+    }
+    console.log(`    ✅ Asociadas ${tallasSueter.length} tallas al insumo`);
+
+    // Asociar tallas al InputType para que estén disponibles al crear nuevos insumos
+    for (const talla of tallasSueter) {
+      await prisma.inputTypeSize.upsert({
+        where: {
+          inputTypeId_sizeId: {
+            inputTypeId: prendasType.id,
+            sizeId: talla!.id,
+          },
+        },
+        update: {},
+        create: {
+          inputTypeId: prendasType.id,
+          sizeId: talla!.id,
+        },
+      });
+    }
+    // console.log(`    ✅ Generadas ${coloresSueter.length * tallasSueter.length} variantes`);
+  }
+
+  // 2. BLUSA ÚNICA TALLA (sin variantes)
+  if (insumoUnicoType) {
+    const blusaUnicaTalla = await prisma.input.upsert({
+      where: { code: 'INS-BLU-UNI' },
+      update: {},
+      create: {
+        code: 'INS-BLU-UNI',
+        inputTypeId: insumoUnicoType.id,
+        name: 'Blusa Única Talla',
+        description: 'Blusa estándar talla única para personalización',
+        unitOfMeasure: 'unidades',
+        currentStock: 0,
+        minStock: 10,
+        maxStock: 100,
+        unitCost: 15000,
+        supplier: 'Fabrica',
+        notes: 'No tiene variantes',
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Insumo: ${blusaUnicaTalla.name} (sin variantes)`);
+  }
+
+  // 3. DTF
+  if (dtfType) {
+    const dtf = await prisma.input.upsert({
+      where: { code: 'INS-DTF-001' },
+      update: {},
+      create: {
+        code: 'INS-DTF-001',
+        inputTypeId: dtfType.id,
+        name: 'DTF',
+        description: 'Film DTF para transferencia directa',
+        unitOfMeasure: 'metros',
+        currentStock: 0,
+        minStock: 20,
+        maxStock: 200,
+        unitCost: 8500,
+        supplier: 'Amazon',
+        notes: 'Direct to Film transfer',
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Insumo: ${dtf.name}`);
+  }
+
+  // 4. CINTA TÉRMICA
+  if (adhesivosType) {
+    const cintaTermica = await prisma.input.upsert({
+      where: { code: 'INS-CIN-TER' },
+      update: {},
+      create: {
+        code: 'INS-CIN-TER',
+        inputTypeId: adhesivosType.id,
+        name: 'Cinta Térmica',
+        description: 'Cinta adhesiva activada por calor',
+        unitOfMeasure: 'metros',
+        currentStock: 0,
         minStock: 50,
         maxStock: 500,
-        unitCost: 4500,
+        unitCost: 3500,
+        supplier: 'Fabrica',
+        notes: 'Para aplicación con plancha térmica',
         isActive: true,
       },
     });
+    console.log(`  ✅ Insumo: ${cintaTermica.name}`);
   }
 
-  console.log('  ✅ Insumos de ejemplo creados');
+  // 5. BOLSAS 25x70
+  if (empaqueType) {
+    const bolsas = await prisma.input.upsert({
+      where: { code: 'INS-BOL-2570' },
+      update: {},
+      create: {
+        code: 'INS-BOL-2570',
+        inputTypeId: empaqueType.id,
+        name: 'Bolsas 25x70',
+        description: 'Bolsas de polipropileno 25x70cm para empaque',
+        unitOfMeasure: 'unidades',
+        currentStock: 0,
+        minStock: 100,
+        maxStock: 1000,
+        unitCost: 250,
+        supplier: 'Manicomio',
+        notes: 'Bolsas transparentes para productos',
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Insumo: ${bolsas.name}`);
+  }
+
+  // 6. ETIQUETA (PEGATINA)
+  if (insumoUnicoType) {
+    const etiqueta = await prisma.input.upsert({
+      where: { code: 'INS-ETI-PEG' },
+      update: {},
+      create: {
+        code: 'INS-ETI-PEG',
+        inputTypeId: insumoUnicoType.id,
+        name: 'Etiqueta (Pegatina)',
+        description: 'Etiquetas adhesivas para branding',
+        unitOfMeasure: 'unidades',
+        currentStock: 0,
+        minStock: 200,
+        maxStock: 2000,
+        unitCost: 150,
+        supplier: 'Manicomio',
+        notes: 'Stickers con logo de la marca',
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Insumo: ${etiqueta.name}`);
+  }
+
+  console.log('  ✅ Todos los insumos creados');
+
+  // ==================== PRODUCTOS DE EJEMPLO ====================
+  console.log('\n📦 Creando productos de ejemplo...');
+
+  // Obtener IDs necesarios
+  const sueterType = await prisma.productType.findFirst({ where: { slug: 'sueter' } });
+  const blusaType = await prisma.productType.findFirst({ where: { slug: 'blusa' } });
+  const tazaType = await prisma.productType.findFirst({ where: { slug: 'taza' } });
+
+  // 1. PRODUCTO: Suéter en U (con variantes de color/talla)
+  if (ropaCategoryRecord && sueterType) {
+    const sueterProducto = await prisma.product.upsert({
+      where: { sku: 'PROD-SUE-001' },
+      update: {},
+      create: {
+        sku: 'PROD-SUE-001',
+        slug: 'sueter-en-u',
+        name: 'Suéter en U',
+        description: 'Suéter con cuello en U personalizado',
+        categoryId: ropaCategoryRecord.id,
+        typeId: sueterType.id,
+        basePrice: 45000,
+        stock: 0,
+        featured: true,
+        images: {},
+        tags: ['sueter', 'personalizado'],
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Producto: ${sueterProducto.name} (con variantes)`);
+
+    // Asociar colores al producto suéter
+    const coloresSueterProd = [colorNegro, colorGris, colorAzul].filter(c => c !== null);
+    for (const color of coloresSueterProd) {
+      await prisma.productColor.upsert({
+        where: {
+          productId_colorId: {
+            productId: sueterProducto.id,
+            colorId: color!.id,
+          },
+        },
+        update: {},
+        create: {
+          productId: sueterProducto.id,
+          colorId: color!.id,
+        },
+      });
+    }
+    console.log(`    ✅ Asociados ${coloresSueterProd.length} colores al producto`);
+
+    // Asociar tallas al producto suéter
+    const tallasSueterProd = [tallaM, tallaL, tallaXL].filter(t => t !== null);
+    for (const talla of tallasSueterProd) {
+      await prisma.productSize.upsert({
+        where: {
+          productId_sizeId: {
+            productId: sueterProducto.id,
+            sizeId: talla!.id,
+          },
+        },
+        update: {},
+        create: {
+          productId: sueterProducto.id,
+          sizeId: talla!.id,
+        },
+      });
+    }
+    console.log(`    ✅ Asociadas ${tallasSueterProd.length} tallas al producto`);
+
+    // Generación de variantes comentada - se crearán manualmente
+    /*let variantesCreadas = 0;
+    for (const color of coloresSueterProd) {
+      for (const talla of tallasSueterProd) {
+        const sku = `${sueterProducto.sku}-${color!.slug.toUpperCase().substring(0, 3)}-${talla!.abbreviation}`;
+
+        await prisma.productVariant.upsert({
+          where: { sku },
+          update: {},
+          create: {
+            productId: sueterProducto.id,
+            sku,
+            colorId: color!.id,
+            sizeId: talla!.id,
+            stock: 0,
+            minStock: 3,
+            isActive: true,
+          },
+        });
+        variantesCreadas++;
+      }
+    }
+    console.log(`    ✅ Generadas ${variantesCreadas} variantes de producto`);*/
+  }
+
+  // 2. PRODUCTO: Blusa Única Talla (sin variantes)
+  if (ropaCategoryRecord && blusaType && tallaUnica) {
+    const blusaProducto = await prisma.product.upsert({
+      where: { sku: 'PROD-BLU-001' },
+      update: {},
+      create: {
+        sku: 'PROD-BLU-001',
+        slug: 'blusa-unica-talla',
+        name: 'Blusa Única Talla',
+        description: 'Blusa talla única personalizada',
+        categoryId: ropaCategoryRecord.id,
+        typeId: blusaType.id,
+        basePrice: 35000,
+        stock: 0,
+        featured: true,
+        images: {},
+        tags: ['blusa', 'personalizada'],
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Producto: ${blusaProducto.name} (sin variantes)`);
+
+    // Asociar colores al producto blusa
+    const coloresBlusaProd = [colorBlanco, colorNegro].filter(c => c !== null);
+    for (const color of coloresBlusaProd) {
+      await prisma.productColor.upsert({
+        where: {
+          productId_colorId: {
+            productId: blusaProducto.id,
+            colorId: color!.id,
+          },
+        },
+        update: {},
+        create: {
+          productId: blusaProducto.id,
+          colorId: color!.id,
+        },
+      });
+    }
+    console.log(`    ✅ Asociados ${coloresBlusaProd.length} colores al producto`);
+
+    // Asociar talla única al producto blusa
+    await prisma.productSize.upsert({
+      where: {
+        productId_sizeId: {
+          productId: blusaProducto.id,
+          sizeId: tallaUnica.id,
+        },
+      },
+      update: {},
+      create: {
+        productId: blusaProducto.id,
+        sizeId: tallaUnica.id,
+      },
+    });
+    console.log(`    ✅ Asociada talla única al producto`);
+
+    // Generación de variante comentada - se creará manualmente
+    /*const sku = `${blusaProducto.sku}-UNI`;
+    await prisma.productVariant.upsert({
+      where: { sku },
+      update: {},
+      create: {
+        productId: blusaProducto.id,
+        sku,
+        sizeId: tallaUnica.id,
+        stock: 0,
+        minStock: 10,
+        isActive: true,
+      },
+    });
+    console.log(`    ✅ Generada 1 variante de producto (talla única)`);*/
+  }
+
+  // 3. PRODUCTO: Taza 11oz
+  if (bebidasCategoryRecord && tazaType && talla11oz) {
+    const tazaProducto = await prisma.product.upsert({
+      where: { sku: 'PROD-TAZ-001' },
+      update: {},
+      create: {
+        sku: 'PROD-TAZ-001',
+        slug: 'taza-11oz',
+        name: 'Taza 11oz',
+        description: 'Taza de cerámica 11oz personalizada',
+        categoryId: bebidasCategoryRecord.id,
+        typeId: tazaType.id,
+        basePrice: 18000,
+        stock: 0,
+        featured: true,
+        images: {},
+        tags: ['taza', 'personalizada', 'sublimada'],
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Producto: ${tazaProducto.name}`);
+
+    // Asociar color blanco al producto taza
+    if (colorBlanco) {
+      await prisma.productColor.upsert({
+        where: {
+          productId_colorId: {
+            productId: tazaProducto.id,
+            colorId: colorBlanco.id,
+          },
+        },
+        update: {},
+        create: {
+          productId: tazaProducto.id,
+          colorId: colorBlanco.id,
+        },
+      });
+      console.log(`    ✅ Asociado color blanco al producto`);
+    }
+
+    // Asociar talla 11oz al producto taza
+    await prisma.productSize.upsert({
+      where: {
+        productId_sizeId: {
+          productId: tazaProducto.id,
+          sizeId: talla11oz.id,
+        },
+      },
+      update: {},
+      create: {
+        productId: tazaProducto.id,
+        sizeId: talla11oz.id,
+      },
+    });
+    console.log(`    ✅ Asociada talla 11oz al producto`);
+
+    // Generación de variante comentada - se creará manualmente
+    /*const sku = `${tazaProducto.sku}-11OZ`;
+    await prisma.productVariant.upsert({
+      where: { sku },
+      update: {},
+      create: {
+        productId: tazaProducto.id,
+        sku,
+        sizeId: talla11oz.id,
+        stock: 0,
+        minStock: 10,
+        isActive: true,
+      },
+    });
+    console.log(`    ✅ Generada 1 variante (11oz)`);*/
+  }
+
+  console.log('  ✅ Productos de ejemplo creados');
 
   // ==================== PROVEEDORES ====================
   console.log('\n🚚 Creando proveedores...');
@@ -1535,13 +2152,30 @@ async function main() {
   const suppliers = [
     {
       code: 'PROV-001',
-      name: 'TextiPro Colombia',
-      taxId: '900123456-7',
+      name: 'Amazon',
+      taxId: '900111111-1',
       taxIdType: 'NIT',
-      contactName: 'Juan Pérez',
-      email: 'ventas@textipro.co',
-      phone: '+57 301 234 5678',
-      address: 'Calle 45 #23-45, Zona Industrial',
+      contactName: 'Amazon Colombia',
+      email: 'ventas@amazon.com.co',
+      phone: '+57 300 000 0001',
+      address: 'Centro Logístico',
+      city: 'Bogotá',
+      department: 'Cundinamarca',
+      country: 'Colombia',
+      paymentTerms: 'Contado',
+      paymentMethod: 'Tarjeta de crédito',
+      notes: 'Marketplace online - Insumos generales',
+      isActive: true,
+    },
+    {
+      code: 'PROV-002',
+      name: 'Abba',
+      taxId: '900222222-2',
+      taxIdType: 'NIT',
+      contactName: 'Abba Textiles',
+      email: 'ventas@abba.com.co',
+      phone: '+57 300 000 0002',
+      address: 'Zona Industrial Norte',
       city: 'Medellín',
       department: 'Antioquia',
       country: 'Colombia',
@@ -1549,19 +2183,19 @@ async function main() {
       paymentMethod: 'Transferencia bancaria',
       bankName: 'Bancolombia',
       bankAccountType: 'Corriente',
-      bankAccount: '789456123',
-      notes: 'Proveedor principal de telas y camisetas',
+      bankAccount: '111222333',
+      notes: 'Proveedor de prendas y textiles',
       isActive: true,
     },
     {
-      code: 'PROV-002',
-      name: 'Insumos Sublimación SAS',
-      taxId: '901234567-8',
+      code: 'PROV-003',
+      name: 'Fabrica',
+      taxId: '900333333-3',
       taxIdType: 'NIT',
-      contactName: 'María García',
-      email: 'compras@insumossub.com',
-      phone: '+57 315 987 6543',
-      address: 'Carrera 12 #56-78',
+      contactName: 'La Fabrica',
+      email: 'contacto@lafabrica.com.co',
+      phone: '+57 300 000 0003',
+      address: 'Carrera 50 #23-45',
       city: 'Bogotá',
       department: 'Cundinamarca',
       country: 'Colombia',
@@ -1569,65 +2203,25 @@ async function main() {
       paymentMethod: 'Transferencia bancaria',
       bankName: 'Davivienda',
       bankAccountType: 'Ahorros',
-      bankAccount: '123456789',
-      notes: 'Proveedor de tintas y papeles de sublimación',
-      isActive: true,
-    },
-    {
-      code: 'PROV-003',
-      name: 'DTF Express',
-      taxId: '902345678-9',
-      taxIdType: 'NIT',
-      contactName: 'Carlos López',
-      email: 'pedidos@dtfexpress.co',
-      phone: '+57 320 111 2222',
-      address: 'Av. El Dorado #85-90',
-      city: 'Bogotá',
-      department: 'Cundinamarca',
-      country: 'Colombia',
-      paymentTerms: 'Contado',
-      paymentMethod: 'Nequi',
-      notes: 'Proveedor de insumos DTF y films',
+      bankAccount: '444555666',
+      notes: 'Fabricante de insumos para sublimación',
       isActive: true,
     },
     {
       code: 'PROV-004',
-      name: 'Cerámicas del Valle',
-      taxId: '903456789-0',
+      name: 'Manicomio',
+      taxId: '900444444-4',
       taxIdType: 'NIT',
-      contactName: 'Ana Martínez',
-      email: 'ventas@ceramicasvalle.com',
-      phone: '+57 318 333 4444',
-      address: 'Calle 80 #12-34',
+      contactName: 'Manicomio Store',
+      email: 'ventas@manicomio.com.co',
+      phone: '+57 300 000 0004',
+      address: 'Local 123, Centro Comercial',
       city: 'Cali',
       department: 'Valle del Cauca',
       country: 'Colombia',
-      paymentTerms: '45 días',
-      paymentMethod: 'Transferencia bancaria',
-      bankName: 'Banco de Bogotá',
-      bankAccountType: 'Corriente',
-      bankAccount: '456789123',
-      notes: 'Proveedor de tazas y productos cerámicos',
-      isActive: true,
-    },
-    {
-      code: 'PROV-005',
-      name: 'Termo Import',
-      taxId: '904567890-1',
-      taxIdType: 'NIT',
-      contactName: 'Roberto Sánchez',
-      email: 'importaciones@termoimport.co',
-      phone: '+57 312 555 6666',
-      address: 'Zona Franca Lote 45',
-      city: 'Barranquilla',
-      department: 'Atlántico',
-      country: 'Colombia',
-      paymentTerms: '60 días',
-      paymentMethod: 'Transferencia bancaria',
-      bankName: 'BBVA',
-      bankAccountType: 'Corriente',
-      bankAccount: '789123456',
-      notes: 'Importador de termos y vasos térmicos',
+      paymentTerms: 'Contado',
+      paymentMethod: 'Efectivo / Transferencia',
+      notes: 'Proveedor local de empaques y materiales',
       isActive: true,
     },
   ];
@@ -1648,15 +2242,15 @@ async function main() {
 
   console.log('\n✨ Seed completado exitosamente!\n');
   console.log('📊 Resumen:');
-  console.log(`   - ${products.length} productos`);
-  console.log(`   - 2 templates con zonas personalizables (Camiseta y Taza)`);
+  console.log(`   - 3 plantillas/templates (Suéter U, Blusa, Taza) con zonas`);
+  console.log(`   - 3 productos (Suéter U, Blusa, Taza)`);
+  console.log(`   - 6 insumos (DTF, Suéter U, Blusa, Cinta, Bolsas, Etiqueta)`);
   console.log(`   - ${categories.length} categorías`);
   console.log(`   - ${productTypes.length} tipos de producto`);
   console.log(`   - ${sizes.length} tallas`);
   console.log(`   - ${colors.length} colores`);
   console.log(`   - ${zoneTypes.length} tipos de zona`);
   console.log(`   - ${inputTypes.length} tipos de insumo`);
-  console.log(`   - 6 insumos de ejemplo`);
   console.log(`   - ${suppliers.length} proveedores`);
   // ==================== LABEL TEMPLATES ====================
   await seedLabelTemplates();

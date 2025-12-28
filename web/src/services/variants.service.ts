@@ -36,6 +36,7 @@ export interface ProductVariant {
     sku: string;
     basePrice: number;
     images: string[];
+    isTemplate: boolean;
   };
   color: {
     id: number;

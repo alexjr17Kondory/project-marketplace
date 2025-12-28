@@ -601,18 +601,47 @@ export async function getVariants(filter: VariantFilter = {}) {
           sku: true,
           basePrice: true,
           images: true,
+          isTemplate: true,
         },
       },
       color: true,
       size: true,
+      templateRecipes: {
+        include: {
+          inputVariant: true,
+        },
+      },
     },
     orderBy: [{ productId: 'asc' }, { colorId: 'asc' }, { sizeId: 'asc' }],
   });
 
-  // Filtrar variantes con stock bajo (después de la consulta, ya que necesitamos comparar stock con minStock)
-  let filteredVariants = variants;
+  // Calcular stock real para cada variante
+  const variantsWithCalculatedStock = variants.map((variant) => {
+    let calculatedStock = variant.stock;
+
+    // Si es un template y tiene recetas, calcular stock desde los insumos
+    // El stock es limitado por el insumo con menor disponibilidad (cuello de botella)
+    if (variant.product.isTemplate && variant.templateRecipes.length > 0) {
+      const stocksFromIngredients = variant.templateRecipes.map((recipe) => {
+        const inputStock = Number(recipe.inputVariant.currentStock);
+        const recipeQuantity = Number(recipe.quantity);
+        return Math.floor(inputStock / recipeQuantity);
+      });
+
+      // El stock final es el mínimo de todos los insumos (cuello de botella)
+      calculatedStock = Math.min(...stocksFromIngredients);
+    }
+
+    return {
+      ...variant,
+      calculatedStock,
+    };
+  });
+
+  // Filtrar variantes con stock bajo (después de la consulta, usando calculatedStock)
+  let filteredVariants = variantsWithCalculatedStock;
   if (filter.lowStock) {
-    filteredVariants = variants.filter((v) => v.stock <= v.minStock);
+    filteredVariants = variantsWithCalculatedStock.filter((v) => v.calculatedStock <= v.minStock);
   }
 
   return filteredVariants.map((variant) => {
@@ -622,6 +651,7 @@ export async function getVariants(filter: VariantFilter = {}) {
 
     return {
       ...variant,
+      stock: variant.calculatedStock, // Usar el stock calculado
       finalPrice,
     };
   });

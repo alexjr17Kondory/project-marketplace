@@ -41,12 +41,21 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-red-100 text-red-700',
 };
 
-interface InputOption {
+interface InputBase {
   id: number;
   code: string;
   name: string;
-  currentStock: number;
   unitOfMeasure: string;
+  hasVariants: boolean;
+  variants?: InputVariant[];
+}
+
+interface InputVariantOption {
+  id: number; // variant ID
+  sku: string;
+  colorName: string | null;
+  sizeName: string | null;
+  currentStock: number;
   unitCost: number;
 }
 
@@ -54,14 +63,13 @@ export default function InventoryConversionDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { showToast } = useToast();
-  const isCreating = id === 'new';
 
   const [conversion, setConversion] = useState<InventoryConversion | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Options for selectors
-  const [inputOptions, setInputOptions] = useState<InputOption[]>([]);
+  const [inputOptions, setInputOptions] = useState<InputBase[]>([]);
   const [variantOptions, setVariantOptions] = useState<ProductVariant[]>([]);
 
   // Modal states
@@ -74,52 +82,48 @@ export default function InventoryConversionDetailPage() {
   // Add item forms
   const [inputSearch, setInputSearch] = useState('');
   const [outputSearch, setOutputSearch] = useState('');
-  const [selectedInput, setSelectedInput] = useState<InputOption | null>(null);
+  const [selectedInputBase, setSelectedInputBase] = useState<InputBase | null>(null);
+  const [selectedInputVariant, setSelectedInputVariant] = useState<InputVariantOption | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [inputQuantity, setInputQuantity] = useState<number>(1);
   const [outputQuantity, setOutputQuantity] = useState<number>(1);
-
-  // Create form state
-  const [formData, setFormData] = useState<{
-    conversionDate: string;
-    description: string;
-    notes: string;
-  }>({
-    conversionDate: new Date().toISOString().split('T')[0],
-    description: '',
-    notes: '',
-  });
 
   useEffect(() => {
     loadData();
   }, [id]);
 
   const loadData = async () => {
+    // Validate ID exists
+    if (!id || isNaN(Number(id))) {
+      showToast('ID de conversión inválido', 'error');
+      navigate('/admin-panel/inventory-conversions');
+      return;
+    }
+
     try {
       setLoading(true);
 
-      // Load inputs and variants for selectors
+      // Load inputs with their variants included
       const [inputsData, variantsData] = await Promise.all([
         inputsService.getAll({}),
         getVariants(),
       ]);
 
+      // Map inputs to include their variants
       setInputOptions(
-        inputsData.map((i) => ({
-          id: i.id,
-          code: i.code,
-          name: i.name,
-          currentStock: Number(i.currentStock),
-          unitOfMeasure: i.unitOfMeasure,
-          unitCost: Number(i.unitCost),
+        inputsData.map((input) => ({
+          id: input.id,
+          code: input.code,
+          name: input.name,
+          unitOfMeasure: input.unitOfMeasure,
+          hasVariants: input.inputType?.hasVariants || false,
+          variants: input.variants || [],
         }))
       );
       setVariantOptions(variantsData);
 
-      if (!isCreating) {
-        const conversionData = await inventoryConversionsService.getConversionById(Number(id));
-        setConversion(conversionData);
-      }
+      const conversionData = await inventoryConversionsService.getConversionById(Number(id));
+      setConversion(conversionData);
     } catch (error) {
       showToast('Error al cargar datos', 'error');
       navigate('/admin-panel/inventory-conversions');
@@ -128,47 +132,33 @@ export default function InventoryConversionDetailPage() {
     }
   };
 
-  // Create new conversion
-  const handleCreate = async () => {
-    try {
-      setSaving(true);
-      const newConversion = await inventoryConversionsService.createConversion({
-        conversionDate: formData.conversionDate,
-        description: formData.description || undefined,
-        notes: formData.notes || undefined,
-      });
-      showToast('Conversión creada', 'success');
-      navigate(`/admin-panel/inventory-conversions/${newConversion.id}`);
-    } catch (error: any) {
-      showToast(error.message || 'Error al crear conversión', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   // Add input item
   const handleAddInput = async () => {
-    if (!conversion || !selectedInput) return;
+    if (!conversion || !selectedInputVariant) {
+      showToast('Selecciona una variante de insumo', 'error');
+      return;
+    }
 
     if (inputQuantity <= 0) {
       showToast('La cantidad debe ser mayor a 0', 'error');
       return;
     }
 
-    if (inputQuantity > selectedInput.currentStock) {
-      showToast(`Stock insuficiente. Disponible: ${selectedInput.currentStock}`, 'error');
+    if (inputQuantity > selectedInputVariant.currentStock) {
+      showToast(`Stock insuficiente. Disponible: ${selectedInputVariant.currentStock}`, 'error');
       return;
     }
 
     try {
       setSaving(true);
       const updated = await inventoryConversionsService.addInputItem(conversion.id, {
-        inputId: selectedInput.id,
+        inputVariantId: selectedInputVariant.id,
         quantity: inputQuantity,
       });
       setConversion(updated);
       setShowAddInputModal(false);
-      setSelectedInput(null);
+      setSelectedInputBase(null);
+      setSelectedInputVariant(null);
       setInputQuantity(1);
       setInputSearch('');
       showToast('Insumo agregado', 'success');
@@ -339,105 +329,6 @@ export default function InventoryConversionDetailPage() {
     );
   }
 
-  // Create form
-  if (isCreating) {
-    return (
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/admin-panel/inventory-conversions')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Nueva Conversión</h1>
-            <p className="text-sm text-gray-500">
-              Configura la conversión de insumos a productos
-            </p>
-          </div>
-        </div>
-
-        {/* Create Form */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha de Conversión
-              </label>
-              <input
-                type="date"
-                value={formData.conversionDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, conversionDate: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Descripción (opcional)
-              </label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Ej: Sublimación de camisetas para pedido #123"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notas (opcional)
-              </label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
-                rows={3}
-                placeholder="Notas adicionales..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                variant="admin-outline"
-                onClick={() => navigate('/admin-panel/inventory-conversions')}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="admin-orange"
-                onClick={handleCreate}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Creando...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    Crear Conversión
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Detail view
   if (!conversion) {
     return (
       <div className="p-6 text-center">
@@ -464,7 +355,7 @@ export default function InventoryConversionDetailPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-gray-900">
                 {conversion.conversionNumber}
               </h1>
@@ -475,10 +366,20 @@ export default function InventoryConversionDetailPage() {
               >
                 {STATUS_LABELS[conversion.status]}
               </span>
+              {conversion.conversionType === 'TEMPLATE' && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                  Desde Plantilla
+                </span>
+              )}
             </div>
             <p className="text-sm text-gray-500 mt-1">
               {conversion.description || 'Sin descripción'}
             </p>
+            {conversion.template && (
+              <p className="text-sm text-indigo-600 font-medium mt-1">
+                Plantilla: {conversion.template.name} ({conversion.template.sku})
+              </p>
+            )}
           </div>
         </div>
 
@@ -543,12 +444,14 @@ export default function InventoryConversionDetailPage() {
             {conversion.outputItems.length} items
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">Costo Total</p>
-          <p className="text-lg font-medium text-green-600">
-            {formatCurrency(conversion.totalInputCost)}
-          </p>
-        </div>
+        {conversion.conversionType === 'MANUAL' && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">Costo Total</p>
+            <p className="text-lg font-medium text-green-600">
+              {formatCurrency(conversion.totalInputCost)}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Two Column Layout */}
@@ -560,7 +463,7 @@ export default function InventoryConversionDetailPage() {
               <Boxes className="w-5 h-5 text-orange-600" />
               <h2 className="font-semibold text-gray-900">Insumos a Consumir</h2>
             </div>
-            {isEditable && (
+            {isEditable && conversion.conversionType === 'MANUAL' && (
               <Button
                 variant="admin-outline"
                 size="sm"
@@ -590,10 +493,12 @@ export default function InventoryConversionDetailPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <p className="text-sm font-medium text-orange-600">
-                      {formatCurrency(item.totalCost)}
-                    </p>
-                    {isEditable && (
+                    {conversion.conversionType === 'MANUAL' && (
+                      <p className="text-sm font-medium text-orange-600">
+                        {formatCurrency(item.totalCost)}
+                      </p>
+                    )}
+                    {isEditable && conversion.conversionType === 'MANUAL' && (
                       <button
                         onClick={() => handleRemoveInput(item.id)}
                         className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
@@ -607,7 +512,7 @@ export default function InventoryConversionDetailPage() {
             )}
           </div>
 
-          {conversion.inputItems.length > 0 && (
+          {conversion.inputItems.length > 0 && conversion.conversionType === 'MANUAL' && (
             <div className="px-4 py-3 bg-orange-50 border-t border-orange-100 flex justify-between">
               <span className="font-medium text-gray-700">Total Insumos</span>
               <span className="font-bold text-orange-600">
@@ -624,7 +529,7 @@ export default function InventoryConversionDetailPage() {
               <Package className="w-5 h-5 text-blue-600" />
               <h2 className="font-semibold text-gray-900">Productos a Generar</h2>
             </div>
-            {isEditable && (
+            {isEditable && conversion.conversionType === 'MANUAL' && (
               <Button
                 variant="admin-outline"
                 size="sm"
@@ -657,10 +562,12 @@ export default function InventoryConversionDetailPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <p className="text-sm font-medium text-blue-600">
-                      {formatCurrency(item.totalValue)}
-                    </p>
-                    {isEditable && (
+                    {conversion.conversionType === 'MANUAL' && (
+                      <p className="text-sm font-medium text-blue-600">
+                        {formatCurrency(item.totalValue)}
+                      </p>
+                    )}
+                    {isEditable && conversion.conversionType === 'MANUAL' && (
                       <button
                         onClick={() => handleRemoveOutput(item.id)}
                         className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
@@ -674,7 +581,7 @@ export default function InventoryConversionDetailPage() {
             )}
           </div>
 
-          {conversion.outputItems.length > 0 && (
+          {conversion.outputItems.length > 0 && conversion.conversionType === 'MANUAL' && (
             <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 flex justify-between">
               <span className="font-medium text-gray-700">Valor Total</span>
               <span className="font-bold text-blue-600">
@@ -698,57 +605,115 @@ export default function InventoryConversionDetailPage() {
         isOpen={showAddInputModal}
         onClose={() => {
           setShowAddInputModal(false);
-          setSelectedInput(null);
+          setSelectedInputBase(null);
+          setSelectedInputVariant(null);
           setInputSearch('');
           setInputQuantity(1);
         }}
         title="Agregar Insumo"
       >
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Buscar Insumo
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={inputSearch}
-                onChange={(e) => setInputSearch(e.target.value)}
-                placeholder="Buscar por código o nombre..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
-          </div>
+          {/* Step 1: Select Input */}
+          {!selectedInputBase && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Buscar Insumo
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={inputSearch}
+                    onChange={(e) => setInputSearch(e.target.value)}
+                    placeholder="Buscar por código o nombre..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+              </div>
 
-          <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
-            {filteredInputs.length === 0 ? (
-              <p className="p-4 text-sm text-gray-500 text-center">
-                No se encontraron insumos
-              </p>
-            ) : (
-              filteredInputs.map((input) => (
-                <button
-                  key={input.id}
-                  onClick={() => setSelectedInput(input)}
-                  className={`w-full p-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-                    selectedInput?.id === input.id ? 'bg-orange-50' : ''
-                  }`}
-                >
-                  <p className="font-medium text-gray-900">{input.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {input.code} • Stock: {input.currentStock} {input.unitOfMeasure} •{' '}
-                    {formatCurrency(input.unitCost)}/{input.unitOfMeasure}
+              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                {filteredInputs.length === 0 ? (
+                  <p className="p-4 text-sm text-gray-500 text-center">
+                    No se encontraron insumos
                   </p>
-                </button>
-              ))
-            )}
-          </div>
+                ) : (
+                  filteredInputs.map((input) => (
+                    <button
+                      key={input.id}
+                      onClick={() => setSelectedInputBase(input)}
+                      className="w-full p-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                    >
+                      <p className="font-medium text-gray-900">{input.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {input.code} • {input.unitOfMeasure}
+                        {input.hasVariants && ' • Tiene variantes'}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
+          )}
 
-          {selectedInput && (
+          {/* Step 2: Select Variant (if input has variants) */}
+          {selectedInputBase && selectedInputBase.hasVariants && selectedInputBase.variants && selectedInputBase.variants.length > 0 && (
+            <>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{selectedInputBase.name}</p>
+                  <p className="text-xs text-gray-500">Selecciona una variante</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedInputBase(null);
+                    setSelectedInputVariant(null);
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                >
+                  Cambiar
+                </button>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                {selectedInputBase.variants.map((variant) => (
+                  <button
+                    key={variant.id}
+                    onClick={() =>
+                      setSelectedInputVariant({
+                        id: variant.id,
+                        sku: variant.sku,
+                        colorName: variant.color?.name || null,
+                        sizeName: variant.size?.name || null,
+                        currentStock: Number(variant.currentStock),
+                        unitCost: Number(variant.unitCost),
+                      })
+                    }
+                    className={`w-full p-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
+                      selectedInputVariant?.id === variant.id ? 'bg-orange-50' : ''
+                    }`}
+                  >
+                    <p className="font-medium text-gray-900">
+                      {variant.color?.name || 'Sin color'}
+                      {variant.size?.name && ` • ${variant.size.name}`}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {variant.sku} • Stock: {Number(variant.currentStock)} {selectedInputBase.unitOfMeasure}
+                      {conversion?.conversionType === 'MANUAL' && ` • ${formatCurrency(Number(variant.unitCost))}/${selectedInputBase.unitOfMeasure}`}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Step 3: Enter Quantity */}
+          {selectedInputVariant && (
             <div className="p-3 bg-orange-50 rounded-lg">
               <p className="text-sm font-medium text-gray-900 mb-2">
-                Seleccionado: {selectedInput.name}
+                {selectedInputBase?.name}
+                {selectedInputVariant.colorName && ` • ${selectedInputVariant.colorName}`}
+                {selectedInputVariant.sizeName && ` • ${selectedInputVariant.sizeName}`}
               </p>
               <div className="flex items-center gap-3">
                 <label className="text-sm text-gray-600">Cantidad:</label>
@@ -757,12 +722,12 @@ export default function InventoryConversionDetailPage() {
                   value={inputQuantity}
                   onChange={(e) => setInputQuantity(Number(e.target.value))}
                   min={0.01}
-                  max={selectedInput.currentStock}
+                  max={selectedInputVariant.currentStock}
                   step={0.01}
                   className="w-24 px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                 />
                 <span className="text-sm text-gray-500">
-                  {selectedInput.unitOfMeasure} (máx: {selectedInput.currentStock})
+                  {selectedInputBase?.unitOfMeasure} (máx: {selectedInputVariant.currentStock})
                 </span>
               </div>
             </div>
@@ -773,7 +738,8 @@ export default function InventoryConversionDetailPage() {
               variant="admin-outline"
               onClick={() => {
                 setShowAddInputModal(false);
-                setSelectedInput(null);
+                setSelectedInputBase(null);
+                setSelectedInputVariant(null);
                 setInputSearch('');
               }}
             >
@@ -782,7 +748,7 @@ export default function InventoryConversionDetailPage() {
             <Button
               variant="admin-orange"
               onClick={handleAddInput}
-              disabled={!selectedInput || inputQuantity <= 0 || saving}
+              disabled={!selectedInputVariant || inputQuantity <= 0 || saving}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Agregar'}
             </Button>

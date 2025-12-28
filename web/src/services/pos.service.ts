@@ -95,6 +95,76 @@ export interface SalesHistoryFilter {
   status?: string;
 }
 
+export interface ProductSearchResult {
+  type: 'product';
+  variantId: number;
+  productId: number;
+  name: string;
+  image: string | null;
+  color: string;
+  size: string;
+  sku: string;
+  barcode: string | null;
+  price: number;
+  stock: number;
+  available: boolean;
+}
+
+export interface TemplateZoneInfo {
+  id: number;
+  name: string;
+  price: number;
+  zoneType: string;
+  zoneTypeSlug: string;
+  isRequired: boolean;
+  isBlocked: boolean;
+  positionX: number;
+  positionY: number;
+  maxWidth: number;
+  maxHeight: number;
+  shape: 'rect' | 'circle' | 'polygon';
+}
+
+export interface TemplateSearchResult {
+  type: 'template';
+  productId: number;
+  templateId: number;
+  name: string;
+  image: string | null;
+  sku: string;
+  basePrice: number;
+  zoneTypeImages: Record<string, string> | null;
+  scannedVariant?: {
+    variantId: number;
+    colorId: number | null;
+    colorName: string | null;
+    colorHex: string | null;
+    sizeId: number | null;
+    sizeName: string | null;
+    sizeAbbr: string | null;
+  };
+  colors: Array<{
+    id: number;
+    name: string;
+    slug: string;
+    hexCode: string;
+  }>;
+  sizes: Array<{
+    id: number;
+    name: string;
+    abbreviation: string;
+  }>;
+  zones: TemplateZoneInfo[];
+}
+
+export type SearchResult = ProductSearchResult | TemplateSearchResult;
+
+export interface SearchResponse {
+  type: 'single' | 'list';
+  result?: ProductSearchResult; // For single barcode scan
+  results?: SearchResult[]; // For name-based search
+}
+
 // ==================== API FUNCTIONS ====================
 
 /**
@@ -104,6 +174,22 @@ export async function scanProduct(barcode: string): Promise<ScanProductResponse>
   const response = await axios.post(
     `${API_URL}/pos/scan`,
     { barcode },
+    {
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    }
+  );
+  return response.data.data;
+}
+
+/**
+ * Search products and templates by barcode or name
+ */
+export async function searchProductsAndTemplates(query: string): Promise<SearchResponse> {
+  const response = await axios.post(
+    `${API_URL}/pos/search`,
+    { query },
     {
       headers: {
         Authorization: `Bearer ${getAuthToken()}`,

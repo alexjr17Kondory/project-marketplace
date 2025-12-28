@@ -20,6 +20,17 @@ router.post(
 );
 
 /**
+ * POST /api/pos/search
+ * Buscar productos y templates por código de barras o nombre
+ * Permisos: pos.access o pos.create_sale
+ */
+router.post(
+  '/search',
+  requireAnyPermission('pos.access', 'pos.create_sale'),
+  posController.searchProductsAndTemplates
+);
+
+/**
  * POST /api/pos/calculate
  * Calcular totales de venta
  * Permisos: pos.access o pos.create_sale
