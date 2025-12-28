@@ -19,11 +19,21 @@ export const createProductSchema = z.object({
   stock: z.coerce.number().int().min(0, 'El stock no puede ser negativo').default(0),
   featured: z.boolean().default(false),
   isActive: z.boolean().default(true),
-  images: z.object({
-    front: z.string().url('URL de imagen frontal inválida'),
-    back: z.string().url('URL de imagen trasera inválida').optional(),
-    side: z.string().url('URL de imagen lateral inválida').optional(),
-  }),
+  images: z.union([
+    // Nuevo formato: array de URLs o base64 (hasta 5 imágenes)
+    z.array(
+      z.string().min(1).refine(
+        (val) => val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/'),
+        { message: 'Debe ser una URL válida o imagen en base64' }
+      )
+    ).min(1, 'Se requiere al menos una imagen').max(5, 'Máximo 5 imágenes'),
+    // Formato anterior: objeto con front/back/side (retrocompatibilidad)
+    z.object({
+      front: z.string().min(1),
+      back: z.string().min(1).optional(),
+      side: z.string().min(1).optional(),
+    }),
+  ]),
   colors: z.array(z.object({
     id: z.number(),
     name: z.string(),
@@ -57,11 +67,21 @@ export const updateProductSchema = z.object({
   stock: z.coerce.number().int().min(0, 'El stock no puede ser negativo').optional(),
   featured: z.boolean().optional(),
   isActive: z.boolean().optional(),
-  images: z.object({
-    front: z.string().url('URL de imagen frontal inválida'),
-    back: z.string().url('URL de imagen trasera inválida').optional(),
-    side: z.string().url('URL de imagen lateral inválida').optional(),
-  }).optional(),
+  images: z.union([
+    // Nuevo formato: array de URLs o base64 (hasta 5 imágenes)
+    z.array(
+      z.string().min(1).refine(
+        (val) => val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/'),
+        { message: 'Debe ser una URL válida o imagen en base64' }
+      )
+    ).min(1, 'Se requiere al menos una imagen').max(5, 'Máximo 5 imágenes'),
+    // Formato anterior: objeto con front/back/side (retrocompatibilidad)
+    z.object({
+      front: z.string().min(1),
+      back: z.string().min(1).optional(),
+      side: z.string().min(1).optional(),
+    }),
+  ]).optional(),
   colors: z.array(z.object({
     id: z.number(),
     name: z.string(),
