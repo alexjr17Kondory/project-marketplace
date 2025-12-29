@@ -1,10 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Copy, Tag, X, Save, ArrowLeft, Eye, Download } from 'lucide-react';
+import { Plus, Settings, Copy, Tag, Save, ArrowLeft, Eye, Download, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  getPaginationRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from '@tanstack/react-table';
 import * as labelTemplatesService from '../../../services/label-templates.service';
 import * as barcodeService from '../../../services/barcode.service';
-import { catalogsService } from '../../../services/catalogs.service';
+import { catalogsService, type ProductType as ProductTypeCatalog } from '../../../services/catalogs.service';
 import type { LabelTemplate, LabelZone } from '../../../types/label-template';
-import type { ProductType } from '../../../services/catalogs.service';
 import { LabelTemplateEditor } from '../../../components/admin/LabelTemplateEditor';
 import { Modal } from '../../../components/shared/Modal';
 import { Button } from '../../../components/shared/Button';
@@ -13,7 +22,7 @@ type ViewMode = 'list' | 'editor';
 
 export default function LabelTemplatesPage() {
   const [templates, setTemplates] = useState<LabelTemplate[]>([]);
-  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductTypeCatalog[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingTemplate, setEditingTemplate] = useState<LabelTemplate | null>(null);
@@ -21,6 +30,8 @@ export default function LabelTemplatesPage() {
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   // Editor state
   const [editorData, setEditorData] = useState({
@@ -301,7 +312,7 @@ export default function LabelTemplatesPage() {
       const labelsPerPage = labelCols * labelRows;
 
       // Generar items de ejemplo (repetir para llenar una página)
-      const exampleItems = Array(labelsPerPage).fill(null).map((_, index) => ({
+      const exampleItems = Array(labelsPerPage).fill(null).map(() => ({
         variantId: 1, // Usaremos la primera variante disponible
         quantity: 1,
       }));
@@ -395,7 +406,7 @@ export default function LabelTemplatesPage() {
       const labelsPerPage = labelCols * labelRows;
 
       // Generar items de ejemplo (repetir para llenar una página)
-      const exampleItems = Array(labelsPerPage).fill(null).map((_, index) => ({
+      const exampleItems = Array(labelsPerPage).fill(null).map(() => ({
         variantId: 1,
         quantity: 1,
       }));
@@ -649,6 +660,152 @@ export default function LabelTemplatesPage() {
       };
     });
   };
+
+  // Table columns
+  const columns = useMemo<ColumnDef<LabelTemplate>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'Nombre',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <Tag className="w-4 h-4 text-gray-400" />
+            <div>
+              <p className="font-medium text-gray-900">{row.original.name}</p>
+              {row.original.isDefault && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
+                  Por Defecto
+                </span>
+              )}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'productTypes',
+        header: 'Tipos de Producto',
+        cell: ({ row }) => {
+          const productTypes = row.original.productTypes || [];
+          if (productTypes.length === 0) {
+            return <span className="text-sm text-gray-400 italic">Todos los tipos</span>;
+          }
+          return (
+            <div className="flex flex-wrap gap-1">
+              {productTypes.slice(0, 2).map((pt) => (
+                <span
+                  key={pt.id}
+                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {pt.productType.name}
+                </span>
+              ))}
+              {productTypes.length > 2 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                  +{productTypes.length - 2}
+                </span>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'dimensions',
+        header: 'Dimensiones',
+        cell: ({ row }) => (
+          <div className="text-sm">
+            <p className="text-gray-900 font-medium">
+              {(row.original.width / 28.35).toFixed(1)} × {(row.original.height / 28.35).toFixed(1)} cm
+            </p>
+            <p className="text-xs text-gray-400">
+              {row.original.pageType || 'A4'} • {row.original.zones.length} zona{row.original.zones.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'backgroundImage',
+        header: 'Imagen',
+        cell: ({ row }) => (
+          row.original.backgroundImage ? (
+            <span className="text-xs text-green-600 font-medium">✓ Con imagen</span>
+          ) : (
+            <span className="text-xs text-gray-400">Fondo blanco</span>
+          )
+        ),
+      },
+      {
+        accessorKey: 'isActive',
+        header: 'Estado',
+        cell: ({ row }) => (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            row.original.isActive
+              ? 'bg-green-100 text-green-800'
+              : 'bg-gray-100 text-gray-800'
+          }`}>
+            {row.original.isActive ? 'Activa' : 'Inactiva'}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <div className="text-right">Acciones</div>,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <button
+              onClick={() => handleEdit(row.original)}
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Configurar"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleGenerateExample(row.original.id)}
+              className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+              title="Ver Ejemplo"
+              disabled={generatingPDF}
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleDuplicate(row.original.id, row.original.name)}
+              className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+              title="Duplicar"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [generatingPDF]
+  );
+
+  // Filter data
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return templates;
+    const term = searchTerm.toLowerCase();
+    return templates.filter(
+      (t) =>
+        t.name.toLowerCase().includes(term) ||
+        t.pageType?.toLowerCase().includes(term) ||
+        t.productTypes?.some(pt => pt.productType.name.toLowerCase().includes(term))
+    );
+  }, [templates, searchTerm]);
+
+  // Table instance
+  const table = useReactTable({
+    data: filteredData,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: { pageSize: 10 },
+    },
+  });
 
   // Vista de Editor
   if (viewMode === 'editor') {
@@ -1067,8 +1224,8 @@ export default function LabelTemplatesPage() {
               <Button
                 variant="primary"
                 onClick={handleDownloadPDF}
-                icon={<Download size={18} />}
               >
+                <Download size={18} />
                 Descargar PDF
               </Button>
             </div>
@@ -1082,197 +1239,115 @@ export default function LabelTemplatesPage() {
   // Vista de Lista
   if (loading) {
     return (
-      <div className="p-4 md:p-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Cargando plantillas...</div>
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
       </div>
     );
   }
 
   return (
     <>
-      <div className="p-4 md:p-8">
+      <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Tag className="w-8 h-8 text-orange-500" />
-            Plantillas de Etiquetas
-          </h1>
-          <p className="text-gray-600 mt-1 text-sm">
-            Gestiona las plantillas para impresión de etiquetas de productos
-          </p>
-        </div>
-        <button
-          onClick={handleCreate}
-          className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors text-sm md:text-base"
-        >
-          <Plus size={20} />
-          Nueva Plantilla
-        </button>
-      </div>
-
-      {/* Templates Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        {templates.length === 0 ? (
-          <div className="text-center py-12">
-            <Tag size={48} className="text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No hay plantillas de etiquetas
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Crea tu primera plantilla para comenzar
-            </p>
-            <button
-              onClick={handleCreate}
-              className="inline-flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              <Plus size={20} />
-              Nueva Plantilla
-            </button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Plantillas de Etiquetas</h1>
+            <p className="text-sm text-gray-500 mt-1">Gestión de plantillas para impresión de etiquetas</p>
           </div>
-        ) : (
+          <Button onClick={handleCreate} variant="admin-orange" size="sm">
+            <Plus className="w-4 h-4" />
+            Nueva Plantilla
+          </Button>
+        </div>
+
+        {/* Search */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, tipo de hoja..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nombre
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipos de Producto
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dimensiones
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Configuración
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Zonas
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Imagen
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {templates.map((template) => (
-                  <tr key={template.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Tag className="w-5 h-5 text-gray-400 mr-2" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {template.name}
-                          </div>
-                          {template.isDefault && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
-                              Por Defecto
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {template.productTypes && template.productTypes.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {template.productTypes.slice(0, 3).map((pt) => (
-                            <span
-                              key={pt.id}
-                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                            >
-                              {pt.productType.name}
-                            </span>
-                          ))}
-                          {template.productTypes.length > 3 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                              +{template.productTypes.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 italic">Todos los tipos</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {(template.width / 28.35).toFixed(1)} × {(template.height / 28.35).toFixed(1)} cm
-                      <div className="text-xs text-gray-400">
-                        ({template.width.toFixed(1)} × {template.height.toFixed(1)} pts)
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="space-y-1">
-                        <div className="font-medium">{template.pageType || 'A4'}</div>
-                        <div className="text-xs text-gray-400">
-                          Margen: {((template.pageMargin || 30) / 28.35).toFixed(1)} cm
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          Espacio: {((template.labelSpacing || 10) / 28.35).toFixed(1)} cm
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {template.zones.length} zona{template.zones.length !== 1 ? 's' : ''}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {template.backgroundImage ? (
-                        <span className="text-green-600 font-medium">✓ Con imagen</span>
-                      ) : (
-                        <span className="text-gray-400">Fondo blanco</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        template.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {template.isActive ? 'Activa' : 'Inactiva'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(template)}
-                          className="text-orange-600 hover:text-orange-900"
-                          title="Editar"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDuplicate(template.id, template.name)}
-                          className="text-gray-600 hover:text-gray-900"
-                          title="Duplicar"
-                        >
-                          <Copy size={18} />
-                        </button>
-                        {!template.isDefault && (
-                          <button
-                            onClick={() => handleDelete(template.id, template.name)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    ))}
                   </tr>
                 ))}
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {table.getRowModel().rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length} className="px-4 py-12 text-center">
+                      <Tag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No hay plantillas de etiquetas</p>
+                    </td>
+                  </tr>
+                ) : (
+                  table.getRowModel().rows.map((row) => (
+                    <tr key={row.id} className="hover:bg-gray-50">
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-3">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        )}
+
+          {/* Pagination */}
+          {table.getPageCount() > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+              <p className="text-sm text-gray-500">
+                Mostrando {table.getState().pagination.pageIndex * 10 + 1} -{' '}
+                {Math.min(
+                  (table.getState().pagination.pageIndex + 1) * 10,
+                  filteredData.length
+                )}{' '}
+                de {filteredData.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                  className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                  className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
 
       {/* Modal - Previsualización del PDF */}
       {showPreviewModal && pdfPreviewUrl && (
@@ -1303,8 +1378,8 @@ export default function LabelTemplatesPage() {
               <Button
                 variant="primary"
                 onClick={handleDownloadPDF}
-                icon={<Download size={18} />}
               >
+                <Download size={18} />
                 Descargar PDF
               </Button>
             </div>

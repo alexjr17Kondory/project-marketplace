@@ -13,6 +13,8 @@ import {
   Unlock,
   Type,
   Maximize2,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import type { LabelZone, LabelZoneType } from '../../types/label-template';
 import { ZONE_TYPE_LABELS, ZONE_SAMPLE_DATA } from '../../types/label-template';
@@ -47,6 +49,16 @@ const cmToPoints = (cm: number): number => {
   return Math.round(cm * 28.35 * 10) / 10;
 };
 
+// Calcular tamaño de fuente proporcional a las dimensiones de la zona
+const calculateFontSize = (width: number, height: number): number => {
+  // Usar el lado más pequeño como referencia para que el texto quepa
+  const minDimension = Math.min(width, height);
+  // Aproximadamente 35% del lado más pequeño, con límites razonables
+  const fontSize = Math.round(minDimension * 0.35);
+  // Limitar entre 6pt (mínimo legible) y 28pt (máximo práctico)
+  return Math.max(6, Math.min(28, fontSize));
+};
+
 export const LabelTemplateEditor = ({
   backgroundImage,
   width,
@@ -67,6 +79,7 @@ export const LabelTemplateEditor = ({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [zonesReady, setZonesReady] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1.0); // 1.0 = 100%, 1.5 = 150%, etc.
 
   // Estado para crear nueva zona
   const [isCreatingZone, setIsCreatingZone] = useState(false);
@@ -164,6 +177,22 @@ export const LabelTemplateEditor = ({
     return () => clearTimeout(timer);
   }, [imageLoaded, backgroundImage]);
 
+  // Forzar actualización de zonas cuando cambia el zoom
+  useEffect(() => {
+    // Si hay imagen de fondo pero no está cargada, no hacer nada
+    if (backgroundImage && !imageLoaded) return;
+
+    // Temporalmente desactivar zonas
+    setZonesReady(false);
+
+    // Esperar a que el navegador aplique el transform: scale()
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setZonesReady(true);
+      });
+    });
+  }, [zoomLevel, imageLoaded, backgroundImage]);
+
   const getRelativePosition = useCallback((e: React.MouseEvent | MouseEvent) => {
     if (!containerRef.current || !imageRef.current) return { x: 0, y: 0 };
 
@@ -180,10 +209,11 @@ export const LabelTemplateEditor = ({
       const mouseY = e.clientY - rect.top;
 
       // El rectángulo ya tiene el tamaño correcto en píxeles, calcular la escala
-      const scale = rect.width / width;
+      // Compensar por el zoom dividiendo el tamaño del rect
+      const scale = (rect.width / zoomLevel) / width;
 
-      const x = mouseX / scale;
-      const y = mouseY / scale;
+      const x = mouseX / scale / zoomLevel;
+      const y = mouseY / scale / zoomLevel;
 
       return {
         x: Math.max(0, Math.min(width, x)),
@@ -191,54 +221,27 @@ export const LabelTemplateEditor = ({
       };
     }
 
-    // Si hay imagen de fondo
+    // Si hay imagen de fondo - SIMPLIFICADO con object-fill
     const img = element as HTMLImageElement;
     const rect = img.getBoundingClientRect();
-    const naturalWidth = img.naturalWidth;
-    const naturalHeight = img.naturalHeight;
 
-    if (!naturalWidth || !naturalHeight) {
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      return { x, y };
-    }
+    // Con object-fill, la imagen llena todo el contenedor, sin offsets
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
-    // Calcular el área real renderizada de la imagen (considerando object-contain)
-    const containerWidth = rect.width;
-    const containerHeight = rect.height;
-    const imageRatio = naturalWidth / naturalHeight;
-    const containerRatio = containerWidth / containerHeight;
+    // Escalar directamente de píxeles de pantalla a points
+    // Compensar por el zoom dividiendo las dimensiones del rect
+    const scaleX = width / (rect.width / zoomLevel);
+    const scaleY = height / (rect.height / zoomLevel);
 
-    let renderedWidth: number;
-    let renderedHeight: number;
-    let offsetX: number;
-    let offsetY: number;
-
-    if (imageRatio > containerRatio) {
-      renderedWidth = containerWidth;
-      renderedHeight = containerWidth / imageRatio;
-      offsetX = 0;
-      offsetY = (containerHeight - renderedHeight) / 2;
-    } else {
-      renderedHeight = containerHeight;
-      renderedWidth = containerHeight * imageRatio;
-      offsetX = (containerWidth - renderedWidth) / 2;
-      offsetY = 0;
-    }
-
-    // Calcular posición relativa dentro del área real de la imagen
-    const mouseX = e.clientX - rect.left - offsetX;
-    const mouseY = e.clientY - rect.top - offsetY;
-
-    // Convertir a points (coordenadas absolutas de la etiqueta)
-    const x = (mouseX / renderedWidth) * width;
-    const y = (mouseY / renderedHeight) * height;
+    const x = (mouseX / zoomLevel) * scaleX;
+    const y = (mouseY / zoomLevel) * scaleY;
 
     return {
       x: Math.max(0, Math.min(width, x)),
       y: Math.max(0, Math.min(height, y))
     };
-  }, [width, height, backgroundImage]);
+  }, [width, height, backgroundImage, zoomLevel]);
 
   const handleZoneMouseDown = (e: React.MouseEvent, zone: LabelZone, handle?: string) => {
     e.preventDefault();
@@ -352,7 +355,8 @@ export const LabelTemplateEditor = ({
             x: Math.round(newX * 10) / 10,
             y: Math.round(newY * 10) / 10,
             width: Math.round(newWidth * 10) / 10,
-            height: Math.round(newHeight * 10) / 10
+            height: Math.round(newHeight * 10) / 10,
+            fontSize: calculateFontSize(newWidth, newHeight) // Actualizar fontSize proporcionalmente
           };
         }
         return zone;
@@ -404,57 +408,32 @@ export const LabelTemplateEditor = ({
       }
 
       // Las zonas están DENTRO del rectángulo blanco, no necesitan offset
+      // Dividir por zoomLevel para compensar el transform: scale() aplicado al contenedor
       return {
-        renderedWidth: rect.width,
-        renderedHeight: rect.height,
+        renderedWidth: rect.width / zoomLevel,
+        renderedHeight: rect.height / zoomLevel,
         offsetX: 0,
         offsetY: 0,
       };
     }
 
-    // Si hay imagen de fondo
+    // Si hay imagen de fondo - SIMPLIFICADO con object-fill
     const img = element as HTMLImageElement;
-    const containerWidth = img.clientWidth;
-    const containerHeight = img.clientHeight;
-    const naturalWidth = img.naturalWidth;
-    const naturalHeight = img.naturalHeight;
+    const rect = img.getBoundingClientRect();
 
-    // Validar dimensiones naturales y de contenedor
-    if (!naturalWidth || !naturalHeight || naturalWidth <= 0 || naturalHeight <= 0) {
+    if (!rect.width || !rect.height || rect.width <= 0 || rect.height <= 0) {
       return null;
     }
 
-    if (!containerWidth || !containerHeight || containerWidth <= 0 || containerHeight <= 0) {
-      return null;
-    }
-
-    const imageRatio = naturalWidth / naturalHeight;
-    const containerRatio = containerWidth / containerHeight;
-
-    let renderedWidth: number;
-    let renderedHeight: number;
-    let offsetX: number;
-    let offsetY: number;
-
-    if (imageRatio > containerRatio) {
-      renderedWidth = containerWidth;
-      renderedHeight = containerWidth / imageRatio;
-      offsetX = 0;
-      offsetY = (containerHeight - renderedHeight) / 2;
-    } else {
-      renderedHeight = containerHeight;
-      renderedWidth = containerHeight * imageRatio;
-      offsetX = (containerWidth - renderedWidth) / 2;
-      offsetY = 0;
-    }
-
-    // Validar que las dimensiones calculadas sean válidas
-    if (!renderedWidth || !renderedHeight || renderedWidth <= 0 || renderedHeight <= 0) {
-      return null;
-    }
-
-    return { renderedWidth, renderedHeight, offsetX, offsetY };
-  }, [backgroundImage]);
+    // Con object-fill, el área renderizada = área del contenedor, SIN offsets
+    // Dividir por zoomLevel para compensar el transform: scale() aplicado al contenedor
+    return {
+      renderedWidth: rect.width / zoomLevel,
+      renderedHeight: rect.height / zoomLevel,
+      offsetX: 0,  // Siempre 0 con object-fill
+      offsetY: 0,  // Siempre 0 con object-fill
+    };
+  }, [backgroundImage, zoomLevel]);
 
   const getZoneDisplayDimensions = (zone: LabelZone) => {
     const contentArea = getImageContentArea();
@@ -556,7 +535,7 @@ export const LabelTemplateEditor = ({
       y: Math.round(posY * 10) / 10,
       width: Math.round(zoneWidth * 10) / 10,
       height: Math.round(zoneHeight * 10) / 10,
-      fontSize: 10,
+      fontSize: calculateFontSize(zoneWidth, zoneHeight), // Calculado proporcionalmente
       fontWeight: 'normal',
       textAlign: 'center',
       fontColor: '#000000',
@@ -584,16 +563,16 @@ export const LabelTemplateEditor = ({
 
   const getZoneColor = (zone: LabelZone) => {
     const colors: Record<string, string> = {
-      PRODUCT_NAME: 'rgba(59, 130, 246, 0.4)',
-      SIZE: 'rgba(16, 185, 129, 0.4)',
-      COLOR: 'rgba(245, 158, 11, 0.4)',
-      BARCODE: 'rgba(139, 92, 246, 0.4)',
-      BARCODE_TEXT: 'rgba(236, 72, 153, 0.4)',
-      SKU: 'rgba(99, 102, 241, 0.4)',
-      PRICE: 'rgba(239, 68, 68, 0.4)',
-      CUSTOM_TEXT: 'rgba(107, 114, 128, 0.4)',
+      PRODUCT_NAME: 'rgba(59, 130, 246, 0.1)',
+      SIZE: 'rgba(16, 185, 129, 0.1)',
+      COLOR: 'rgba(245, 158, 11, 0.1)',
+      BARCODE: 'rgba(139, 92, 246, 0.1)',
+      BARCODE_TEXT: 'rgba(236, 72, 153, 0.1)',
+      SKU: 'rgba(99, 102, 241, 0.1)',
+      PRICE: 'rgba(239, 68, 68, 0.1)',
+      CUSTOM_TEXT: 'rgba(107, 114, 128, 0.1)',
     };
-    return colors[zone.zoneType] || 'rgba(156, 163, 175, 0.4)';
+    return colors[zone.zoneType] || 'rgba(156, 163, 175, 0.1)';
   };
 
   const getBorderColor = (zone: LabelZone) => {
@@ -632,6 +611,38 @@ export const LabelTemplateEditor = ({
         </h3>
 
         <div className="flex items-center gap-2">
+          {/* Controles de Zoom */}
+          <div className="flex items-center gap-1 border border-gray-300 rounded-lg bg-white">
+            <button
+              onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))}
+              disabled={zoomLevel <= 0.5}
+              className="p-2 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed rounded-l-lg"
+              title="Alejar"
+            >
+              <ZoomOut className="w-4 h-4 text-gray-600" />
+            </button>
+            <span className="px-2 text-sm font-medium text-gray-700 min-w-[60px] text-center">
+              {Math.round(zoomLevel * 100)}%
+            </span>
+            <button
+              onClick={() => setZoomLevel(prev => Math.min(3.0, prev + 0.25))}
+              disabled={zoomLevel >= 3.0}
+              className="p-2 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Acercar"
+            >
+              <ZoomIn className="w-4 h-4 text-gray-600" />
+            </button>
+            <button
+              onClick={() => setZoomLevel(1.0)}
+              disabled={zoomLevel === 1.0}
+              className="px-2 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed border-l border-gray-300 rounded-r-lg"
+              title="Restablecer zoom"
+            >
+              Reset
+            </button>
+          </div>
+
+          {/* Mostrar/Ocultar Zonas */}
           <button
             onClick={() => setShowZones(!showZones)}
             className={`p-2 rounded-lg border ${showZones ? 'bg-orange-50 border-orange-300' : 'bg-white border-gray-300'}`}
@@ -687,6 +698,12 @@ export const LabelTemplateEditor = ({
             <p className="text-xs text-gray-500 mt-2">
               Dimensiones: {pointsToCm(width)}cm × {pointsToCm(height)}cm
             </p>
+            {backgroundImage && (
+              <p className="text-xs text-orange-600 mt-1">
+                💡 La imagen se ajustará a {pointsToCm(width)}×{pointsToCm(height)}cm manteniendo sus proporciones.
+                Si no coinciden exactamente, se recortará para llenar el área.
+              </p>
+            )}
           </div>
 
           {/* Crear nueva zona */}
@@ -896,8 +913,8 @@ export const LabelTemplateEditor = ({
         <div className="col-span-12 lg:col-span-8">
           <div
             ref={containerRef}
-            className="relative bg-gray-100 rounded-lg overflow-hidden border-2 border-dashed border-gray-300 flex items-center justify-center p-8"
-            style={{ minHeight: '500px' }}
+            className="relative bg-gray-100 rounded-lg overflow-auto border-2 border-dashed border-gray-300 flex items-center justify-center p-8"
+            style={{ minHeight: '500px', maxHeight: '700px' }}
           >
             {uploadingImage && (
               <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-20">
@@ -907,12 +924,15 @@ export const LabelTemplateEditor = ({
 
             {backgroundImage ? (
               <div
+                key={`label-${zoomLevel}`}
                 className="relative"
                 style={{
                   width: `${width}px`,
                   height: `${height}px`,
                   maxWidth: '100%',
                   maxHeight: '700px',
+                  transform: `scale(${zoomLevel})`,
+                  transformOrigin: 'center',
                 }}
               >
                 <img
@@ -921,7 +941,7 @@ export const LabelTemplateEditor = ({
                   alt="Etiqueta"
                   onLoad={handleImageLoad}
                   onError={handleImageError}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover"
                   style={{
                     display: imageLoaded ? 'block' : 'none',
                   }}
@@ -954,7 +974,7 @@ export const LabelTemplateEditor = ({
                     <div
                       key={zone.id}
                       className={`absolute border-2 cursor-move transition-all ${
-                        isSelected ? 'shadow-lg z-10 opacity-100' : 'z-0 opacity-30 hover:opacity-50'
+                        isSelected ? 'shadow-lg z-10 opacity-70' : 'z-0 opacity-20 hover:opacity-40'
                       }`}
                       style={{
                         left: displayDimensions.left,
@@ -1005,13 +1025,6 @@ export const LabelTemplateEditor = ({
                           </div>
                         </>
                       )}
-
-                      {/* Mostrar texto de muestra solo en zona seleccionada */}
-                      {isSelected && (
-                        <div className="absolute inset-0 flex items-center justify-center px-1 text-xs font-medium text-gray-700 pointer-events-none overflow-hidden">
-                          {ZONE_SAMPLE_DATA[zone.zoneType]}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -1020,6 +1033,10 @@ export const LabelTemplateEditor = ({
               <div
                 ref={imageRef as React.RefObject<HTMLDivElement>}
                 className="flex items-center justify-center"
+                style={{
+                  transform: `scale(${zoomLevel})`,
+                  transformOrigin: 'center',
+                }}
               >
                 <div
                   id="label-white-rect"
@@ -1050,7 +1067,7 @@ export const LabelTemplateEditor = ({
                       <div
                         key={zone.id}
                         className={`absolute border-2 cursor-move transition-all ${
-                          isSelected ? 'shadow-lg z-10 opacity-100' : 'z-0 opacity-30 hover:opacity-50'
+                          isSelected ? 'shadow-lg z-10 opacity-70' : 'z-0 opacity-20 hover:opacity-40'
                         }`}
                         style={{
                           left: displayDimensions.left,
@@ -1100,13 +1117,6 @@ export const LabelTemplateEditor = ({
                               <Move className="w-6 h-6 text-gray-800" />
                             </div>
                           </>
-                        )}
-
-                        {/* Mostrar texto de muestra solo en zona seleccionada */}
-                        {isSelected && (
-                          <div className="absolute inset-0 flex items-center justify-center px-1 text-xs font-medium text-gray-700 pointer-events-none overflow-hidden">
-                            {ZONE_SAMPLE_DATA[zone.zoneType]}
-                          </div>
                         )}
                       </div>
                     );

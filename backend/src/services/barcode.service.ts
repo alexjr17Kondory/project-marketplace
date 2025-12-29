@@ -669,6 +669,16 @@ export async function generateBarcodeLabelsPDFWithTemplate(
         const zoneX = labelX + zone.x;
         const zoneY = labelY + zone.y;
 
+        // Debug: Log de posición de zona
+        if (labelIndex === 0) { // Solo para la primera etiqueta
+          console.log(`Zone ${zone.zoneType}:`, {
+            labelPos: { x: labelX, y: labelY },
+            zoneRelative: { x: zone.x, y: zone.y },
+            zoneAbsolute: { x: zoneX, y: zoneY },
+            zoneDimensions: { w: zone.width, h: zone.height }
+          });
+        }
+
         let content = '';
 
         // Determinar contenido según tipo de zona
@@ -680,7 +690,7 @@ export async function generateBarcodeLabelsPDFWithTemplate(
             content = variant.product.name;
             break;
           case 'SIZE':
-            const sizeValue = variant.size?.name || variant.size?.abbreviation || 'Única';
+            const sizeValue = variant.size?.abbreviation || variant.size?.name || 'Única';
             content = showLabel ? `Talla: ${sizeValue}` : sizeValue;
             break;
           case 'COLOR':
@@ -724,17 +734,40 @@ export async function generateBarcodeLabelsPDFWithTemplate(
 
         // Renderizar texto si hay contenido
         if (content) {
+          // Guardar estado y crear región de recorte para que el texto no se desborde
+          doc.save();
+
+          // Configurar fuente antes de medir
           doc
             .fontSize(zone.fontSize)
-            .font(zone.fontWeight === 'bold' ? 'Helvetica-Bold' : 'Helvetica')
+            .font(zone.fontWeight === 'bold' ? 'Helvetica-Bold' : 'Helvetica');
+
+          // Calcular altura del texto para centrarlo verticalmente
+          const textHeight = doc.heightOfString(content, {
+            width: zone.width,
+            align: zone.textAlign as any,
+            lineBreak: true,
+          });
+
+          // Calcular offset vertical para centrar (solo si el texto cabe en la zona)
+          const offsetY = Math.max(0, (zone.height - textHeight) / 2);
+
+          // Crear rectángulo de recorte (clipping) para limitar el texto a las dimensiones de la zona
+          doc.rect(zoneX, zoneY, zone.width, zone.height).clip();
+
+          // Renderizar texto centrado vertical y horizontalmente
+          doc
             .fillColor(zone.fontColor)
-            .text(content, zoneX, zoneY, {
+            .text(content, zoneX, zoneY + offsetY, {
               width: zone.width,
               height: zone.height,
-              align: zone.textAlign as any,
+              align: zone.textAlign as any, // Centrado horizontal
               lineBreak: true,
               ellipsis: true,
             });
+
+          // Restaurar estado (quitar clipping)
+          doc.restore();
         }
       }
     } catch (error) {
