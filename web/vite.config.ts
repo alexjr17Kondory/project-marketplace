@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     host: true, // Permite acceso desde la red local
     port: 5174,
+    allowedHosts: ['vexa.test', 'localhost'],
     watch: {
       // Usar polling para Docker en Windows (detecta cambios de archivos)
       usePolling: true,

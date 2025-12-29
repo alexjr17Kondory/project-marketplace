@@ -12,8 +12,8 @@ RUN npm install
 # Copiar el resto del código
 COPY . .
 
-# Exponer puerto
-EXPOSE 5173
+# Exponer puerto (Vite corre en 5174)
+EXPOSE 5174
 
 # Comando para desarrollo con host accesible
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
