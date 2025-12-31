@@ -1,4 +1,4 @@
-# 🚀 Guía de Inicialización - Marketplace
+# 🚀 Guía de Inicialización - Vexa Marketplace
 
 Esta guía te ayudará a inicializar el proyecto completo usando Docker en cualquier PC.
 
@@ -7,57 +7,102 @@ Esta guía te ayudará a inicializar el proyecto completo usando Docker en cualq
 1. **Docker Desktop** instalado y ejecutándose
 2. **Git** (opcional, para clonar el repositorio)
 
-## 🐳 Inicialización con Docker
+## 🐳 Inicialización Rápida (Recomendado)
 
-### 1. Configuración Inicial
+### Opción 1: Script Automático
 
-El proyecto ya incluye toda la configuración necesaria en `docker-compose.yml`. No necesitas configurar variables de entorno para desarrollo local.
+Ejecuta el script `init.bat` como **Administrador**:
 
-### 2. Levantar los Contenedores
+```
+Clic derecho en init.bat → "Ejecutar como administrador"
+```
+
+Este script automáticamente:
+- ✅ Configura el archivo hosts con `vexa.test`
+- ✅ Construye e inicia todos los contenedores Docker
+- ✅ Muestra la URL de acceso
+
+### Opción 2: Manual
+
+#### 1. Configurar archivo hosts
+
+Abre `C:\Windows\System32\drivers\etc\hosts` como Administrador y agrega:
+
+```
+127.0.0.1    vexa.test
+127.0.0.1    api.vexa.test
+```
+
+#### 2. Levantar los Contenedores
 
 ```bash
 # Construir e iniciar todos los servicios
-docker-compose up -d
+docker-compose up -d --build
 ```
 
-Esto creará y levantará 3 contenedores:
-- **MariaDB** (puerto 3307) - Base de datos
-- **Backend** (puerto 3001) - API Node.js/Express
-- **Frontend** (puerto 5173) - React + Vite
+## 🏗️ Arquitectura de Contenedores
 
-### 3. Inicializar Base de Datos
+Esto creará y levantará 4 contenedores:
+
+| Contenedor | Descripción | Puerto |
+|------------|-------------|--------|
+| **vexa-nginx** | Proxy reverso (nginx) | 80 |
+| **vexa-db** | Base de datos (MariaDB) | 3307 |
+| **vexa-backend** | API Node.js/Express | 3001 |
+| **vexa-frontend** | React + Vite | 5174 |
+
+```
+marketplace-network (bridge)
+├── vexa-nginx (Nginx Alpine)
+│   └── Puerto: 80 → Proxy a frontend y backend
+├── vexa-db (MariaDB 10.11)
+│   └── Puerto: 3307 → 3306
+├── vexa-backend (Node.js)
+│   ├── Puerto: 3001 → 3001
+│   └── Depende de: db
+└── vexa-frontend (React + Vite)
+    ├── Puerto: 5173 → 5174
+    └── Depende de: backend
+```
+
+## 🌐 Acceder a la Aplicación
+
+| URL | Descripción |
+|-----|-------------|
+| **http://vexa.test** | Aplicación principal |
+| **http://vexa.test/api** | API del backend |
+| localhost:3307 | Base de datos (conexión directa) |
+
+## 🔧 Inicializar Base de Datos
 
 El backend automáticamente ejecuta las migraciones al iniciar, pero si necesitas resetear:
 
 ```bash
 # Generar cliente Prisma
-docker exec marketplace-backend npx prisma generate
+docker exec vexa-backend npx prisma generate
 
 # Aplicar esquema a la base de datos
-docker exec marketplace-backend npx prisma db push
+docker exec vexa-backend npx prisma db push
 
 # Cargar datos iniciales (seed)
-docker exec marketplace-backend npx prisma db seed
+docker exec vexa-backend npx prisma db seed
 ```
 
-### 4. Verificar Estado
+## ✅ Verificar Estado
 
 ```bash
 # Ver logs del backend
-docker logs marketplace-backend -f
+docker logs vexa-backend -f
 
 # Ver logs del frontend
-docker logs marketplace-frontend -f
+docker logs vexa-frontend -f
+
+# Ver logs de nginx
+docker logs vexa-nginx -f
 
 # Ver estado de todos los contenedores
 docker ps
 ```
-
-## 🌐 Acceder a la Aplicación
-
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3001/api
-- **Base de Datos**: localhost:3307
 
 ## 👥 Usuarios de Prueba
 
@@ -106,13 +151,13 @@ El seed crea automáticamente:
 docker-compose down -v
 
 # Levantar nuevamente
-docker-compose up -d
+docker-compose up -d --build
 
 # Esperar ~30 segundos para que la DB esté lista
 
 # Resetear base de datos con datos iniciales
-docker exec marketplace-backend npx prisma db push --force-reset --accept-data-loss
-docker exec marketplace-backend npx prisma db seed
+docker exec vexa-backend npx prisma db push --force-reset --accept-data-loss
+docker exec vexa-backend npx prisma db seed
 ```
 
 ### Reconstruir Contenedores
@@ -129,23 +174,26 @@ docker-compose up -d --build
 docker-compose logs -f
 
 # Solo backend
-docker logs marketplace-backend -f
+docker logs vexa-backend -f
 
 # Solo frontend
-docker logs marketplace-frontend -f
+docker logs vexa-frontend -f
+
+# Solo nginx
+docker logs vexa-nginx -f
 ```
 
 ### Ejecutar Comandos en Contenedores
 
 ```bash
 # Backend
-docker exec -it marketplace-backend sh
+docker exec -it vexa-backend sh
 
 # Frontend
-docker exec -it marketplace-frontend sh
+docker exec -it vexa-frontend sh
 
 # Base de datos (MariaDB)
-docker exec -it marketplace-db mariadb -u marketplace -pmarketplace123
+docker exec -it vexa-db mariadb -u marketplace -pmarketplace123
 ```
 
 ### Detener/Reiniciar Servicios
@@ -155,9 +203,10 @@ docker exec -it marketplace-db mariadb -u marketplace -pmarketplace123
 docker-compose down
 
 # Reiniciar un servicio específico
-docker restart marketplace-backend
-docker restart marketplace-frontend
-docker restart marketplace-db
+docker restart vexa-backend
+docker restart vexa-frontend
+docker restart vexa-nginx
+docker restart vexa-db
 ```
 
 ## 🐛 Solución de Problemas
@@ -166,11 +215,11 @@ docker restart marketplace-db
 
 ```bash
 # Ver logs para identificar el error
-docker logs marketplace-backend
+docker logs vexa-backend
 
 # Regenerar cliente Prisma
-docker exec marketplace-backend npx prisma generate
-docker restart marketplace-backend
+docker exec vexa-backend npx prisma generate
+docker restart vexa-backend
 ```
 
 ### El frontend muestra errores de módulos
@@ -186,8 +235,27 @@ docker-compose up -d --build frontend
 # Verificar que MariaDB esté saludable
 docker ps
 
-# Debe mostrar "healthy" en marketplace-db
+# Debe mostrar "healthy" en vexa-db
 # Si no, espera unos segundos más para que inicialice
+```
+
+### Error "Host not allowed" en el navegador
+
+El host `vexa.test` debe estar configurado en:
+1. Archivo hosts de Windows
+2. `vite.config.ts` → `server.allowedHosts`
+
+```bash
+# Reiniciar frontend después de cambios
+docker restart vexa-frontend
+```
+
+### Puerto 80 ocupado
+
+Si tienes XAMPP, Laragon, IIS u otro servidor web:
+```bash
+# Detener el servicio que usa el puerto 80
+# O cambiar el puerto en docker-compose.yml
 ```
 
 ### Limpiar todo y empezar de nuevo
@@ -198,20 +266,6 @@ docker-compose down -v --rmi all
 
 # Reconstruir todo desde cero
 docker-compose up -d --build
-```
-
-## 📦 Estructura de Contenedores
-
-```
-marketplace-network (bridge)
-├── marketplace-db (MariaDB 10.11)
-│   └── Puerto: 3307 → 3306
-├── marketplace-backend (Node.js)
-│   ├── Puerto: 3001 → 3001
-│   └── Depende de: db
-└── marketplace-frontend (React + Vite)
-    ├── Puerto: 5173 → 5174
-    └── Depende de: backend
 ```
 
 ## ⚙️ Configuración de Producción
@@ -254,8 +308,8 @@ docker-compose up -d
 
 ## 🎯 Próximos Pasos
 
-1. Accede a http://localhost:5173
-2. Inicia sesión con admin@marketplace.com / admin123
+1. Accede a **http://vexa.test**
+2. Inicia sesión con `admin@marketplace.com` / `admin123`
 3. Explora el panel de administración
 4. Configura tus plantillas y recetas en **Plantillas > Recetas**
 5. Crea conversiones de inventario desde plantillas
