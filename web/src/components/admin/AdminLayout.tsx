@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -36,6 +36,7 @@ import {
   ArrowRightLeft,
   ClipboardList,
   Building2,
+  Store,
 } from 'lucide-react';
 import type { Permission } from '../../types/roles';
 import AppSwitcher from '../common/AppSwitcher';
@@ -171,8 +172,32 @@ const menuWithSubmenus: {
 export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const { user, role, logout, hasPermission } = useAuth();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Iniciar sidebar cerrado en móvil
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
+
+  // Detectar cambios de tamaño de pantalla
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      // Auto-cerrar sidebar al cambiar a móvil
+      if (mobile && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [sidebarOpen]);
+
+  // Cerrar sidebar al navegar en móvil
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   // Filtrar menú items según permisos
   const visibleMenuItems = menuItems.filter(
@@ -309,15 +334,90 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       </header>
 
       <div className="flex flex-1 relative">
+        {/* Overlay para móvil */}
+        {sidebarOpen && isMobile && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
         <aside
-          className={`fixed lg:relative top-0 left-0 z-30 bg-white border-r border-gray-200 transition-all duration-300 ${
-            sidebarOpen ? 'w-64' : 'w-0 lg:w-0'
-          }`}
-          style={{ height: 'calc(100vh - 64px)' }}
+          className={`
+            fixed lg:sticky inset-y-0 left-0 z-50 lg:z-30
+            w-64 bg-white border-r border-gray-200 flex flex-col
+            transform transition-transform duration-300 ease-in-out
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-0'}
+            ${!sidebarOpen && !isMobile ? 'lg:hidden' : ''}
+          `}
+          style={{
+            top: isMobile ? '0' : '0',
+            height: isMobile ? '100vh' : 'calc(100vh - 64px)',
+            maxHeight: isMobile ? '100vh' : 'calc(100vh - 64px)'
+          }}
         >
-          <div className={`w-64 h-full ${sidebarOpen ? 'block' : 'hidden'}`}>
-            <nav className="p-4 space-y-1 relative z-30 bg-white h-full overflow-y-auto pb-20">
+          {/* Header del sidebar en móvil */}
+          {isMobile && (
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg">
+                  <Package className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-lg font-bold text-gray-900">Admin</span>
+              </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600 rotate-180" />
+              </button>
+            </div>
+          )}
+
+          {/* App Switcher - Mobile */}
+          {isMobile && (
+            <div className="p-4 border-b border-gray-200 bg-white">
+              <p className="px-2 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Cambiar a
+              </p>
+              <div className="space-y-1">
+                {/* Tienda */}
+                <Link
+                  to="/"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 px-3 py-3 hover:bg-blue-50 rounded-xl transition-colors"
+                >
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Store className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-bold text-gray-900">Tienda</span>
+                    <p className="text-xs text-gray-500">Navegar tienda</p>
+                  </div>
+                </Link>
+
+                {/* Punto de Venta */}
+                {hasPermission('pos.access') && (
+                  <Link
+                    to="/pos"
+                    onClick={() => setSidebarOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 hover:bg-green-50 rounded-xl transition-colors"
+                  >
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <ShoppingCart className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="font-bold text-gray-900">Punto de Venta</span>
+                      <p className="text-xs text-gray-500">Ventas y caja</p>
+                    </div>
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
+          <nav className="flex-1 p-4 space-y-1 bg-white overflow-y-auto">
               {/* Menús simples sin submenú */}
               {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
@@ -396,17 +496,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                 );
               })}
             </nav>
-          </div>
         </aside>
-
-        {/* Overlay para móvil */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/20 z-20 lg:hidden"
-            style={{ marginTop: '64px' }}
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
 
         {/* Main Content */}
         <main className="flex-1 overflow-x-hidden transition-all duration-300 w-full p-6">

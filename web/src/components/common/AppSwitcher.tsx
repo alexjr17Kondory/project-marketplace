@@ -82,7 +82,7 @@ export default function AppSwitcher() {
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+        <div className="absolute right-0 md:left-0 md:right-auto mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
           <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Cambiar a
           </div>
@@ -104,19 +104,19 @@ export default function AppSwitcher() {
                     : 'hover:bg-gray-50 cursor-pointer'
                 }`}
               >
-                <div className={`p-2 rounded ${app.bgColor}`}>
+                <div className={`p-2 rounded-lg ${app.bgColor} flex-shrink-0`}>
                   <Icon className={`w-5 h-5 ${app.color}`} />
                 </div>
-                <div className="flex-1 text-left">
-                  <div className="font-medium text-gray-900">{app.name}</div>
-                  <div className="text-xs text-gray-500">
-                    {app.id === 'store' && 'Navegar la tienda online'}
-                    {app.id === 'pos' && 'Gestión de ventas y caja'}
-                    {app.id === 'admin' && 'Panel de administración'}
+                <div className="flex-1 text-left min-w-0">
+                  <div className="font-medium text-gray-900 truncate">{app.name}</div>
+                  <div className="text-xs text-gray-500 truncate">
+                    {app.id === 'store' && 'Navegar tienda'}
+                    {app.id === 'pos' && 'Ventas y caja'}
+                    {app.id === 'admin' && 'Administración'}
                   </div>
                 </div>
                 {isCurrent && (
-                  <div className="w-2 h-2 bg-green-500 rounded-full" title="Aplicación actual" />
+                  <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" title="Aplicación actual" />
                 )}
               </button>
             );

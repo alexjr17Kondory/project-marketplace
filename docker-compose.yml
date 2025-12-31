@@ -89,7 +89,7 @@ services:
     container_name: vexa-frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://vexa.test/api
+      VITE_API_URL: /api
       # Polling para hot reload en Windows/Docker
       CHOKIDAR_USEPOLLING: "true"
     ports:

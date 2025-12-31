@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { User, Package, Settings, LogOut, X } from 'lucide-react';
+import { User, Package, Settings, LogOut, X, ShoppingCart, LayoutGrid } from 'lucide-react';
 import { useEffect } from 'react';
 
 interface MobileUserMenuProps {
@@ -11,10 +11,11 @@ interface MobileUserMenuProps {
 }
 
 export const MobileUserMenu = ({ isOpen, onClose, onLoginClick, onRegisterClick }: MobileUserMenuProps) => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, hasPermission } = useAuth();
 
   // Cliente (roleId 2) NUNCA es admin, sin importar permisos
   const isAdminUser = user && user.roleId !== 2;
+  const hasPosAccess = hasPermission('pos.access');
 
   useEffect(() => {
     if (isOpen) {
@@ -106,17 +107,47 @@ export const MobileUserMenu = ({ isOpen, onClose, onLoginClick, onRegisterClick 
                   <span>Mis Pedidos</span>
                 </Link>
 
-                {isAdminUser && (
+                {/* Aplicaciones disponibles */}
+                {(hasPosAccess || isAdminUser) && (
                   <>
                     <div className="my-3 border-t border-gray-200"></div>
-                    <Link
-                      to="/admin-panel"
-                      onClick={handleLinkClick}
-                      className="flex items-center gap-3 px-4 py-3.5 text-orange-700 hover:bg-orange-50 rounded-xl transition-colors font-bold"
-                    >
-                      <Settings className="w-5 h-5" />
-                      <span>Panel de Administración</span>
-                    </Link>
+                    <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Aplicaciones
+                    </p>
+
+                    {/* Punto de Venta */}
+                    {hasPosAccess && (
+                      <Link
+                        to="/pos"
+                        onClick={handleLinkClick}
+                        className="flex items-center gap-3 px-4 py-3.5 hover:bg-green-50 rounded-xl transition-colors"
+                      >
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <ShoppingCart className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-bold text-gray-900">Punto de Venta</span>
+                          <p className="text-xs text-gray-500">Gestión de ventas y caja</p>
+                        </div>
+                      </Link>
+                    )}
+
+                    {/* Panel de Administración */}
+                    {isAdminUser && (
+                      <Link
+                        to="/admin-panel"
+                        onClick={handleLinkClick}
+                        className="flex items-center gap-3 px-4 py-3.5 hover:bg-purple-50 rounded-xl transition-colors"
+                      >
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <LayoutGrid className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-bold text-gray-900">Administración</span>
+                          <p className="text-xs text-gray-500">Panel de administración</p>
+                        </div>
+                      </Link>
+                    )}
                   </>
                 )}
 
