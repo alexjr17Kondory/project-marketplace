@@ -20,6 +20,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { MyOrdersPage } from './pages/MyOrdersPage';
 import { LegalPage } from './pages/LegalPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import ProductDetailPage from './pages/ProductDetailPage';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { DashboardPage } from './pages/admin/DashboardPage';
 import { ProductsPage } from './pages/admin/ProductsPage';
@@ -600,6 +601,7 @@ function App() {
                                 <Routes>
                                   <Route path="/" element={<HomePage />} />
                                   <Route path="/catalog" element={<CatalogPage />} />
+                                  <Route path="/product/:id" element={<ProductDetailPage />} />
                                   <Route path="/customize" element={<CustomizerPage />} />
                                   <Route path="/cart" element={<CartPage />} />
                                   <Route path="/checkout" element={<CheckoutPage />} />

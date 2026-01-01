@@ -225,6 +225,49 @@ export async function getVariantBySku(req: Request, res: Response): Promise<void
 }
 
 /**
+ * Buscar variante por productId, color hex y size name
+ * GET /api/variants/lookup?productId=X&colorHex=X&sizeName=X
+ */
+export async function getVariantByProductColorSize(req: Request, res: Response): Promise<void> {
+  try {
+    const { productId, colorHex, sizeName } = req.query;
+
+    if (!productId || !colorHex || !sizeName) {
+      res.status(400).json({
+        success: false,
+        message: 'productId, colorHex y sizeName son requeridos',
+      });
+      return;
+    }
+
+    const variant = await variantsService.getVariantByProductColorSize(
+      Number(productId),
+      colorHex as string,
+      sizeName as string
+    );
+
+    if (!variant) {
+      res.status(404).json({
+        success: false,
+        message: 'Variante no encontrada',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: variant,
+    });
+  } catch (error: any) {
+    console.error('Error getting variant by product/color/size:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al buscar variante',
+    });
+  }
+}
+
+/**
  * Generar variantes automáticamente para un producto
  * POST /api/variants/generate/:productId
  */
@@ -302,6 +345,74 @@ export async function getLowStock(req: Request, res: Response): Promise<void> {
     res.status(500).json({
       success: false,
       message: error.message || 'Error al obtener variantes con stock bajo',
+    });
+  }
+}
+
+/**
+ * Obtener solo variantes de PRODUCTOS (no templates) - con paginación
+ * GET /api/variants/products
+ */
+export async function getProductVariants(req: Request, res: Response): Promise<void> {
+  try {
+    const { productId, colorId, sizeId, isActive, lowStock, page, limit, search } = req.query;
+
+    const filter: any = {};
+    if (productId) filter.productId = Number(productId);
+    if (colorId) filter.colorId = Number(colorId);
+    if (sizeId) filter.sizeId = Number(sizeId);
+    if (isActive !== undefined) filter.isActive = isActive === 'true';
+    if (lowStock !== undefined) filter.lowStock = lowStock === 'true';
+    if (page) filter.page = Number(page);
+    if (limit) filter.limit = Number(limit);
+    if (search) filter.search = search as string;
+
+    const result = await variantsService.getProductVariants(filter);
+
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+    });
+  } catch (error: any) {
+    console.error('Error getting product variants:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al obtener variantes de productos',
+    });
+  }
+}
+
+/**
+ * Obtener solo variantes de TEMPLATES (plantillas) - con paginación y stock calculado
+ * GET /api/variants/templates
+ */
+export async function getTemplateVariants(req: Request, res: Response): Promise<void> {
+  try {
+    const { productId, colorId, sizeId, isActive, lowStock, page, limit, search } = req.query;
+
+    const filter: any = {};
+    if (productId) filter.productId = Number(productId);
+    if (colorId) filter.colorId = Number(colorId);
+    if (sizeId) filter.sizeId = Number(sizeId);
+    if (isActive !== undefined) filter.isActive = isActive === 'true';
+    if (lowStock !== undefined) filter.lowStock = lowStock === 'true';
+    if (page) filter.page = Number(page);
+    if (limit) filter.limit = Number(limit);
+    if (search) filter.search = search as string;
+
+    const result = await variantsService.getTemplateVariants(filter);
+
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+    });
+  } catch (error: any) {
+    console.error('Error getting template variants:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al obtener variantes de plantillas',
     });
   }
 }

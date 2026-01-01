@@ -184,17 +184,22 @@ export async function getAssociatedInputIds(req: Request, res: Response): Promis
  * GET /api/template-recipes/variant-stock/:productId
  * Obtener stock disponible para una variante específica del template
  * basado en el insumo relacionado
+ * Soporta búsqueda por colorId/sizeId O por colorHex/sizeName
  */
 export async function getVariantStock(req: Request, res: Response): Promise<void> {
   try {
     const productId = parseInt(req.params.productId || '0');
     const colorId = req.query.colorId ? parseInt(req.query.colorId as string) : null;
     const sizeId = req.query.sizeId ? parseInt(req.query.sizeId as string) : null;
+    const colorHex = req.query.colorHex as string | undefined;
+    const sizeName = req.query.sizeName as string | undefined;
 
     const stockInfo = await templateRecipesService.getVariantStockByColorSize(
       productId,
       colorId,
-      sizeId
+      sizeId,
+      colorHex,
+      sizeName
     );
 
     res.json({

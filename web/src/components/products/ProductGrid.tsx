@@ -1,24 +1,12 @@
-import { useNavigate } from 'react-router-dom';
 import { ProductCard } from './ProductCard';
 import type { Product } from '../../types/product';
 import { Package } from 'lucide-react';
 
 interface ProductGridProps {
   products: Product[];
-  onAddToCart?: (product: Product) => void;
 }
 
-export const ProductGrid = ({ products, onAddToCart }: ProductGridProps) => {
-  const navigate = useNavigate();
-
-  const handleCustomize = (product: Product) => {
-    navigate(`/customizer?product=${product.id}`);
-  };
-
-  const handleAddToCartClick = (product: Product) => {
-    onAddToCart?.(product);
-  };
-
+export const ProductGrid = ({ products }: ProductGridProps) => {
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4">
@@ -41,8 +29,6 @@ export const ProductGrid = ({ products, onAddToCart }: ProductGridProps) => {
         <ProductCard
           key={product.id}
           product={product}
-          onAddToCart={handleAddToCartClick}
-          onCustomize={handleCustomize}
         />
       ))}
     </div>

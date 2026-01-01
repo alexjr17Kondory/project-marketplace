@@ -8,14 +8,19 @@ export interface CartItem {
   product: Product;
   selectedColor: string;
   selectedSize: string;
+  variantId?: number;
   quantity: number;
   price: number; // Precio unitario
   subtotal: number; // price * quantity
   addedAt: Date;
+  // Propiedades de persistencia en DB
+  dbId?: number;
+  hasStock?: boolean;
+  availableStock?: number;
 }
 
 // Item personalizado del carrito
-export interface CartItemCustomized {
+export interface CustomizedCartItem {
   id: string;
   type: 'customized'; // Producto personalizado
   customizedProduct: CustomizedProduct;
@@ -23,7 +28,14 @@ export interface CartItemCustomized {
   price: number; // Precio unitario (basePrice + customizationPrice)
   subtotal: number; // price * quantity
   addedAt: Date;
+  // Propiedades de persistencia en DB
+  dbId?: number;
+  hasStock?: boolean;
+  availableStock?: number;
 }
+
+// Alias para mantener compatibilidad
+export type CartItemCustomized = CustomizedCartItem;
 
 // Union type para cualquier tipo de item del carrito
 export type CartItemType = CartItem | CartItemCustomized;

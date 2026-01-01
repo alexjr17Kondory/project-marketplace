@@ -1,14 +1,60 @@
-import { ShoppingCart, ArrowLeft, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Truck, Heart, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState, useCallback } from 'react';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext';
 import { CartItem, CustomizedCartItem, CartSummary } from '../components/cart';
+
+interface StockStatus {
+  hasStock: boolean;
+  availableStock: number;
+}
 
 export const CartPage = () => {
   const navigate = useNavigate();
   const { cart, removeItem, updateQuantity } = useCart();
+  const { settings } = useSettings();
+
+  // Estado para rastrear el stock de cada item
+  const [stockStatuses, setStockStatuses] = useState<Record<string, StockStatus>>({});
+
+  // Colores de marca dinámicos
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
+  const gradientStyle = `linear-gradient(to right, ${brandColors.primary}, ${brandColors.secondary}, ${brandColors.accent})`;
+
+  // Callback para recibir cambios de stock de CustomizedCartItem
+  const handleStockChange = useCallback((itemId: string, hasStock: boolean, availableStock: number) => {
+    setStockStatuses(prev => ({
+      ...prev,
+      [itemId]: { hasStock, availableStock }
+    }));
+  }, []);
+
+  // Separar items disponibles y no disponibles
+  const availableItems = cart.items.filter(item => {
+    const status = stockStatuses[item.id];
+    // Si no tenemos estado aún, asumimos disponible
+    return !status || status.hasStock;
+  });
+
+  const unavailableItems = cart.items.filter(item => {
+    const status = stockStatuses[item.id];
+    return status && !status.hasStock;
+  });
+
+  // Calcular subtotal solo de items disponibles
+  const availableSubtotal = availableItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+  const availableItemsCount = availableItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleCheckout = () => {
-    navigate('/checkout');
+    // Solo ir al checkout si hay items disponibles
+    if (availableItems.length > 0) {
+      navigate('/checkout');
+    }
   };
 
   const handleContinueShopping = () => {
@@ -16,48 +62,49 @@ export const CartPage = () => {
   };
 
   const isEmpty = cart.items.length === 0;
+  const hasUnavailableItems = unavailableItems.length > 0;
+  const hasAvailableItems = availableItems.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={handleContinueShopping}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Continuar Comprando
-          </button>
-
-          <div className="flex items-center gap-3">
-            <ShoppingCart className="w-8 h-8 text-gray-700" />
-            <h1 className="text-4xl font-bold text-gray-900">Carrito de Compras</h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header con gradiente dinámico */}
+      <div className="text-white py-6 shadow-lg" style={{ background: gradientStyle }}>
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleContinueShopping}
+              className="hover:bg-white/10 p-2 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold">Carrito</h1>
+              <p className="text-sm text-white/90">
+                {isEmpty ? 'Tu carrito de compras' : `${cart.totalItems} ${cart.totalItems === 1 ? 'producto' : 'productos'}`}
+              </p>
+            </div>
           </div>
-
-          {!isEmpty && (
-            <p className="text-gray-600 mt-2">
-              Tienes {cart.totalItems} {cart.totalItems === 1 ? 'producto' : 'productos'} en tu carrito
-            </p>
-          )}
         </div>
+      </div>
 
+      <div className="max-w-7xl mx-auto px-4 py-4 lg:py-8">
         {isEmpty ? (
           /* Carrito vacío */
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gray-100 rounded-full mb-6">
-              <ShoppingBag className="w-12 h-12 text-gray-400" />
+          <div className="text-center py-8 lg:py-16">
+            <div className="inline-flex items-center justify-center w-20 h-20 lg:w-24 lg:h-24 bg-gray-100 rounded-full mb-4 lg:mb-6">
+              <ShoppingBag className="w-10 h-10 lg:w-12 lg:h-12 text-gray-400" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-900 mb-2">
               Tu carrito está vacío
             </h2>
-            <p className="text-gray-600 mb-8">
-              Explora nuestro catálogo y encuentra productos increíbles para personalizar
+            <p className="text-gray-600 mb-6 lg:mb-8 text-sm lg:text-base px-4">
+              Explora nuestro catálogo y encuentra productos increíbles
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
               <button
                 onClick={handleContinueShopping}
-                className="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transition-all shadow-md hover:shadow-lg"
+                style={{ backgroundColor: brandColors.primary }}
+                className="text-white font-semibold py-3 px-6 rounded-lg hover:opacity-90 transition-all shadow-md hover:shadow-lg"
               >
                 Ir al Catálogo
               </button>
@@ -71,82 +118,132 @@ export const CartPage = () => {
           </div>
         ) : (
           /* Carrito con productos */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
             {/* Lista de productos */}
-            <div className="lg:col-span-2 space-y-4">
-              {cart.items.map((item) => {
-                if (item.type === 'customized') {
-                  return (
-                    <CustomizedCartItem
-                      key={item.id}
-                      item={item}
-                      onUpdateQuantity={updateQuantity}
-                      onRemove={removeItem}
-                    />
-                  );
-                } else {
-                  return (
-                    <CartItem
-                      key={item.id}
-                      item={item}
-                      onUpdateQuantity={updateQuantity}
-                      onRemove={removeItem}
-                    />
-                  );
-                }
-              })}
+            <div className="lg:col-span-2 space-y-4 lg:space-y-6">
+              {/* Sección: Productos disponibles */}
+              {hasAvailableItems && (
+                <div className="space-y-3 lg:space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5" style={{ color: brandColors.primary }} />
+                    Productos disponibles ({availableItemsCount})
+                  </h2>
+                  {availableItems.map((item) => {
+                    if (item.type === 'customized') {
+                      return (
+                        <CustomizedCartItem
+                          key={item.id}
+                          item={item}
+                          onUpdateQuantity={updateQuantity}
+                          onRemove={removeItem}
+                          onStockChange={handleStockChange}
+                        />
+                      );
+                    } else {
+                      return (
+                        <CartItem
+                          key={item.id}
+                          item={item}
+                          onUpdateQuantity={updateQuantity}
+                          onRemove={removeItem}
+                          onStockChange={handleStockChange}
+                        />
+                      );
+                    }
+                  })}
+                </div>
+              )}
 
-              {/* Botón para seguir comprando (mobile) */}
+              {/* Sección: Productos sin stock */}
+              {hasUnavailableItems && (
+                <div className="space-y-3 lg:space-y-4">
+                  <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                    <h2 className="text-lg font-semibold text-red-600">
+                      Productos sin stock ({unavailableItems.length})
+                    </h2>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Estos productos no están disponibles actualmente. Elimínalos o espera a que haya stock.
+                  </p>
+                  {unavailableItems.map((item) => {
+                    if (item.type === 'customized') {
+                      return (
+                        <CustomizedCartItem
+                          key={item.id}
+                          item={item}
+                          onUpdateQuantity={updateQuantity}
+                          onRemove={removeItem}
+                          onStockChange={handleStockChange}
+                        />
+                      );
+                    } else {
+                      return (
+                        <CartItem
+                          key={item.id}
+                          item={item}
+                          onUpdateQuantity={updateQuantity}
+                          onRemove={removeItem}
+                          onStockChange={handleStockChange}
+                        />
+                      );
+                    }
+                  })}
+                </div>
+              )}
+
+              {/* Botón para seguir comprando */}
               <button
                 onClick={handleContinueShopping}
-                className="w-full py-3 px-6 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:border-gray-400 hover:text-gray-900 transition-colors"
+                className="w-full py-2.5 lg:py-3 px-6 border-2 border-dashed border-gray-300 text-gray-600 font-medium rounded-xl hover:border-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm lg:text-base flex items-center justify-center gap-2"
               >
+                <ArrowLeft className="w-4 h-4" />
                 Agregar más productos
               </button>
             </div>
 
             {/* Resumen de compra */}
             <div className="lg:col-span-1">
-              <CartSummary cart={cart} onCheckout={handleCheckout} />
+              <CartSummary
+                cart={cart}
+                onCheckout={hasAvailableItems ? handleCheckout : undefined}
+              />
+
+              {/* Alerta si hay items no disponibles */}
+              {hasUnavailableItems && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800">
+                        {unavailableItems.length} producto{unavailableItems.length > 1 ? 's' : ''} sin stock
+                      </p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        {hasAvailableItems
+                          ? 'Solo podrás comprar los productos disponibles.'
+                          : 'Elimina los productos sin stock para continuar.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Información adicional */}
+        {/* Información adicional - Solo desktop */}
         {!isEmpty && (
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <ShoppingBag className="w-6 h-6 text-green-600" />
+          <div className="hidden lg:flex mt-8 justify-center">
+            <div className="bg-white px-8 py-3 rounded-full shadow-sm flex items-center gap-8 border border-gray-100">
+              <div className="flex items-center gap-2 text-gray-600">
+                <Truck className="w-4 h-4 text-green-500" />
+                <span className="text-sm font-medium">Envío seguro</span>
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Envío Seguro</h3>
-              <p className="text-sm text-gray-600">
-                Todos los productos son empacados con cuidado y enviados de forma segura
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+              <div className="w-px h-4 bg-gray-200" />
+              <div className="flex items-center gap-2 text-gray-600">
+                <Heart className="w-4 h-4 text-red-500" />
+                <span className="text-sm font-medium">Garantía 100%</span>
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Compra Segura</h3>
-              <p className="text-sm text-gray-600">
-                Tu información está protegida con encriptación de última generación
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Garantía de Calidad</h3>
-              <p className="text-sm text-gray-600">
-                Productos de alta calidad con garantía de satisfacción 100%
-              </p>
             </div>
           </div>
         )}

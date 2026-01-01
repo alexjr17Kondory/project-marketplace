@@ -59,7 +59,9 @@ export interface CustomizedProduct {
   basePrice: number;
   selectedColor: string;
   selectedColorName?: string; // Nombre del color para mostrar
+  colorId?: number; // ID del color para validación de stock
   selectedSize: string;
+  sizeId?: number; // ID de la talla para validación de stock
   designs: Design[];
   previewImages: {
     front: string; // Comprimido para preview

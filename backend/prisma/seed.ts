@@ -1727,26 +1727,6 @@ async function main() {
           colorId: color!.id,
         },
       });
-
-      // Generación de variantes comentada - se crearán manualmente
-      /*for (const talla of tallasSueter) {
-        const sku = `SUE-U-${color!.slug.toUpperCase().substring(0, 3)}-${talla!.abbreviation}`;
-        await prisma.inputVariant.upsert({
-          where: { sku },
-          update: {},
-          create: {
-            inputId: sueterEnU.id,
-            sku,
-            colorId: color!.id,
-            sizeId: talla!.id,
-            currentStock: 0,
-            minStock: 3,
-            maxStock: 30,
-            unitCost: 25000,
-            isActive: true,
-          },
-        });
-      }*/
     }
     console.log(`    ✅ Asociados ${coloresSueter.length} colores`);
 
@@ -1784,7 +1764,29 @@ async function main() {
         },
       });
     }
-    // console.log(`    ✅ Generadas ${coloresSueter.length * tallasSueter.length} variantes`);
+
+    // Generar variantes para cada combinación color + talla
+    for (const color of coloresSueter) {
+      for (const talla of tallasSueter) {
+        const sku = `SUE-U-${color!.slug.toUpperCase().substring(0, 3)}-${talla!.abbreviation}`;
+        await prisma.inputVariant.upsert({
+          where: { sku },
+          update: {},
+          create: {
+            inputId: sueterEnU.id,
+            sku,
+            colorId: color!.id,
+            sizeId: talla!.id,
+            currentStock: 0,
+            minStock: 3,
+            maxStock: 30,
+            unitCost: 25000,
+            isActive: true,
+          },
+        });
+      }
+    }
+    console.log(`    ✅ Generadas ${coloresSueter.length * tallasSueter.length} variantes de insumo`);
   }
 
   // 2. BLUSA ÚNICA TALLA (sin variantes)

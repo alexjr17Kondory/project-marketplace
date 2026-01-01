@@ -66,7 +66,12 @@ const mapApiUserToUser = (apiUser: ApiUser, storedAuth?: AuthResponse | null): U
     status: apiUser.status,
     createdAt: new Date(),
     profile: {
-      phone: apiUser.phone,
+      phone: apiUser.phone || apiUser.profile?.phone,
+      cedula: apiUser.profile?.cedula,
+      address: apiUser.profile?.address,
+      city: apiUser.profile?.city,
+      postalCode: apiUser.profile?.postalCode,
+      country: apiUser.profile?.country,
     },
   };
 };
@@ -130,7 +135,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             avatar: updated.avatar || prev.avatar,
             profile: {
               ...prev.profile,
-              phone: updated.phone || prev.profile?.phone,
+              phone: updated.phone || updated.profile?.phone || prev.profile?.phone,
+              cedula: updated.profile?.cedula || prev.profile?.cedula,
+              address: updated.profile?.address || prev.profile?.address,
+              city: updated.profile?.city || prev.profile?.city,
+              postalCode: updated.profile?.postalCode || prev.profile?.postalCode,
+              country: updated.profile?.country || prev.profile?.country,
             },
           }
         : null

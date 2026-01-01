@@ -152,7 +152,7 @@ export const SettingsPaymentPage = () => {
     setIsPaymentModalOpen(true);
   };
 
-  const handleSavePayment = () => {
+  const handleSavePayment = async () => {
     const dataToSave = { ...paymentForm };
 
     if (paymentForm.type === 'wompi') {
@@ -178,14 +178,19 @@ export const SettingsPaymentPage = () => {
       };
     }
 
-    if (editingPayment) {
-      updatePaymentMethod(editingPayment.id, dataToSave);
-      toast.success('Método de pago actualizado');
-    } else {
-      addPaymentMethod(dataToSave);
-      toast.success('Método de pago creado');
+    try {
+      if (editingPayment) {
+        await updatePaymentMethod(editingPayment.id, dataToSave);
+        toast.success('Método de pago actualizado');
+      } else {
+        await addPaymentMethod(dataToSave);
+        toast.success('Método de pago creado');
+      }
+      setIsPaymentModalOpen(false);
+    } catch (error) {
+      console.error('Error guardando método de pago:', error);
+      toast.error('Error al guardar el método de pago');
     }
-    setIsPaymentModalOpen(false);
   };
 
   const handleDeletePayment = (id: string) => {
@@ -226,16 +231,16 @@ export const SettingsPaymentPage = () => {
                 type="number"
                 min="0"
                 max="100"
-                value={settings.payment.taxRate}
-                onChange={(e) => handleUpdateTax(parseFloat(e.target.value) || 0, settings.payment.taxIncluded)}
+                value={settings.payment?.taxRate ?? 0}
+                onChange={(e) => handleUpdateTax(parseFloat(e.target.value) || 0, settings.payment?.taxIncluded ?? false)}
               />
             </div>
             <div className="flex items-center">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={settings.payment.taxIncluded}
-                  onChange={(e) => handleUpdateTax(settings.payment.taxRate, e.target.checked)}
+                  checked={settings.payment?.taxIncluded ?? false}
+                  onChange={(e) => handleUpdateTax(settings.payment?.taxRate ?? 0, e.target.checked)}
                   className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                 />
                 <span className="text-sm text-gray-700">
@@ -259,7 +264,7 @@ export const SettingsPaymentPage = () => {
             </Button>
           </div>
           <div className="space-y-3">
-            {settings.payment.methods.map((method) => (
+            {(settings.payment?.methods || []).map((method) => (
               <div
                 key={method.id}
                 className={`border rounded-lg p-4 ${method.isActive ? 'border-gray-200' : 'border-gray-100 bg-gray-50'}`}
@@ -343,7 +348,7 @@ export const SettingsPaymentPage = () => {
                 </div>
               </div>
             ))}
-            {settings.payment.methods.length === 0 && (
+            {(settings.payment?.methods || []).length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 No hay métodos de pago configurados
               </div>

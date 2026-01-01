@@ -14,7 +14,7 @@ export async function getVariantBarcodeImage(req: Request, res: Response): Promi
       format: format as 'png' | 'svg',
       width: width ? Number(width) : undefined,
       height: height ? Number(height) : undefined,
-      includeText: includeText === 'true',
+      includeText: includeText !== undefined ? includeText === 'true' : undefined,
     };
 
     const imageBuffer = await barcodeService.generateVariantBarcodeImage(

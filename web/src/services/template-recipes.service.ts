@@ -112,7 +112,7 @@ class TemplateRecipesService {
    */
   async getAvailableStock(productId: number): Promise<TemplateVariantStock[]> {
     const response = await api.get<TemplateVariantStock[]>(`${this.baseUrl}/product/${productId}/stock`);
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   }
 
   /**
@@ -136,6 +136,31 @@ class TemplateRecipesService {
   async getAssociatedInputIds(productId: number): Promise<number[]> {
     const response = await api.get<{ inputIds: number[] }>(`${this.baseUrl}/product/${productId}/inputs`);
     return (response as any).inputIds;
+  }
+
+  /**
+   * Obtener stock de una variante específica por color y talla
+   * Soporta búsqueda por colorId/sizeId O por colorHex/sizeName
+   */
+  async getVariantStock(
+    productId: number,
+    colorId?: number | null,
+    sizeId?: number | null,
+    colorHex?: string | null,
+    sizeName?: string | null
+  ): Promise<{
+    variantId: number | null;
+    availableStock: number;
+    recipe: { inputName: string; inputStock: number; quantity: number }[] | null;
+  }> {
+    const params = new URLSearchParams();
+    if (colorId) params.append('colorId', colorId.toString());
+    if (sizeId) params.append('sizeId', sizeId.toString());
+    if (colorHex) params.append('colorHex', colorHex);
+    if (sizeName) params.append('sizeName', sizeName);
+
+    const response = await api.get<{ success: boolean; data: any }>(`${this.baseUrl}/variant-stock/${productId}?${params.toString()}`);
+    return response.data.data;
   }
 }
 

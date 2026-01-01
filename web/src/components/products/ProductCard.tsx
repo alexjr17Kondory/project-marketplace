@@ -1,13 +1,11 @@
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Star, Palette, Eye } from 'lucide-react';
+import { ShoppingCart, Star } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import { useCurrency } from '../../hooks/useCurrency';
 import type { Product } from '../../types/product';
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart?: (product: Product) => void;
-  onCustomize?: (product: Product) => void;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -18,26 +16,20 @@ const categoryLabels: Record<string, string> = {
   office: 'Oficina',
 };
 
-export const ProductCard = ({ product, onAddToCart, onCustomize }: ProductCardProps) => {
+export const ProductCard = ({ product }: ProductCardProps) => {
   const { settings } = useSettings();
   const { format } = useCurrency();
-  const enableCustomizer = settings.home?.enableCustomizer ?? true;
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onAddToCart?.(product);
-  };
-
-  const handleCustomize = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onCustomize?.(product);
+  // Colores de marca
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
   };
 
   return (
     <Link
-      to={`/catalog/${product.id}`}
+      to={`/product/${product.id}`}
       className="group bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
     >
       {/* Image Container - Más compacto */}
@@ -56,44 +48,25 @@ export const ProductCard = ({ product, onAddToCart, onCustomize }: ProductCardPr
               DESTACADO
             </span>
           )}
-          {/* Stock Badge */}
-          {product.stock < 20 && product.stock > 0 && (
-            <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded ml-auto">
-              ÚLTIMAS {product.stock}
-            </span>
-          )}
-          {product.stock === 0 && (
-            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded ml-auto">
-              AGOTADO
-            </span>
-          )}
         </div>
 
-        {/* Quick Actions - Aparecen al hover */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            className="bg-white/90 hover:bg-white text-gray-800 p-2.5 rounded-full transition-all hover:scale-110 shadow-lg"
-            title="Ver detalles"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          {enableCustomizer && (
-            <button
-              onClick={handleCustomize}
-              className="bg-gray-900 hover:bg-gray-800 text-white p-2.5 rounded-full transition-all hover:scale-110 shadow-lg"
-              title="Personalizar"
-            >
-              <Palette className="w-4 h-4" />
-            </button>
-          )}
-          <button
-            onClick={handleAddToCart}
-            className="bg-gray-900 hover:bg-gray-800 text-white p-2.5 rounded-full transition-all hover:scale-110 shadow-lg"
-            title="Agregar al carrito"
+        {/* Quick Action - Desktop: hover overlay */}
+        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden md:flex items-center justify-center pointer-events-none">
+          <div
+            className="text-white px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 font-medium text-sm"
+            style={{ backgroundColor: brandColors.primary }}
           >
             <ShoppingCart className="w-4 h-4" />
-          </button>
+            <span>Agregar</span>
+          </div>
+        </div>
+
+        {/* Mobile: botón flotante en esquina inferior derecha */}
+        <div
+          className="md:hidden absolute bottom-2 right-2 text-white p-2.5 rounded-full shadow-lg flex items-center justify-center"
+          style={{ backgroundColor: brandColors.primary }}
+        >
+          <ShoppingCart className="w-4 h-4" />
         </div>
       </div>
 
@@ -119,8 +92,8 @@ export const ProductCard = ({ product, onAddToCart, onCustomize }: ProductCardPr
           {product.name}
         </h3>
 
-        {/* Colors - Más pequeños */}
-        <div className="flex items-center gap-0.5 mb-2">
+        {/* Colors */}
+        <div className="flex items-center gap-0.5 mb-1.5">
           {product.colors.slice(0, 4).map((color, idx) => (
             <div
               key={idx}
@@ -136,22 +109,31 @@ export const ProductCard = ({ product, onAddToCart, onCustomize }: ProductCardPr
           )}
         </div>
 
-        {/* Price & Stock - Al final */}
-        <div className="flex items-end justify-between mt-auto pt-2 border-t border-gray-100">
-          <div>
-            <span className="text-lg font-bold text-gray-900">
-              {format(product.basePrice)}
-            </span>
-          </div>
-          {product.stock > 0 ? (
-            <span className="text-[10px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">
-              En stock
-            </span>
-          ) : (
-            <span className="text-[10px] text-red-600 font-medium bg-red-50 px-1.5 py-0.5 rounded">
-              Agotado
+        {/* Sizes */}
+        <div className="flex items-center gap-1 mb-2 flex-wrap">
+          {product.sizes.slice(0, 4).map((size, idx) => {
+            const sizeValue = typeof size === 'string' ? size : size.abbreviation;
+            return (
+              <span
+                key={idx}
+                className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium"
+              >
+                {sizeValue}
+              </span>
+            );
+          })}
+          {product.sizes.length > 4 && (
+            <span className="text-[10px] text-gray-400">
+              +{product.sizes.length - 4}
             </span>
           )}
+        </div>
+
+        {/* Price - Al final */}
+        <div className="mt-auto pt-2 border-t border-gray-100">
+          <span className="text-lg font-bold text-gray-900">
+            {format(product.basePrice)}
+          </span>
         </div>
       </div>
     </Link>

@@ -536,6 +536,84 @@ export async function getVariantByBarcode(barcode: string) {
 }
 
 /**
+ * Buscar variante por productId, color hex y size name
+ * Útil para verificar stock desde el carrito
+ */
+export async function getVariantByProductColorSize(
+  productId: number,
+  colorHex: string,
+  sizeName: string
+) {
+  // Normalizar el hex code (MySQL es case-insensitive por defecto)
+  const normalizedHex = colorHex.toLowerCase();
+
+  // Buscar el color por hex code (comparación case-insensitive en MySQL)
+  const color = await prisma.color.findFirst({
+    where: {
+      hexCode: normalizedHex,
+    },
+  });
+
+  // Si no encuentra, intentar con uppercase
+  const colorFound = color || await prisma.color.findFirst({
+    where: {
+      hexCode: colorHex.toUpperCase(),
+    },
+  });
+
+  // Buscar la talla por nombre o abreviatura
+  const size = await prisma.size.findFirst({
+    where: {
+      OR: [
+        { name: sizeName },
+        { abbreviation: sizeName },
+      ],
+    },
+  });
+
+  if (!colorFound || !size) {
+    return null;
+  }
+
+  // Buscar la variante
+  const variant = await prisma.productVariant.findFirst({
+    where: {
+      productId,
+      colorId: colorFound.id,
+      sizeId: size.id,
+      isActive: true,
+    },
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          basePrice: true,
+          images: true,
+          isTemplate: true,
+        },
+      },
+      color: true,
+      size: true,
+    },
+  });
+
+  if (!variant) {
+    return null;
+  }
+
+  const finalPrice =
+    parseFloat(variant.product.basePrice.toString()) +
+    (variant.priceAdjustment ? parseFloat(variant.priceAdjustment.toString()) : 0);
+
+  return {
+    ...variant,
+    finalPrice,
+  };
+}
+
+/**
  * Buscar variante por SKU
  */
 export async function getVariantBySku(sku: string) {
@@ -626,30 +704,69 @@ export async function getVariants(filter: VariantFilter = {}) {
       },
       color: true,
       size: true,
-      templateRecipes: {
-        include: {
-          inputVariant: true,
-        },
-      },
     },
     orderBy: [{ productId: 'asc' }, { colorId: 'asc' }, { sizeId: 'asc' }],
   });
+
+  // Obtener los IDs de templates para buscar sus insumos asociados
+  const templateProductIds = Array.from(new Set(
+    variants
+      .filter((v) => v.product.isTemplate)
+      .map((v) => v.product.id)
+  ));
+
+  // Cargar insumos asociados a los templates (vía ProductInput)
+  const productInputs = templateProductIds.length > 0
+    ? await prisma.productInput.findMany({
+        where: { productId: { in: templateProductIds } },
+        include: {
+          input: {
+            include: {
+              variants: {
+                where: { isActive: true },
+                include: {
+                  color: true,
+                  size: true,
+                },
+              },
+            },
+          },
+        },
+      })
+    : [];
+
+  // Crear un mapa de productId -> variantes de insumos
+  const inputVariantsByProduct = new Map<number, any[]>();
+  for (const pi of productInputs) {
+    const existing = inputVariantsByProduct.get(pi.productId) || [];
+    existing.push(...pi.input.variants);
+    inputVariantsByProduct.set(pi.productId, existing);
+  }
 
   // Calcular stock real para cada variante
   const variantsWithCalculatedStock = variants.map((variant) => {
     let calculatedStock = variant.stock;
 
-    // Si es un template y tiene recetas, calcular stock desde los insumos
-    // El stock es limitado por el insumo con menor disponibilidad (cuello de botella)
-    if (variant.product.isTemplate && variant.templateRecipes.length > 0) {
-      const stocksFromIngredients = variant.templateRecipes.map((recipe) => {
-        const inputStock = Number(recipe.inputVariant.currentStock);
-        const recipeQuantity = Number(recipe.quantity);
-        return Math.floor(inputStock / recipeQuantity);
-      });
+    // Si es un template, calcular stock desde los insumos asociados
+    // Buscar variante de insumo que coincida en color Y talla
+    if (variant.product.isTemplate) {
+      const inputVariants = inputVariantsByProduct.get(variant.product.id) || [];
 
-      // El stock final es el mínimo de todos los insumos (cuello de botella)
-      calculatedStock = Math.min(...stocksFromIngredients);
+      if (inputVariants.length > 0) {
+        // Buscar variante de insumo que coincida en color y talla
+        const matchingInputVariant = inputVariants.find((iv: any) => {
+          const colorMatch = variant.colorId === null || iv.colorId === variant.colorId;
+          const sizeMatch = variant.sizeId === null || iv.sizeId === variant.sizeId;
+          return colorMatch && sizeMatch;
+        });
+
+        if (matchingInputVariant) {
+          calculatedStock = Number(matchingInputVariant.currentStock);
+        } else {
+          // No hay variante de insumo que coincida
+          calculatedStock = 0;
+        }
+      }
     }
 
     return {
@@ -731,4 +848,215 @@ export async function checkLowStock() {
  */
 export async function getVariantsByProduct(productId: number) {
   return await getVariants({ productId });
+}
+
+interface PaginatedFilter extends VariantFilter {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+interface PaginatedResult<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+/**
+ * Obtener solo variantes de PRODUCTOS (no templates) - con paginación del servidor
+ */
+export async function getProductVariants(filter: PaginatedFilter = {}): Promise<PaginatedResult<any>> {
+  const page = filter.page || 1;
+  const limit = filter.limit || 10;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.ProductVariantWhereInput = {
+    product: { isTemplate: false },
+  };
+
+  if (filter.productId) where.productId = filter.productId;
+  if (filter.colorId) where.colorId = filter.colorId;
+  if (filter.sizeId) where.sizeId = filter.sizeId;
+  if (filter.isActive !== undefined) where.isActive = filter.isActive;
+
+  // Búsqueda por texto
+  if (filter.search) {
+    where.OR = [
+      { sku: { contains: filter.search } },
+      { product: { name: { contains: filter.search } } },
+      { color: { name: { contains: filter.search } } },
+    ];
+  }
+
+  // Obtener total y datos en paralelo
+  const [total, variants] = await Promise.all([
+    prisma.productVariant.count({ where }),
+    prisma.productVariant.findMany({
+      where,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            basePrice: true,
+            images: true,
+            isTemplate: true,
+          },
+        },
+        color: true,
+        size: true,
+      },
+      orderBy: [{ productId: 'asc' }, { colorId: 'asc' }, { sizeId: 'asc' }],
+      skip,
+      take: limit,
+    }),
+  ]);
+
+  const data = variants.map((variant) => {
+    const finalPrice =
+      parseFloat(variant.product.basePrice.toString()) +
+      (variant.priceAdjustment ? parseFloat(variant.priceAdjustment.toString()) : 0);
+
+    return {
+      ...variant,
+      finalPrice,
+    };
+  });
+
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+/**
+ * Obtener solo variantes de TEMPLATES (plantillas) - con paginación y cálculo de stock
+ */
+export async function getTemplateVariants(filter: PaginatedFilter = {}): Promise<PaginatedResult<any>> {
+  const page = filter.page || 1;
+  const limit = filter.limit || 10;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.ProductVariantWhereInput = {
+    product: { isTemplate: true },
+  };
+
+  if (filter.productId) where.productId = filter.productId;
+  if (filter.colorId) where.colorId = filter.colorId;
+  if (filter.sizeId) where.sizeId = filter.sizeId;
+  if (filter.isActive !== undefined) where.isActive = filter.isActive;
+
+  // Búsqueda por texto
+  if (filter.search) {
+    where.OR = [
+      { sku: { contains: filter.search } },
+      { product: { name: { contains: filter.search } } },
+      { color: { name: { contains: filter.search } } },
+    ];
+  }
+
+  // Obtener total y datos en paralelo
+  const [total, variants] = await Promise.all([
+    prisma.productVariant.count({ where }),
+    prisma.productVariant.findMany({
+      where,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            basePrice: true,
+            images: true,
+            isTemplate: true,
+          },
+        },
+        color: true,
+        size: true,
+      },
+      orderBy: [{ productId: 'asc' }, { colorId: 'asc' }, { sizeId: 'asc' }],
+      skip,
+      take: limit,
+    }),
+  ]);
+
+  // Obtener los IDs de templates únicos de esta página
+  const templateProductIds = Array.from(new Set(variants.map((v) => v.product.id)));
+
+  // Cargar insumos asociados solo para los templates de esta página
+  const productInputs = templateProductIds.length > 0
+    ? await prisma.productInput.findMany({
+        where: { productId: { in: templateProductIds } },
+        include: {
+          input: {
+            include: {
+              variants: {
+                where: { isActive: true },
+                include: {
+                  color: true,
+                  size: true,
+                },
+              },
+            },
+          },
+        },
+      })
+    : [];
+
+  // Crear mapa de productId -> variantes de insumos
+  const inputVariantsByProduct = new Map<number, any[]>();
+  for (const pi of productInputs) {
+    const existing = inputVariantsByProduct.get(pi.productId) || [];
+    existing.push(...pi.input.variants);
+    inputVariantsByProduct.set(pi.productId, existing);
+  }
+
+  // Calcular stock para cada variante
+  const data = variants.map((variant) => {
+    const inputVariants = inputVariantsByProduct.get(variant.product.id) || [];
+    let calculatedStock = 0;
+
+    if (inputVariants.length > 0) {
+      // Buscar variante de insumo que coincida en color y talla
+      const matchingInputVariant = inputVariants.find((iv: any) => {
+        const colorMatch = variant.colorId === null || iv.colorId === variant.colorId;
+        const sizeMatch = variant.sizeId === null || iv.sizeId === variant.sizeId;
+        return colorMatch && sizeMatch;
+      });
+
+      if (matchingInputVariant) {
+        calculatedStock = Number(matchingInputVariant.currentStock);
+      }
+    }
+
+    const finalPrice =
+      parseFloat(variant.product.basePrice.toString()) +
+      (variant.priceAdjustment ? parseFloat(variant.priceAdjustment.toString()) : 0);
+
+    return {
+      ...variant,
+      stock: calculatedStock,
+      finalPrice,
+    };
+  });
+
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 }

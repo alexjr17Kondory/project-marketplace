@@ -139,6 +139,67 @@ router.get('/me', authenticate, authController.getMe);
 
 /**
  * @swagger
+ * /auth/me:
+ *   put:
+ *     summary: Actualizar perfil del usuario actual
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Juan Pérez
+ *               phone:
+ *                 type: string
+ *                 example: "+57 300 123 4567"
+ *               cedula:
+ *                 type: string
+ *                 example: "123456789"
+ *               address:
+ *                 type: string
+ *                 example: "Calle 123 #45-67"
+ *               city:
+ *                 type: string
+ *                 example: "Bogotá"
+ *               postalCode:
+ *                 type: string
+ *                 example: "110111"
+ *               country:
+ *                 type: string
+ *                 example: "Colombia"
+ *     responses:
+ *       200:
+ *         description: Perfil actualizado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Perfil actualizado exitosamente"
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: No autorizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.put('/me', authenticate, authController.updateMe);
+
+/**
+ * @swagger
  * /auth/forgot-password:
  *   post:
  *     summary: Solicitar recuperación de contraseña

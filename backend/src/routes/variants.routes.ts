@@ -41,6 +41,14 @@ router.get(
 router.get('/sku/:sku', requirePermission('products.view'), variantsController.getVariantBySku);
 
 /**
+ * GET /api/variants/lookup
+ * Buscar variante por productId, colorHex y sizeName
+ * Útil para verificar stock desde el carrito
+ * Requiere: autenticación (cualquier usuario)
+ */
+router.get('/lookup', variantsController.getVariantByProductColorSize);
+
+/**
  * GET /api/variants/low-stock
  * Obtener variantes con stock bajo
  * Requiere: products.view
@@ -49,6 +57,28 @@ router.get(
   '/low-stock',
   requirePermission('products.view'),
   variantsController.getLowStock
+);
+
+/**
+ * GET /api/variants/products
+ * Obtener solo variantes de PRODUCTOS (no templates) - consulta rápida
+ * Requiere: products.view
+ */
+router.get(
+  '/products',
+  requirePermission('products.view'),
+  variantsController.getProductVariants
+);
+
+/**
+ * GET /api/variants/templates
+ * Obtener solo variantes de TEMPLATES (plantillas) - con stock calculado
+ * Requiere: products.view
+ */
+router.get(
+  '/templates',
+  requirePermission('products.view'),
+  variantsController.getTemplateVariants
 );
 
 /**

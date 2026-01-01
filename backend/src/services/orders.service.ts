@@ -1,6 +1,11 @@
 import { Prisma, OrderStatus } from '@prisma/client';
 import { prisma } from '../config/database';
 import { NotFoundError, BadRequestError } from '../utils/errors';
+import { getAvailableStockForTemplate } from './template-recipes.service';
+
+// Tipos de movimiento
+type VariantMovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'RETURN' | 'DAMAGE' | 'INITIAL';
+type InputMovementType = 'ENTRADA' | 'SALIDA' | 'AJUSTE' | 'RESERVA' | 'LIBERACION' | 'DEVOLUCION' | 'MERMA';
 import type {
   CreateOrderInput,
   UpdateOrderStatusInput,
@@ -163,10 +168,20 @@ export async function createOrder(userId: number, data: CreateOrderInput): Promi
   // Validar productos y calcular subtotal
   let subtotal = 0;
   const orderItems: any[] = [];
+  // Almacenar info de variantes para actualizar stock después
+  const variantStockUpdates: { variantId: number; quantity: number; isTemplate: boolean }[] = [];
 
   for (const item of data.items) {
     const product = await prisma.product.findUnique({
       where: { id: item.productId },
+      include: {
+        variants: {
+          include: {
+            color: true,
+            size: true,
+          },
+        },
+      },
     });
 
     if (!product) {
@@ -177,11 +192,44 @@ export async function createOrder(userId: number, data: CreateOrderInput): Promi
       throw new BadRequestError(`El producto "${product.name}" no está disponible`);
     }
 
-    if (product.stock < item.quantity) {
+    // Buscar la variante que coincida con color y size
+    // Nota: size puede venir como abbreviation o name, color puede venir como hexCode (case insensitive)
+    const variant = product.variants.find((v) => {
+      const colorMatch = v.color?.hexCode?.toLowerCase() === item.color?.toLowerCase();
+      const sizeMatch = v.size?.name === item.size || v.size?.abbreviation === item.size;
+      return colorMatch && sizeMatch;
+    });
+
+    if (!variant) {
       throw new BadRequestError(
-        `Stock insuficiente para "${product.name}". Disponible: ${product.stock}`
+        `No se encontró variante para "${product.name}" con color ${item.color} y talla ${item.size}`
       );
     }
+
+    // Validar stock según el tipo de producto
+    if (product.isTemplate) {
+      // Para templates (productos personalizables), validar stock de insumos
+      const availableStock = await getAvailableStockForTemplate(variant.id);
+      if (availableStock < item.quantity) {
+        throw new BadRequestError(
+          `Stock insuficiente para "${product.name}" (${item.size}, ${item.color}). Disponible: ${availableStock}`
+        );
+      }
+    } else {
+      // Para productos regulares, validar stock de la variante
+      if (variant.stock < item.quantity) {
+        throw new BadRequestError(
+          `Stock insuficiente para "${product.name}" (${item.size}, ${item.color}). Disponible: ${variant.stock}`
+        );
+      }
+    }
+
+    // Guardar info de la variante para actualizar stock
+    variantStockUpdates.push({
+      variantId: variant.id,
+      quantity: item.quantity,
+      isTemplate: product.isTemplate,
+    });
 
     const unitPrice = Number(product.basePrice);
     subtotal += unitPrice * item.quantity;
@@ -250,16 +298,45 @@ export async function createOrder(userId: number, data: CreateOrderInput): Promi
       },
     });
 
-    // Actualizar stock de productos
-    for (const item of data.items) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          stock: {
-            decrement: item.quantity,
-          },
-        },
-      });
+    // Actualizar stock de variantes (solo para productos regulares, no templates)
+    // Para templates el stock se controla en los insumos y se consume al pagar
+    for (const stockUpdate of variantStockUpdates) {
+      if (!stockUpdate.isTemplate) {
+        // Obtener stock actual antes de decrementar
+        const currentVariant = await tx.productVariant.findUnique({
+          where: { id: stockUpdate.variantId },
+          include: { product: { select: { name: true } } },
+        });
+
+        if (currentVariant) {
+          const previousStock = currentVariant.stock;
+          const newStock = previousStock - stockUpdate.quantity;
+
+          // Decrementar stock
+          await tx.productVariant.update({
+            where: { id: stockUpdate.variantId },
+            data: {
+              stock: {
+                decrement: stockUpdate.quantity,
+              },
+            },
+          });
+
+          // Registrar movimiento de inventario
+          await tx.variantMovement.create({
+            data: {
+              variantId: stockUpdate.variantId,
+              movementType: 'SALE' as VariantMovementType,
+              quantity: -stockUpdate.quantity,
+              previousStock,
+              newStock,
+              referenceType: 'order',
+              referenceId: newOrder.id,
+              reason: `Venta online - Orden ${orderNumber}`,
+            },
+          });
+        }
+      }
     }
 
     return newOrder;
@@ -438,20 +515,46 @@ export async function updateOrderStatus(
   } else if (data.status === 'DELIVERED') {
     updateData.deliveredAt = new Date();
   } else if (data.status === 'CANCELLED') {
-    // Restaurar stock
+    // Restaurar stock de variantes (solo para productos regulares)
     const items = await prisma.orderItem.findMany({
       where: { orderId: id },
     });
 
     for (const item of items) {
-      await prisma.product.update({
+      // Obtener el producto para verificar si es template
+      const product = await prisma.product.findUnique({
         where: { id: item.productId },
-        data: {
-          stock: {
-            increment: item.quantity,
+        include: {
+          variants: {
+            include: {
+              color: true,
+              size: true,
+            },
           },
         },
       });
+
+      // Solo restaurar stock para productos regulares (no templates)
+      // Para templates el stock está en los insumos
+      if (product && !product.isTemplate) {
+        // Buscar la variante correspondiente
+        const variant = product.variants.find((v) => {
+          const colorMatch = v.color?.hexCode?.toLowerCase() === item.color?.toLowerCase();
+          const sizeMatch = v.size?.name === item.size || v.size?.abbreviation === item.size;
+          return colorMatch && sizeMatch;
+        });
+
+        if (variant) {
+          await prisma.productVariant.update({
+            where: { id: variant.id },
+            data: {
+              stock: {
+                increment: item.quantity,
+              },
+            },
+          });
+        }
+      }
     }
   }
 

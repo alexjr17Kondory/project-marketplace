@@ -242,9 +242,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <header className="bg-white border-b border-gray-200 flex-shrink-0 z-40">
         <div className="flex items-center justify-between px-4 py-3">
           {/* Left: Menu Toggle + Logo */}
           <div className="flex items-center gap-4">
@@ -268,8 +268,10 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
           {/* Right: User Menu */}
           <div className="flex items-center gap-4">
-            {/* App Switcher */}
-            <AppSwitcher />
+            {/* App Switcher - Solo desktop */}
+            <div className="hidden lg:block">
+              <AppSwitcher />
+            </div>
 
             {/* Profile Dropdown */}
             <div className="relative">
@@ -333,7 +335,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         </div>
       </header>
 
-      <div className="flex flex-1 relative">
+      <div className="flex flex-1 relative overflow-hidden">
         {/* Overlay para móvil */}
         {sidebarOpen && isMobile && (
           <div
@@ -345,17 +347,13 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         {/* Sidebar */}
         <aside
           className={`
-            fixed lg:sticky inset-y-0 left-0 z-50 lg:z-30
-            w-64 bg-white border-r border-gray-200 flex flex-col
+            fixed lg:relative inset-y-0 left-0 z-50 lg:z-30
+            w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0
             transform transition-transform duration-300 ease-in-out
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-0'}
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-0 lg:overflow-hidden'}
             ${!sidebarOpen && !isMobile ? 'lg:hidden' : ''}
+            ${isMobile ? 'h-full' : ''}
           `}
-          style={{
-            top: isMobile ? '0' : '0',
-            height: isMobile ? '100vh' : 'calc(100vh - 64px)',
-            maxHeight: isMobile ? '100vh' : 'calc(100vh - 64px)'
-          }}
         >
           {/* Header del sidebar en móvil */}
           {isMobile && (
@@ -499,7 +497,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-x-hidden transition-all duration-300 w-full p-6">
+        <main className="flex-1 overflow-y-auto transition-all duration-300 w-full p-6">
           {children}
         </main>
       </div>

@@ -27,6 +27,7 @@ import purchaseOrdersRoutes from './purchase-orders.routes';
 import inventoryRoutes from './inventory.routes';
 import inventoryCountsRoutes from './inventory-counts.routes';
 import inventoryConversionsRoutes from './inventory-conversions.routes';
+import cartRoutes from './cart.routes';
 
 const router = Router();
 
@@ -89,6 +90,9 @@ router.use('/pos', posRoutes);
 
 // Rutas de pedidos
 router.use('/orders', ordersRoutes);
+
+// Rutas de carrito
+router.use('/cart', cartRoutes);
 
 // Rutas de pagos
 router.use('/payments', paymentsRoutes);

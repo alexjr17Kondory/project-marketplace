@@ -4,7 +4,15 @@ import * as templateRecipesController from '../controllers/template-recipes.cont
 
 const router = Router();
 
-// Todas las rutas requieren autenticación
+// ==================== RUTAS PÚBLICAS (para carrito/checkout) ====================
+
+// GET /api/template-recipes/product/:productId/stock - Obtener stock disponible (público para carrito)
+router.get('/product/:productId/stock', templateRecipesController.getAvailableStock);
+
+// GET /api/template-recipes/variant-stock/:productId - Obtener stock de variante específica (público para carrito)
+router.get('/variant-stock/:productId', templateRecipesController.getVariantStock);
+
+// ==================== RUTAS PROTEGIDAS ====================
 router.use(authenticate);
 
 // POST /api/template-recipes - Crear/actualizar receta
@@ -15,12 +23,6 @@ router.get('/variant/:variantId', templateRecipesController.getTemplateRecipe);
 
 // GET /api/template-recipes/product/:productId - Obtener recetas de un template
 router.get('/product/:productId', templateRecipesController.getTemplateRecipesByProduct);
-
-// GET /api/template-recipes/product/:productId/stock - Obtener stock disponible
-router.get('/product/:productId/stock', templateRecipesController.getAvailableStock);
-
-// GET /api/template-recipes/variant-stock/:productId - Obtener stock de variante específica por color/talla
-router.get('/variant-stock/:productId', templateRecipesController.getVariantStock);
 
 // GET /api/template-recipes/product/:productId/inputs - Obtener IDs de insumos asociados
 router.get('/product/:productId/inputs', templateRecipesController.getAssociatedInputIds);

@@ -43,6 +43,20 @@ export async function getMe(req: AuthenticatedRequest, res: Response, next: Next
   }
 }
 
+export async function updateMe(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const updatedUser = await authService.updateMe(req.user!.userId, req.body);
+
+    res.json({
+      success: true,
+      message: 'Perfil actualizado exitosamente',
+      data: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
   try {
     await authService.forgotPassword(req.body.email);

@@ -12,6 +12,15 @@ export interface RegisterData {
   phone?: string;
 }
 
+export interface UserProfile {
+  cedula?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -22,6 +31,7 @@ export interface User {
   role: string;
   permissions: string[];
   status: string;
+  profile?: UserProfile;
 }
 
 export interface AuthResponse {

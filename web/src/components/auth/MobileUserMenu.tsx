@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { User, Package, Settings, LogOut, X, ShoppingCart, LayoutGrid } from 'lucide-react';
+import { User, Package, LogOut, X, ShoppingCart, LayoutGrid } from 'lucide-react';
 import { useEffect } from 'react';
 
 interface MobileUserMenuProps {
@@ -80,11 +80,6 @@ export const MobileUserMenu = ({ isOpen, onClose, onLoginClick, onRegisterClick 
                     <p className="text-sm text-gray-600">{user.email}</p>
                   </div>
                 </div>
-                {isAdminUser && (
-                  <span className="inline-block px-3 py-1.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
-                    Administrador
-                  </span>
-                )}
               </div>
 
               {/* Menu Options */}

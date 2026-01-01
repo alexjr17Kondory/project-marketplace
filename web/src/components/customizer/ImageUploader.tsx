@@ -1,5 +1,6 @@
 import { Upload, Image as ImageIcon } from 'lucide-react';
 import { useRef, type ChangeEvent } from 'react';
+import { useSettings } from '../../context/SettingsContext';
 
 // Datos de imagen con original y comprimida
 export interface ImageUploadData {
@@ -162,6 +163,14 @@ const compressImage = (
 
 export const ImageUploader = ({ onImageUpload, isUploading = false }: ImageUploaderProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { settings } = useSettings();
+
+  // Colores de marca dinámicos
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -226,7 +235,8 @@ export const ImageUploader = ({ onImageUpload, isUploading = false }: ImageUploa
       <button
         onClick={handleClick}
         disabled={isUploading}
-        className="w-full bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full text-white font-semibold py-3 px-6 rounded-lg transition-all hover:opacity-90 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        style={{ backgroundColor: brandColors.primary }}
       >
         {isUploading ? (
           <>
@@ -241,12 +251,20 @@ export const ImageUploader = ({ onImageUpload, isUploading = false }: ImageUploa
         )}
       </button>
 
-      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div
+        className="mt-4 p-4 rounded-lg"
+        style={{
+          backgroundColor: `${brandColors.primary}10`,
+          borderWidth: '1px',
+          borderStyle: 'solid',
+          borderColor: `${brandColors.primary}30`
+        }}
+      >
         <div className="flex items-start gap-2">
-          <ImageIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-900">
+          <ImageIcon className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: brandColors.primary }} />
+          <div className="text-sm" style={{ color: brandColors.primary }}>
             <p className="font-semibold mb-1">Recomendaciones:</p>
-            <ul className="text-xs space-y-1 text-blue-700">
+            <ul className="text-xs space-y-1" style={{ color: `${brandColors.primary}cc` }}>
               <li>• Formato: PNG, JPG, SVG</li>
               <li>• Tamaño máximo: 10MB</li>
               <li>• Resolución: 300 DPI para mejor calidad</li>

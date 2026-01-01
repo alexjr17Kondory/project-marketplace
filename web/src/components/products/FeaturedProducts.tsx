@@ -2,10 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { ProductCard } from './ProductCard';
 import { getProducts } from '../../data/mockProducts';
-import { useCart } from '../../context/CartContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import type { Product } from '../../types/product';
 import type { ProductSection } from '../../types/settings';
 
 interface FeaturedProductsProps {
@@ -16,7 +14,6 @@ interface FeaturedProductsProps {
 
 export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsProps) => {
   const navigate = useNavigate();
-  const { addStandardProduct } = useCart();
   const { settings } = useSettings();
   const isMobile = useIsMobile(768); // md breakpoint
 
@@ -63,23 +60,6 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
     primary: '#7c3aed',
     secondary: '#ec4899',
     accent: '#f59e0b',
-  };
-
-  const handleAddToCart = (product: Product) => {
-    // Agregar con opciones por defecto (primer color y talla)
-    const defaultColor = product.colors[0]?.hexCode || '#FFFFFF';
-    const firstSize = product.sizes[0];
-    const defaultSize = typeof firstSize === 'string' ? firstSize : firstSize?.abbreviation || 'M';
-
-    addStandardProduct(product, defaultColor, defaultSize, 1);
-
-    // TODO: Mostrar toast de confirmación
-    alert(`${product.name} agregado al carrito!`);
-  };
-
-  const handleCustomize = (product: Product) => {
-    // Navegar al personalizador con el producto seleccionado
-    navigate(`/customizer?product=${product.id}`);
   };
 
   // Generar link de "Ver todo" con filtros dinámicos
@@ -154,8 +134,6 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
             <ProductCard
               key={product.id}
               product={product}
-              onAddToCart={handleAddToCart}
-              onCustomize={handleCustomize}
             />
           ))}
         </div>

@@ -86,14 +86,18 @@ export interface Product {
   categoryId?: number;    // ID de categoría en la BD
   typeSlug?: string;      // Slug de tipo de producto
   typeId?: number;        // ID de tipo de producto en la BD
+  typeName?: string;      // Nombre del tipo de producto
   // Campos legacy para compatibilidad (se usarán categorySlug/typeSlug en su lugar)
   type?: ProductType | string;
   category?: ProductCategory | string;
+  isTemplate?: boolean;   // Si es true, es un modelo/plantilla para personalización
   basePrice: number;
   images: {
     front: string;
     back?: string;
     side?: string;
+    extra1?: string;  // Imagen adicional 4
+    extra2?: string;  // Imagen adicional 5
   };
   colors: ProductColor[];
   sizes: ProductSize[] | string[]; // Puede ser array de objetos (BD) o strings (legacy)

@@ -64,7 +64,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
     loadProductTypes();
   }, []);
 
-  // Load products on search
+  // Load products on search (excluding templates)
   useEffect(() => {
     const searchProducts = async () => {
       if (activeTab !== 'products') return;
@@ -74,10 +74,12 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
         const selectedType = productTypes.find(t => t.id === selectedTypeId);
         const result = await productsService.getAll({
           search: searchTerm,
-          limit: 30,
+          limit: 50, // Get more to filter out templates
           type: selectedType?.slug || undefined,
         });
-        setProducts(result.data);
+        // Filter out templates - only show regular products for purchase orders
+        const regularProducts = result.data.filter((p: any) => !p.isTemplate);
+        setProducts(regularProducts);
       } catch (error) {
         console.error('Error searching products:', error);
       } finally {
@@ -126,6 +128,9 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
     };
     loadVariants();
   }, [selectedProduct]);
+
+  // Input variants state (initialized from selectedInput.variants which comes from backend)
+  const [inputVariants, setInputVariants] = useState<import('../../services/inputs.service').InputVariant[]>([]);
 
   // Get unique colors and sizes from variants
   const { colors, sizes } = useMemo(() => {
@@ -280,9 +285,9 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
     });
 
     // Add input variant items (for inputs with variants)
-    if (selectedInput && selectedInput.variants) {
+    if (selectedInput && inputVariants.length > 0) {
       Object.entries(inputVariantQuantities).forEach(([variantId, quantity]) => {
-        const variant = selectedInput.variants?.find(v => v.id === Number(variantId));
+        const variant = inputVariants.find(v => v.id === Number(variantId));
         if (variant && quantity > 0) {
           const colorName = variant.color?.name || '';
           const sizeName = variant.size?.abbreviation || variant.size?.name || '';
@@ -315,7 +320,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-4">
         <button
-          onClick={() => { setActiveTab('products'); setSelectedProduct(null); setSelectedInput(null); setSearchTerm(''); }}
+          onClick={() => { setActiveTab('products'); setSelectedProduct(null); setSelectedInput(null); setInputVariants([]); setSearchTerm(''); }}
           className={`flex items-center gap-2 px-4 py-2 font-medium text-sm border-b-2 -mb-px ${
             activeTab === 'products'
               ? 'text-orange-600 border-orange-600'
@@ -326,7 +331,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
           Productos
         </button>
         <button
-          onClick={() => { setActiveTab('inputs'); setSelectedProduct(null); setSelectedInput(null); setSearchTerm(''); }}
+          onClick={() => { setActiveTab('inputs'); setSelectedProduct(null); setSelectedInput(null); setInputVariants([]); setSearchTerm(''); }}
           className={`flex items-center gap-2 px-4 py-2 font-medium text-sm border-b-2 -mb-px ${
             activeTab === 'inputs'
               ? 'text-orange-600 border-orange-600'
@@ -666,7 +671,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => { setSelectedInput(null); setInputVariantQuantities({}); }}
+                    onClick={() => { setSelectedInput(null); setInputVariants([]); setInputVariantQuantities({}); }}
                     className="p-1 hover:bg-gray-200 rounded"
                   >
                     <X className="w-4 h-4" />
@@ -687,22 +692,22 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
                   />
                 </div>
               </div>
-              {selectedInput.variants && selectedInput.variants.length > 0 && (
+              {inputVariants.length > 0 && (
                 <div className="flex items-center gap-4 text-xs">
                   <span className="text-gray-500">
-                    {selectedInput.variants.length} variantes disponibles
+                    {inputVariants.length} variantes disponibles
                   </span>
                 </div>
               )}
             </div>
 
             {/* Color x Size Matrix for Input */}
-            {selectedInput.variants && selectedInput.variants.length > 0 ? (() => {
+            {inputVariants.length > 0 ? (() => {
               // Get unique colors and sizes from input variants
               const inputColors = new Map<number, { id: number; name: string; hexCode: string }>();
               const inputSizes = new Map<number, { id: number; name: string; abbreviation: string }>();
 
-              selectedInput.variants.forEach(v => {
+              inputVariants.forEach(v => {
                 if (v.color) inputColors.set(v.color.id, v.color);
                 if (v.size) inputSizes.set(v.size.id, v.size);
               });
@@ -711,7 +716,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
               const sizesArr = Array.from(inputSizes.values());
 
               const findInputVariant = (colorId: number | null, sizeId: number | null) => {
-                return selectedInput.variants?.find(v =>
+                return inputVariants.find(v =>
                   (colorId === null ? v.colorId === null : v.colorId === colorId) &&
                   (sizeId === null ? v.sizeId === null : v.sizeId === sizeId)
                 );
@@ -834,6 +839,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
               </div>
             ) : (
               inputs.map(input => {
+                // Check if input has variants (already loaded from backend)
                 const hasInputVariants = input.inputType?.hasVariants && input.variants && input.variants.length > 0;
                 const isSelected = !!selectedInputs[input.id];
 
@@ -844,6 +850,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
                       key={input.id}
                       onClick={() => {
                         setSelectedInput(input);
+                        setInputVariants(input.variants || []);
                         setInputVariantQuantities({});
                         setInputUnitCost(Number(input.unitCost) || 0);
                       }}
@@ -863,7 +870,7 @@ export function PurchaseItemSelector({ onItemsSelected, onClose }: Props) {
                         <div className="flex items-center gap-3 mt-1">
                           <span className="text-sm font-semibold text-orange-600">${Number(input.unitCost).toLocaleString()}</span>
                           <span className="text-xs text-gray-400">
-                            {input.inputColors?.length || 0} colores · {input.variants?.length || 0} variantes
+                            {input.inputColors?.length || 0} colores · {input.inputSizes?.length || input.inputType?.inputTypeSizes?.length || 0} tallas
                           </span>
                         </div>
                       </div>

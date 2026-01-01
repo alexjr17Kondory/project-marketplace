@@ -4,6 +4,7 @@ import { ShoppingCart, ArrowLeft, Loader2, Package, Eye, EyeOff, Download, Move 
 import { canvasService } from '../services/canvas.service';
 import { templatesService, type Template, type DesignZone } from '../services/templates.service';
 import { templateZonesService, type TemplateZone } from '../services/template-zones.service';
+import { templateRecipesService } from '../services/template-recipes.service';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
 import { ColorPicker } from '../components/customizer/ColorPicker';
@@ -57,6 +58,10 @@ export const CustomizerPage = () => {
   const [isColorizingTemplate, setIsColorizingTemplate] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Stock disponible del template seleccionado
+  const [availableStock, setAvailableStock] = useState<number | null>(null);
+  const [loadingStock, setLoadingStock] = useState(false);
+
   // Límites del contenido visible del PNG (para restringir el diseño)
   const [pngBounds, setPngBounds] = useState<PngBounds | null>(null);
   // Zona seleccionada para ajustar el tamaño del diseño
@@ -65,15 +70,27 @@ export const CustomizerPage = () => {
   const [allowedZones, setAllowedZones] = useState<DesignZone[]>([]);
   const [blockedZones, setBlockedZones] = useState<DesignZone[]>([]);
 
+  // Ref para el slider de tamaño (evita re-renders)
+  const sliderRef = useRef<HTMLInputElement>(null);
+  const sizeDisplayRef = useRef<HTMLSpanElement>(null);
+
   // Estado para drag & drop del diseño
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [designStartPos, setDesignStartPos] = useState({ x: 0, y: 0 });
-
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const designStartPosRef = useRef({ x: 0, y: 0 });
+  const currentPosRef = useRef({ x: 0, y: 0 });
+  const rafIdRef = useRef<number | null>(null);
 
   // Ref para la imagen del template y el contenedor
   const templateImageRef = useRef<HTMLImageElement>(null);
   const designContainerRef = useRef<HTMLDivElement>(null);
+  const designElementRef = useRef<HTMLDivElement>(null);
+
+  // Refs para los handlers de drag (para poder agregar/remover listeners sin re-render)
+  const handleDragMoveRef = useRef<(e: MouseEvent | TouchEvent) => void>(() => {});
+  const handleDragEndRef = useRef<() => void>(() => {});
+  const currentZoneTypeRef = useRef<string | null>(null);
 
   // Constantes del canvas
   const CANVAS_WIDTH = 600;
@@ -361,6 +378,38 @@ export const CustomizerPage = () => {
     };
     loadTemplates();
   }, []);
+
+  // Consultar stock disponible cuando cambia el template, color o talla
+  useEffect(() => {
+    const fetchStock = async () => {
+      if (!selectedTemplate) {
+        setAvailableStock(null);
+        return;
+      }
+
+      try {
+        setLoadingStock(true);
+        // Buscar los IDs de color y talla seleccionados
+        const selectedColorData = selectedTemplate.colors?.find(c => c.hexCode === selectedColor);
+        const selectedSizeData = selectedTemplate.sizes?.find(s => s.name === selectedSize);
+
+        const stockInfo = await templateRecipesService.getVariantStock(
+          selectedTemplate.id,
+          selectedColorData?.id || null,
+          selectedSizeData?.id || null
+        );
+
+        setAvailableStock(stockInfo.availableStock);
+      } catch (error) {
+        console.error('Error consultando stock:', error);
+        setAvailableStock(null);
+      } finally {
+        setLoadingStock(false);
+      }
+    };
+
+    fetchStock();
+  }, [selectedTemplate, selectedColor, selectedSize]);
 
   // Cargar producto del carrito para editar
   useEffect(() => {
@@ -778,6 +827,18 @@ export const CustomizerPage = () => {
   // Diseño actual para la vista seleccionada
   const currentDesign = currentZoneType ? designs.get(currentZoneType) : null;
 
+  // Sincronizar slider cuando cambia el diseño
+  useEffect(() => {
+    if (currentDesign) {
+      if (sliderRef.current) {
+        sliderRef.current.value = String(currentDesign.size.width);
+      }
+      if (sizeDisplayRef.current) {
+        sizeDisplayRef.current.textContent = `${Math.round(currentDesign.size.width)}%`;
+      }
+    }
+  }, [currentDesign?.id, currentDesign?.size.width]);
+
   const handleImageUpload = (imageData: string, uploadData?: ImageUploadData) => {
     if (!currentZoneType) return;
 
@@ -828,91 +889,142 @@ export const CustomizerPage = () => {
     handleImageUpload(thumbnailUrl, { original: fullUrl, fileName: imageName, fileSize: 0 });
   };
 
-  // Funciones de Drag & Drop para mover el diseño libremente
-  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!currentDesign || !designContainerRef.current) return;
+  // Función interna de movimiento (usa refs para evitar re-renders)
+  const dragMoveHandler = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isDraggingRef.current || !designContainerRef.current || !designElementRef.current) return;
 
+    // Prevenir scroll de la página durante el arrastre táctil
     e.preventDefault();
-    setIsDragging(true);
 
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
-    setDragStart({ x: clientX, y: clientY });
-    setDesignStartPos({ x: currentDesign.position.x, y: currentDesign.position.y });
-  };
-
-  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDragging || !currentDesign || !designContainerRef.current || !currentZoneType) return;
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    const container = designContainerRef.current;
-    const rect = container.getBoundingClientRect();
-
-    // Calcular el movimiento en píxeles y convertir a porcentaje
-    const deltaX = clientX - dragStart.x;
-    const deltaY = clientY - dragStart.y;
-
-    // Convertir delta de píxeles a porcentaje del contenedor
-    const deltaXPercent = (deltaX / rect.width) * 100;
-    const deltaYPercent = (deltaY / rect.height) * 100;
-
-    // Nueva posición calculada
-    let newX = designStartPos.x + deltaXPercent;
-    let newY = designStartPos.y + deltaYPercent;
-
-    // Aplicar límites basados en el contorno del PNG si están disponibles
-    if (pngBounds) {
-      const clampedPos = clampPositionToBounds(
-        { x: newX, y: newY },
-        { width: currentDesign.size.width, height: currentDesign.size.height },
-        pngBounds
-      );
-      newX = clampedPos.x;
-      newY = clampedPos.y;
-    } else {
-      // Fallback: limitar a los bordes del contenedor (0-100)
-      newX = Math.max(0, Math.min(100, newX));
-      newY = Math.max(0, Math.min(100, newY));
+    // Cancelar cualquier RAF pendiente
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
     }
 
-    // Actualizar diseño - el movimiento es siempre fluido
-    // Las zonas bloqueadas se manejan visualmente con máscara SVG
-    setDesigns(prev => {
-      const updated = new Map(prev);
-      const design = updated.get(currentZoneType);
-      if (design) {
-        updated.set(currentZoneType, {
-          ...design,
-          position: { x: newX, y: newY }
-        });
-      }
-      return updated;
-    });
-  }, [isDragging, currentDesign, currentZoneType, dragStart, designStartPos, pngBounds]);
+    // Usar requestAnimationFrame para suavizar el movimiento
+    rafIdRef.current = requestAnimationFrame(() => {
+      if (!designContainerRef.current || !designElementRef.current) return;
 
-  const handleDragEnd = useCallback(() => {
+      const container = designContainerRef.current;
+      const rect = container.getBoundingClientRect();
+
+      // Calcular el movimiento en píxeles y convertir a porcentaje
+      const deltaX = clientX - dragStartRef.current.x;
+      const deltaY = clientY - dragStartRef.current.y;
+
+      // Convertir delta de píxeles a porcentaje del contenedor
+      const deltaXPercent = (deltaX / rect.width) * 100;
+      const deltaYPercent = (deltaY / rect.height) * 100;
+
+      // Nueva posición calculada
+      let newX = designStartPosRef.current.x + deltaXPercent;
+      let newY = designStartPosRef.current.y + deltaYPercent;
+
+      // Aplicar límites simples (0-100)
+      newX = Math.max(0, Math.min(100, newX));
+      newY = Math.max(0, Math.min(100, newY));
+
+      // Guardar posición actual
+      currentPosRef.current = { x: newX, y: newY };
+
+      // Actualizar visualmente sin re-render (manipulación directa del DOM)
+      if (designElementRef.current) {
+        // Obtener tamaño del diseño desde el elemento
+        const widthMatch = designElementRef.current.style.width.match(/(\d+\.?\d*)%/);
+        const heightMatch = designElementRef.current.style.height.match(/(\d+\.?\d*)%/);
+        const width = widthMatch ? parseFloat(widthMatch[1]) : 30;
+        const height = heightMatch ? parseFloat(heightMatch[1]) : 30;
+
+        const leftPercent = newX - (width / 2);
+        const topPercent = newY - (height / 2);
+        designElementRef.current.style.left = `${leftPercent}%`;
+        designElementRef.current.style.top = `${topPercent}%`;
+      }
+    });
+  }, []);
+
+  // Función interna de fin de arrastre
+  const dragEndHandler = useCallback(() => {
+    if (!isDraggingRef.current) return;
+
+    // Remover event listeners
+    window.removeEventListener('mousemove', handleDragMoveRef.current);
+    window.removeEventListener('mouseup', handleDragEndRef.current);
+    window.removeEventListener('touchmove', handleDragMoveRef.current);
+    window.removeEventListener('touchend', handleDragEndRef.current);
+
+    // Cancelar RAF pendiente
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+
+    // Limpiar estilos visuales
+    if (designElementRef.current) {
+      designElementRef.current.style.willChange = 'auto';
+      designElementRef.current.style.boxShadow = '';
+    }
+
+    isDraggingRef.current = false;
+
+    // Actualizar el estado con la posición final (solo si cambió)
+    const zoneType = currentZoneTypeRef.current;
+    if (zoneType && (currentPosRef.current.x !== designStartPosRef.current.x ||
+        currentPosRef.current.y !== designStartPosRef.current.y)) {
+      setDesigns(prev => {
+        const updated = new Map(prev);
+        const design = updated.get(zoneType);
+        if (design) {
+          updated.set(zoneType, {
+            ...design,
+            position: { x: currentPosRef.current.x, y: currentPosRef.current.y }
+          });
+        }
+        return updated;
+      });
+    }
+
     setIsDragging(false);
   }, []);
 
-  // Event listeners para drag & drop
+  // Actualizar refs cuando cambian las funciones
   useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mousemove', handleDragMove);
-      window.addEventListener('mouseup', handleDragEnd);
-      window.addEventListener('touchmove', handleDragMove);
-      window.addEventListener('touchend', handleDragEnd);
-    }
+    handleDragMoveRef.current = dragMoveHandler;
+    handleDragEndRef.current = dragEndHandler;
+  }, [dragMoveHandler, dragEndHandler]);
 
-    return () => {
-      window.removeEventListener('mousemove', handleDragMove);
-      window.removeEventListener('mouseup', handleDragEnd);
-      window.removeEventListener('touchmove', handleDragMove);
-      window.removeEventListener('touchend', handleDragEnd);
-    };
-  }, [isDragging, handleDragMove, handleDragEnd]);
+  // Funciones de Drag & Drop para mover el diseño libremente
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!currentDesign || !designContainerRef.current || !designElementRef.current) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    dragStartRef.current = { x: clientX, y: clientY };
+    designStartPosRef.current = { x: currentDesign.position.x, y: currentDesign.position.y };
+    currentPosRef.current = { x: currentDesign.position.x, y: currentDesign.position.y };
+
+    isDraggingRef.current = true;
+    currentZoneTypeRef.current = currentZoneType;
+
+    // Agregar event listeners inmediatamente (sin esperar re-render)
+    window.addEventListener('mousemove', handleDragMoveRef.current);
+    window.addEventListener('mouseup', handleDragEndRef.current);
+    window.addEventListener('touchmove', handleDragMoveRef.current, { passive: false });
+    window.addEventListener('touchend', handleDragEndRef.current);
+
+    // Aplicar estilo visual inmediatamente
+    designElementRef.current.style.willChange = 'left, top';
+    designElementRef.current.style.boxShadow = `0 0 0 2px white, 0 0 0 4px ${brandColors.primary}`;
+
+    setIsDragging(true);
+  };
 
   const handleDesignUpdate = (updates: Partial<Design>) => {
     if (!currentZoneType) return;
@@ -1055,8 +1167,14 @@ export const CustomizerPage = () => {
   };
 
   const handleAddToCart = async () => {
-    if (!selectedTemplate || designs.size === 0) {
-      alert('Por favor selecciona un modelo y sube al menos una imagen');
+    if (!selectedTemplate) {
+      alert('Por favor selecciona un modelo');
+      return;
+    }
+
+    // Validar stock disponible
+    if (availableStock !== null && availableStock < quantity) {
+      alert(`Stock insuficiente. Solo hay ${availableStock} unidades disponibles.`);
       return;
     }
 
@@ -1073,6 +1191,7 @@ export const CustomizerPage = () => {
     const totalPrice = basePrice + customizationPrice;
 
     const selectedColorData = selectedTemplate.colors?.find(c => c.hexCode === selectedColor);
+    const selectedSizeData = selectedTemplate.sizes?.find(s => s.name === selectedSize);
 
     // Guardar zonas como referencia (ya no son obligatorias para posicionar)
     const savedZones = templateZones.map(zone => ({
@@ -1097,7 +1216,9 @@ export const CustomizerPage = () => {
       basePrice: basePrice,
       selectedColor: selectedColor,
       selectedColorName: selectedColorData?.name || selectedColor,
+      colorId: selectedColorData?.id,
       selectedSize: selectedSize,
+      sizeId: selectedSizeData?.id,
       designs: allDesigns,
       previewImages: { front: previewImage },
       productionImages: {
@@ -1221,34 +1342,38 @@ export const CustomizerPage = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left: Selección de Modelo */}
-          <aside className="lg:col-span-3 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 py-4 lg:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+          {/* Left: Selección de Modelo - order-1 en móvil */}
+          <aside className="lg:col-span-3 space-y-4 lg:space-y-6 order-1">
             {/* Selector de Modelos */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Selecciona un Modelo</h3>
+            <div className="bg-white rounded-xl shadow-md p-4 lg:p-6">
+              <h3 className="text-base lg:text-lg font-bold text-gray-900 mb-3 lg:mb-4">Selecciona un Modelo</h3>
 
               {loadingTemplates ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+                <div className="flex items-center justify-center py-6 lg:py-8">
+                  <Loader2 className="w-8 h-8 animate-spin" style={{ color: brandColors.primary }} />
                 </div>
               ) : templates.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No hay modelos disponibles</p>
+                <div className="text-center py-6 lg:py-8">
+                  <Package className="w-12 h-12 mx-auto mb-2" style={{ color: `${brandColors.primary}40` }} />
+                  <p className="text-sm" style={{ color: `${brandColors.primary}80` }}>No hay modelos disponibles</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-2 gap-2 lg:gap-3 max-h-[200px] lg:max-h-[400px] overflow-y-auto pr-1 lg:pr-2">
                   {templates.map((template) => (
                     <button
                       key={template.id}
                       onClick={() => handleTemplateSelect(template)}
                       className={`relative rounded-lg border-2 overflow-hidden transition-all ${
                         selectedTemplate?.id === template.id
-                          ? 'border-purple-600 ring-2 ring-purple-200 shadow-lg'
-                          : 'border-gray-200 hover:border-purple-400 hover:shadow-md'
+                          ? 'shadow-lg'
+                          : 'border-gray-200 hover:shadow-md'
                       }`}
+                      style={selectedTemplate?.id === template.id ? {
+                        borderColor: brandColors.primary,
+                        boxShadow: `0 0 0 2px ${brandColors.primary}30`
+                      } : undefined}
                     >
                       {template.images?.front && (
                         <img
@@ -1264,7 +1389,10 @@ export const CustomizerPage = () => {
                         </p>
                       </div>
                       {selectedTemplate?.id === template.id && (
-                        <div className="absolute top-1 right-1 bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">
+                        <div
+                          className="absolute top-1 right-1 text-white text-xs px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: brandColors.primary }}
+                        >
                           ✓
                         </div>
                       )}
@@ -1274,105 +1402,259 @@ export const CustomizerPage = () => {
               )}
             </div>
 
-            {/* Colores - solo si hay template */}
+            {/* Opciones del producto */}
             {selectedTemplate && (
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <ColorPicker
-                  colors={availableColors}
-                  selectedColor={selectedColor}
-                  onColorChange={setSelectedColor}
-                />
-              </div>
-            )}
+              <div className="bg-white rounded-xl shadow-md p-4 lg:p-6 space-y-4">
+                {/* Color */}
+                <div>
+                  <ColorPicker
+                    colors={availableColors}
+                    selectedColor={selectedColor}
+                    onColorChange={setSelectedColor}
+                  />
+                </div>
 
-            {/* Tallas - solo si hay template */}
-            {selectedTemplate && availableSizes.length > 0 && (
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Talla</h3>
-                  <button
-                    onClick={() => setShowSizeGuide(true)}
-                    className="text-xs text-purple-600 hover:text-purple-700"
-                  >
-                    Guía de tallas
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {availableSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`px-4 py-2 rounded-lg border-2 font-medium transition-all ${
-                        selectedSize === size
-                          ? 'border-purple-600 bg-purple-50 text-purple-600'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+                {/* Tallas */}
+                {availableSizes.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-gray-900">Talla</span>
+                      <button
+                        onClick={() => setShowSizeGuide(true)}
+                        className="text-xs font-medium hover:opacity-80"
+                        style={{ color: brandColors.primary }}
+                      >
+                        Guía
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableSizes.map((size) => (
+                        <button
+                          key={size}
+                          onClick={() => setSelectedSize(size)}
+                          className={`min-w-[40px] px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                            selectedSize === size
+                              ? ''
+                              : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                          }`}
+                          style={selectedSize === size ? {
+                            borderColor: brandColors.primary,
+                            backgroundColor: `${brandColors.primary}15`,
+                            color: brandColors.primary
+                          } : undefined}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-            {/* Selector de Vista (Front/Back) */}
-            {selectedTemplate && availableZoneTypes.length > 0 && (
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Vista</h3>
-                <div className="flex flex-wrap gap-2">
-                  {availableZoneTypes.map((zt) => (
-                    <button
-                      key={zt.slug}
-                      onClick={() => setCurrentZoneType(zt.slug)}
-                      className={`px-4 py-2 rounded-lg border-2 font-medium transition-all relative ${
-                        currentZoneType === zt.slug
-                          ? 'border-purple-600 bg-purple-50 text-purple-600'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {zt.name}
-                      {designs.has(zt.slug) && (
-                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                {currentDesign && (
-                  <p className="text-xs text-green-600 mt-2">
-                    ✓ Esta vista tiene un diseño
-                  </p>
+                {/* Vista */}
+                {availableZoneTypes.length > 0 && (
+                  <div>
+                    <span className="text-sm font-semibold text-gray-900 mb-2 block">Vista</span>
+                    <div className="flex flex-wrap gap-2">
+                      {availableZoneTypes.map((zt) => (
+                        <button
+                          key={zt.slug}
+                          onClick={() => setCurrentZoneType(zt.slug)}
+                          className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all relative ${
+                            currentZoneType === zt.slug
+                              ? ''
+                              : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                          }`}
+                          style={currentZoneType === zt.slug ? {
+                            borderColor: brandColors.primary,
+                            backgroundColor: `${brandColors.primary}15`,
+                            color: brandColors.primary
+                          } : undefined}
+                        >
+                          {zt.name}
+                          {designs.has(zt.slug) && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white" style={{ backgroundColor: brandColors.secondary }}></span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
           </aside>
 
-          {/* Center: Canvas */}
-          <main className="lg:col-span-6">
-            <div className="bg-white rounded-xl shadow-md p-6">
+          {/* Center: Canvas - order-2 en móvil */}
+          <main className="lg:col-span-6 order-2">
+            <div className="bg-white rounded-xl shadow-md p-4 lg:p-6">
               {selectedTemplate && (
-                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <div className="flex items-center gap-3">
+                <div
+                  className="mb-3 lg:mb-4 p-2 lg:p-3 rounded-lg"
+                  style={{
+                    backgroundColor: `${brandColors.primary}10`,
+                    border: `1px solid ${brandColors.primary}30`
+                  }}
+                >
+                  <div className="flex items-center gap-2 lg:gap-3">
                     {selectedTemplate.images?.front && (
                       <img
                         src={selectedTemplate.images.front}
                         alt={selectedTemplate.name}
-                        className="w-12 h-12 object-cover rounded-lg"
+                        className="w-10 h-10 lg:w-12 lg:h-12 object-cover rounded-lg"
                       />
                     )}
-                    <div>
-                      <p className="text-sm font-semibold text-purple-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
                         {selectedTemplate.name}
                       </p>
-                      <p className="text-xs text-purple-600">
+                      <p className="text-xs" style={{ color: brandColors.primary }}>
                         ${selectedTemplate.basePrice.toLocaleString('es-CO')} COP
                       </p>
+                    </div>
+                    {/* Botón eliminar diseño discreto */}
+                    {currentDesign && (
+                      <button
+                        onClick={handleDesignDelete}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                        title="Eliminar diseño"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Control de tamaño compacto - solo si hay diseño */}
+                  {currentDesign && (() => {
+                    const maxWidth = availableZones.length === 0 ? 80 : Math.max(...availableZones.map(z => z.widthPercent));
+                    const aspectRatio = currentDesign.size.width / currentDesign.size.height;
+
+                    return (
+                      <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${brandColors.primary}30` }}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium" style={{ color: brandColors.primary }}>Tamaño</span>
+                          <span ref={sizeDisplayRef} className="text-xs tabular-nums" style={{ color: `${brandColors.primary}cc` }}>
+                            {Math.round(currentDesign.size.width)}%
+                          </span>
+                        </div>
+                        <input
+                          ref={sliderRef}
+                          type="range"
+                          min="5"
+                          max={maxWidth}
+                          defaultValue={currentDesign.size.width}
+                          onInput={(e) => {
+                            const newWidth = Number((e.target as HTMLInputElement).value);
+                            const newHeight = newWidth / aspectRatio;
+                            // Actualizar display
+                            if (sizeDisplayRef.current) {
+                              sizeDisplayRef.current.textContent = `${Math.round(newWidth)}%`;
+                            }
+                            // Actualizar diseño visualmente
+                            if (designElementRef.current) {
+                              designElementRef.current.style.width = `${newWidth}%`;
+                              designElementRef.current.style.height = `${newHeight}%`;
+                              const leftPercent = currentDesign.position.x - (newWidth / 2);
+                              const topPercent = currentDesign.position.y - (newHeight / 2);
+                              designElementRef.current.style.left = `${leftPercent}%`;
+                              designElementRef.current.style.top = `${topPercent}%`;
+                            }
+                          }}
+                          onMouseUp={(e) => {
+                            const newWidth = Number((e.target as HTMLInputElement).value);
+                            handleDesignUpdate({ size: { width: newWidth, height: newWidth / aspectRatio } });
+                          }}
+                          onTouchEnd={(e) => {
+                            const newWidth = Number((e.target as HTMLInputElement).value);
+                            handleDesignUpdate({ size: { width: newWidth, height: newWidth / aspectRatio } });
+                          }}
+                          className="w-full h-2 cursor-pointer"
+                          style={{ accentColor: brandColors.primary }}
+                        />
+                      </div>
+                    );
+                  })()}
+
+                  {/* Cantidad y botones de acción - siempre visible con template seleccionado */}
+                  <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${brandColors.primary}30` }}>
+                    {/* Cantidad y Stock */}
+                    {!isEditMode && (
+                      <div className="flex flex-col items-center gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium" style={{ color: brandColors.primary }}>Cantidad:</span>
+                          <div
+                            className="flex items-center rounded-lg overflow-hidden"
+                            style={{ border: `1px solid ${brandColors.primary}30` }}
+                          >
+                            <button
+                              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                              className="px-2.5 py-1 text-sm hover:opacity-80"
+                              style={{ backgroundColor: `${brandColors.primary}15`, color: brandColors.primary }}
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              max={availableStock !== null ? availableStock : 99}
+                              value={quantity}
+                              onChange={(e) => setQuantity(Math.max(1, Math.min(availableStock || 99, parseInt(e.target.value) || 1)))}
+                              className="w-10 text-center py-1 text-sm"
+                              style={{ borderLeft: `1px solid ${brandColors.primary}30`, borderRight: `1px solid ${brandColors.primary}30` }}
+                            />
+                            <button
+                              onClick={() => setQuantity(Math.min(availableStock || 99, quantity + 1))}
+                              className="px-2.5 py-1 text-sm hover:opacity-80"
+                              style={{ backgroundColor: `${brandColors.primary}15`, color: brandColors.primary }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        {/* Indicador de stock */}
+                        {availableStock !== null && (
+                          <span className={`text-xs font-medium ${availableStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {loadingStock ? 'Verificando stock...' : availableStock > 0 ? `${availableStock} disponibles` : 'Sin stock'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Botones */}
+                    <div className="flex items-center gap-2">
+                      {/* Descargar - solo icono, solo si hay diseño */}
+                      {designs.size > 0 && (
+                        <button
+                          onClick={handleExportDesigns}
+                          disabled={isExporting}
+                          className="p-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                          title="Descargar diseños"
+                        >
+                          {isExporting ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Download className="w-5 h-5" />
+                          )}
+                        </button>
+                      )}
+
+                      {/* Agregar al carrito - siempre visible */}
+                      <button
+                        onClick={handleAddToCart}
+                        disabled={!selectedTemplate || (availableStock !== null && availableStock < quantity)}
+                        className="flex-1 font-bold py-2.5 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm text-white hover:opacity-90"
+                        style={{ backgroundColor: availableStock === 0 ? '#dc2626' : isEditMode ? '#2563eb' : brandColors.primary }}
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        {availableStock !== null && availableStock === 0 ? 'Sin Stock' : isEditMode ? 'Guardar' : designs.size > 0 ? 'Agregar' : 'Comprar'}
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Área de visualización con imagen + zonas como overlays */}
-              <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-gray-100" style={{ minHeight: '500px' }}>
+              <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-gray-100 min-h-[300px] lg:min-h-[500px]">
                 {selectedTemplate ? (
                   <>
                     {/* Imagen del template - usa coloreada si existe */}
@@ -1404,7 +1686,7 @@ export const CustomizerPage = () => {
                     {/* Loading mientras carga la imagen o coloriza */}
                     {(!imageLoaded || isColorizingTemplate) && getCurrentTemplateImage() && (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+                        <Loader2 className="w-8 h-8 animate-spin" style={{ color: brandColors.primary }} />
                       </div>
                     )}
 
@@ -1488,7 +1770,7 @@ export const CustomizerPage = () => {
                             }}
                             className={`absolute border-2 cursor-pointer transition-all ${
                               isSelected
-                                ? 'border-purple-500 bg-purple-100/20'
+                                ? ''
                                 : 'border-dashed border-blue-400/50 hover:border-blue-500 hover:bg-blue-50/10'
                             }`}
                             style={{
@@ -1496,12 +1778,17 @@ export const CustomizerPage = () => {
                               top: dimensions.top,
                               width: dimensions.width,
                               height: dimensions.height,
+                              ...(isSelected ? {
+                                borderColor: brandColors.primary,
+                                backgroundColor: `${brandColors.primary}20`
+                              } : {})
                             }}
                           >
                             {/* Etiqueta de la guía */}
-                            <div className={`absolute -top-5 left-0 px-1.5 py-0.5 text-xs font-medium rounded-t whitespace-nowrap ${
-                              isSelected ? 'bg-purple-600 text-white' : 'bg-blue-500/70 text-white'
-                            }`}>
+                            <div
+                              className="absolute -top-5 left-0 px-1.5 py-0.5 text-xs font-medium rounded-t whitespace-nowrap text-white"
+                              style={{ backgroundColor: isSelected ? brandColors.primary : 'rgba(59, 130, 246, 0.7)' }}
+                            >
                               {zone.name} {isSelected && '- Clic para ajustar'}
                             </div>
                           </div>
@@ -1638,9 +1925,8 @@ export const CustomizerPage = () => {
 
                           return (
                             <div
-                              className={`absolute cursor-move select-none ${
-                                isDragging ? 'ring-2 ring-purple-500 ring-offset-2' : 'hover:ring-2 hover:ring-purple-300'
-                              }`}
+                              ref={designElementRef}
+                              className="absolute cursor-move select-none hover:ring-2 rounded"
                               style={{
                                 left: `${leftPercent}%`,
                                 top: `${topPercent}%`,
@@ -1650,7 +1936,9 @@ export const CustomizerPage = () => {
                                 transform: `rotate(${design.rotation || 0}deg)`,
                                 transformOrigin: 'center center',
                                 pointerEvents: 'auto', // El diseño sí captura eventos para arrastrarlo
-                              }}
+                                touchAction: 'none', // Prevenir scroll/zoom del navegador al arrastrar
+                                '--tw-ring-color': `${brandColors.primary}60`,
+                              } as React.CSSProperties}
                               onMouseDown={handleDragStart}
                               onTouchStart={handleDragStart}
                             >
@@ -1661,7 +1949,10 @@ export const CustomizerPage = () => {
                                 draggable={false}
                               />
                               {/* Indicador de arrastre */}
-                              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 opacity-0 hover:opacity-100 transition-opacity">
+                              <div
+                                className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 opacity-0 hover:opacity-100 transition-opacity"
+                                style={{ backgroundColor: brandColors.primary }}
+                              >
                                 <Move className="w-3 h-3" />
                                 <span>Arrastra para mover</span>
                               </div>
@@ -1698,95 +1989,44 @@ export const CustomizerPage = () => {
                   className="hidden"
                 />
               </div>
+            </div>
+          </main>
 
-              {/* Botones de acción */}
-              <div className="mt-6">
-                {designs.size > 0 && (
-                  <p className="text-sm text-gray-600 mb-3">
-                    {designs.size} zona{designs.size > 1 ? 's' : ''} con diseño
-                  </p>
-                )}
+          {/* Right: Controles de Diseño - order-3 en móvil para estar cerca del canvas */}
+          <aside className="lg:col-span-3 space-y-4 lg:space-y-6 order-3">
+            <div className="bg-white rounded-xl shadow-md p-4 lg:p-6">
+              <h3 className="text-base lg:text-lg font-bold text-gray-900 mb-3 lg:mb-4">Tu Diseño</h3>
 
-                <div className="flex items-center gap-3">
-                  {!isEditMode && (
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium text-gray-700">Cantidad:</label>
-                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-                        <button
-                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          className="px-3 py-2 bg-gray-100 hover:bg-gray-200"
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          max="99"
-                          value={quantity}
-                          onChange={(e) => setQuantity(Math.max(1, Math.min(99, parseInt(e.target.value) || 1)))}
-                          className="w-14 text-center py-2 border-x border-gray-300"
-                        />
-                        <button
-                          onClick={() => setQuantity(Math.min(99, quantity + 1))}
-                          className="px-3 py-2 bg-gray-100 hover:bg-gray-200"
-                        >
-                          +
-                        </button>
+              {selectedTemplate && currentZoneType ? (
+                <div className="space-y-4">
+                  {/* Estado actual del diseño */}
+                  {currentDesign && (
+                    <div
+                      className="p-2.5 rounded-lg flex items-center gap-2"
+                      style={{
+                        backgroundColor: `${brandColors.secondary}15`,
+                        border: `1px solid ${brandColors.secondary}40`
+                      }}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-white"
+                        style={{ border: `1px solid ${brandColors.secondary}40` }}
+                      >
+                        <img src={currentDesign.imageData} alt="Tu diseño" className="w-full h-full object-contain" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium" style={{ color: brandColors.secondary }}>Diseño cargado</p>
+                        <p className="text-xs" style={{ color: `${brandColors.secondary}cc` }}>Sube otra para reemplazar</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Botón de descarga ZIP */}
-                  <button
-                    onClick={handleExportDesigns}
-                    disabled={designs.size === 0 || isExporting}
-                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    title="Descargar diseños como ZIP"
-                  >
-                    {isExporting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Download className="w-5 h-5" />
-                    )}
-                    <span className="hidden sm:inline">
-                      {isExporting ? 'Exportando...' : 'Descargar'}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={handleAddToCart}
-                    disabled={!selectedTemplate || designs.size === 0}
-                    className={`flex-1 font-bold py-2.5 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-                      isEditMode
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-gray-800 hover:bg-gray-700 text-white'
-                    }`}
-                  >
-                    <ShoppingCart className="w-5 h-5" />
-                    {isEditMode ? 'Guardar Cambios' : 'Agregar al Carrito'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </main>
-
-          {/* Right: Controles de Diseño */}
-          <aside className="lg:col-span-3 space-y-6">
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Tu Imagen</h3>
-              {selectedTemplate && currentZoneType ? (
-                <>
                   <ImageUploader onImageUpload={handleImageUpload} isUploading={isUploading} />
-                  {currentDesign && (
-                    <p className="text-xs text-gray-500 mt-2 text-center">
-                      Subir una nueva imagen reemplazará la actual
-                    </p>
-                  )}
 
                   {/* Separador */}
-                  <div className="flex items-center gap-3 my-4">
+                  <div className="flex items-center gap-3">
                     <div className="flex-1 h-px bg-gray-200"></div>
-                    <span className="text-xs text-gray-400">o elige uno</span>
+                    <span className="text-xs text-gray-400">o elige</span>
                     <div className="flex-1 h-px bg-gray-200"></div>
                   </div>
 
@@ -1795,16 +2035,18 @@ export const CustomizerPage = () => {
                     onImageSelect={handlePresetImageSelect}
                     isLoading={isUploading}
                   />
-                </>
+                </div>
               ) : (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  Selecciona un modelo para subir tu imagen
-                </p>
+                <div className="text-center py-6">
+                  <Package className="w-10 h-10 mx-auto mb-2" style={{ color: `${brandColors.primary}40` }} />
+                  <p className="text-sm" style={{ color: `${brandColors.primary}80` }}>Selecciona un modelo</p>
+                </div>
               )}
             </div>
 
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Controles de Diseño</h3>
+            {/* Panel de controles avanzados - solo visible en desktop o cuando hay diseño */}
+            <div className="bg-white rounded-xl shadow-md p-4 lg:p-6 hidden lg:block">
+              <h3 className="text-base lg:text-lg font-bold text-gray-900 mb-3 lg:mb-4">Controles Avanzados</h3>
               <DesignControls
                 design={currentDesign || null}
                 onUpdate={handleDesignUpdate}
@@ -1819,6 +2061,83 @@ export const CustomizerPage = () => {
               />
             </div>
           </aside>
+
+          {/* Botones de acción - solo visible en desktop */}
+          <div className="hidden lg:block lg:col-span-6 lg:col-start-4 order-4">
+            <div className="bg-white rounded-xl shadow-md p-4 lg:p-6">
+              {designs.size > 0 && (
+                <p className="text-sm text-gray-600 mb-3 text-center">
+                  {designs.size} zona{designs.size > 1 ? 's' : ''} con diseño
+                </p>
+              )}
+
+              {/* Cantidad y Stock - centrado */}
+              {!isEditMode && (
+                <div className="flex flex-col items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Cantidad:</label>
+                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max={availableStock !== null ? availableStock : 99}
+                        value={quantity}
+                        onChange={(e) => setQuantity(Math.max(1, Math.min(availableStock || 99, parseInt(e.target.value) || 1)))}
+                        className="w-14 text-center py-2 border-x border-gray-300"
+                      />
+                      <button
+                        onClick={() => setQuantity(Math.min(availableStock || 99, quantity + 1))}
+                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  {/* Indicador de stock */}
+                  {availableStock !== null && (
+                    <span className={`text-sm font-medium ${availableStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {loadingStock ? 'Verificando stock...' : availableStock > 0 ? `${availableStock} unidades disponibles` : 'Sin stock disponible'}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Botones de acción */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExportDesigns}
+                  disabled={designs.size === 0 || isExporting}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  title="Descargar diseños como ZIP"
+                >
+                  {isExporting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
+                  <span>
+                    {isExporting ? 'Exportando...' : 'Descargar'}
+                  </span>
+                </button>
+
+                <button
+                  onClick={handleAddToCart}
+                  disabled={!selectedTemplate || availableStock === 0}
+                  className="flex-1 font-bold py-2.5 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white hover:opacity-90"
+                  style={{ backgroundColor: availableStock === 0 ? '#dc2626' : isEditMode ? '#2563eb' : brandColors.primary }}
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  {availableStock === 0 ? 'Sin Stock' : isEditMode ? 'Guardar Cambios' : designs.size > 0 ? 'Agregar al Carrito' : 'Comprar Sin Diseño'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

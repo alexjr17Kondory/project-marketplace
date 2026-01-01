@@ -336,47 +336,9 @@ export default function POSLayout({ children }: POSLayoutProps) {
       </>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto pb-20 lg:pb-0">
+      <main className="flex-1 overflow-auto">
         <div className="max-w-7xl mx-auto p-4 lg:p-6">{children}</div>
       </main>
-
-      {/* Bottom Navigation - Mobile Only */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 pb-safe">
-        <div className="flex items-center justify-around px-2 py-2">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path, item.exact);
-
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg transition-all ${
-                  active
-                    ? 'text-indigo-600'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <Icon
-                  className="w-6 h-6"
-                  strokeWidth={active ? 2.5 : 2}
-                  fill={active ? 'currentColor' : 'none'}
-                />
-                <span className="text-xs font-semibold">{item.label}</span>
-              </Link>
-            );
-          })}
-
-          {/* User button in bottom nav */}
-          <button
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            className="flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg text-gray-500 hover:text-gray-900"
-          >
-            <User className="w-6 h-6" strokeWidth={2} />
-            <span className="text-xs font-semibold">Perfil</span>
-          </button>
-        </div>
-      </nav>
     </div>
   );
 }

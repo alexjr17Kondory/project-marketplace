@@ -1,6 +1,62 @@
 import api from './api.service';
 import type { Product } from '../types/product';
 
+// Helper para normalizar imágenes del producto (soporta hasta 5 imágenes)
+function normalizeImages(images: any): { front: string; back?: string; side?: string; extra1?: string; extra2?: string } {
+  // Si es null o undefined, retornar objeto vacío con placeholder
+  if (!images) {
+    return { front: '' };
+  }
+
+  // Si es string, intentar parsearlo como JSON
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images);
+      return normalizeImages(parsed);
+    } catch {
+      // Si no es JSON válido, asumir que es una URL de imagen front
+      return { front: images };
+    }
+  }
+
+  // Si es un array, convertir a objeto {front, back, side, extra1, extra2}
+  if (Array.isArray(images)) {
+    const result: { front: string; back?: string; side?: string; extra1?: string; extra2?: string } = { front: '' };
+    images.forEach((img: any, index: number) => {
+      if (typeof img === 'string') {
+        if (index === 0) result.front = img;
+        else if (index === 1) result.back = img;
+        else if (index === 2) result.side = img;
+        else if (index === 3) result.extra1 = img;
+        else if (index === 4) result.extra2 = img;
+      } else if (img && typeof img === 'object') {
+        // Si es objeto con position o url
+        const url = img.url || img.src || img.front || '';
+        const position = img.position || img.type || index;
+        if (position === 'front' || position === 0) result.front = url;
+        else if (position === 'back' || position === 1) result.back = url;
+        else if (position === 'side' || position === 2) result.side = url;
+        else if (position === 'extra1' || position === 3) result.extra1 = url;
+        else if (position === 'extra2' || position === 4) result.extra2 = url;
+      }
+    });
+    return result;
+  }
+
+  // Si ya es un objeto, asegurar que tenga la estructura correcta
+  if (typeof images === 'object') {
+    return {
+      front: images.front || images[0] || '',
+      back: images.back || images[1] || undefined,
+      side: images.side || images[2] || undefined,
+      extra1: images.extra1 || images[3] || undefined,
+      extra2: images.extra2 || images[4] || undefined,
+    };
+  }
+
+  return { front: '' };
+}
+
 // Helper para normalizar productos del backend
 function normalizeProduct(product: any): Product {
   return {
@@ -13,9 +69,12 @@ function normalizeProduct(product: any): Product {
     typeSlug: product.typeSlug,
     categoryId: product.categoryId,
     typeId: product.typeId,
+    // Normalizar imágenes
+    images: normalizeImages(product.images),
     // Normalizar colores: hexCode -> hex para compatibilidad con el frontend
     colors: product.colors?.map((c: any) => ({
       ...c,
+      hexCode: c.hexCode || c.hex, // Asegurar que hexCode existe
       hex: c.hexCode || c.hex, // Mantener compatibilidad con código existente
     })) || [],
     // Sizes ya vienen en el formato correcto del backend

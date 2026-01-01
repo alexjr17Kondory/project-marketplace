@@ -2,20 +2,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowLeft } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProducts } from '../context/ProductsContext';
-import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
 import { ProductGrid } from '../components/products/ProductGrid';
 import { ProductFilters, type FilterValues } from '../components/products/ProductFilters';
 import { ProductSort } from '../components/products/ProductSort';
 import { Pagination } from '../components/common/Pagination';
-import type { Product } from '../types/product';
 import type { ProductCategory, ProductType } from '../types/product';
 
 export const CatalogPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { filteredProducts, setFilters, sortOption, setSortOption, isLoading } = useProducts();
-  const { addStandardProduct } = useCart();
   const { settings } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -112,18 +109,6 @@ export const CatalogPage = () => {
     setCurrentPage(1); // Reset to first page when items per page changes
   };
 
-  const handleAddToCart = (product: Product) => {
-    // Agregar con opciones por defecto
-    const defaultColor = product.colors[0]?.hexCode || '#FFFFFF';
-    const firstSize = product.sizes[0];
-    const defaultSize = typeof firstSize === 'string' ? firstSize : firstSize?.abbreviation || 'M';
-
-    addStandardProduct(product, defaultColor, defaultSize, 1);
-
-    // TODO: Mostrar toast de confirmación
-    alert(`${product.name} agregado al carrito!`);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -192,7 +177,7 @@ export const CatalogPage = () => {
               </div>
             ) : (
               <>
-                <ProductGrid products={paginatedProducts} onAddToCart={handleAddToCart} />
+                <ProductGrid products={paginatedProducts} />
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}

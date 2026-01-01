@@ -1,6 +1,7 @@
 import { ShoppingBag, Truck, Receipt, Tag } from 'lucide-react';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useCart } from '../../context/CartContext';
+import { useSettings } from '../../context/SettingsContext';
 import type { Cart } from '../../types/cart';
 
 interface CartSummaryProps {
@@ -11,29 +12,33 @@ interface CartSummaryProps {
 export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
   const { format } = useCurrency();
   const { orderConfig } = useCart();
+  const { settings } = useSettings();
   const hasItems = cart.items.length > 0;
+
+  // Colores de marca dinámicos
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
 
   // Obtener configuración del CartContext
   const { freeShippingThreshold, taxRate, taxIncluded } = orderConfig;
   const taxPercentage = Math.round(taxRate * 100);
 
   // Calcular el valor del impuesto para mostrar
-  // Si taxIncluded=true: el IVA ya está en el precio, hay que extraerlo
-  //   Fórmula: IVA = subtotal - (subtotal / (1 + taxRate))
-  // Si taxIncluded=false: el IVA se calcula sobre el subtotal
-  //   Fórmula: IVA = subtotal * taxRate
   const calculatedTax = taxIncluded
     ? Math.round(cart.subtotal - (cart.subtotal / (1 + taxRate)))
     : Math.round(cart.subtotal * taxRate);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-        <Receipt className="w-5 h-5 text-gray-600" />
-        Resumen de Compra
+    <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 sticky top-4 lg:top-6">
+      <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-4 lg:mb-6 flex items-center gap-2">
+        <Receipt className="w-5 h-5" style={{ color: brandColors.primary }} />
+        Resumen
       </h2>
 
-      <div className="space-y-4 mb-6">
+      <div className="space-y-3 lg:space-y-4 mb-4 lg:mb-6 text-sm lg:text-base">
         {/* Total de items */}
         <div className="flex items-center justify-between text-gray-600">
           <div className="flex items-center gap-2">
@@ -61,7 +66,7 @@ export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
         </div>
 
         {cart.subtotal > 0 && cart.subtotal < freeShippingThreshold && (
-          <p className="text-xs text-gray-500 pl-6">
+          <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
             Agrega {format(freeShippingThreshold - cart.subtotal)} más para envío gratis
           </p>
         )}
@@ -70,14 +75,14 @@ export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
         <div className="flex items-center justify-between text-gray-600">
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4" />
-            <span>Impuestos ({taxPercentage}%)</span>
+            <span>IVA ({taxPercentage}%)</span>
           </div>
           <div className="text-right">
             <span className="font-semibold text-gray-900">
               {format(taxIncluded ? calculatedTax : cart.tax)}
             </span>
             {taxIncluded && (
-              <span className="text-xs text-green-600 ml-1">(incluido)</span>
+              <span className="text-xs text-green-600 ml-1">(incl.)</span>
             )}
           </div>
         </div>
@@ -91,11 +96,11 @@ export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
         )}
       </div>
 
-      {/* Divisor */}
-      <div className="border-t border-gray-200 pt-4 mb-6">
+      {/* Total */}
+      <div className="border-t border-gray-200 pt-4 mb-4 lg:mb-6">
         <div className="flex items-center justify-between">
-          <span className="text-lg font-bold text-gray-900">Total</span>
-          <span className="text-2xl font-bold text-gray-900">
+          <span className="text-base lg:text-lg font-bold text-gray-900">Total</span>
+          <span className="text-xl lg:text-2xl font-bold text-gray-900">
             {format(cart.total)}
           </span>
         </div>
@@ -106,30 +111,31 @@ export const CartSummary = ({ cart, onCheckout }: CartSummaryProps) => {
         <button
           onClick={onCheckout}
           disabled={!hasItems}
-          className="w-full bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+          style={{ backgroundColor: hasItems ? brandColors.primary : undefined }}
+          className="w-full text-white font-bold py-3 px-6 rounded-lg hover:opacity-90 disabled:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg text-sm lg:text-base"
         >
           {hasItems ? 'Proceder al Pago' : 'Carrito Vacío'}
         </button>
       )}
 
       {!hasItems && (
-        <p className="text-center text-sm text-gray-500 mt-4">
+        <p className="text-center text-xs lg:text-sm text-gray-500 mt-3 lg:mt-4">
           Agrega productos al carrito para continuar
         </p>
       )}
 
-      {/* Políticas */}
-      <div className="mt-6 pt-6 border-t border-gray-200 space-y-2 text-xs text-gray-500">
+      {/* Políticas - solo desktop */}
+      <div className="hidden lg:block mt-6 pt-6 border-t border-gray-200 space-y-2 text-xs text-gray-500">
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: brandColors.primary }}></span>
           Envío gratis en compras mayores a {format(freeShippingThreshold)}
         </p>
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: brandColors.primary }}></span>
           Devoluciones gratuitas en 30 días
         </p>
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: brandColors.primary }}></span>
           Garantía de satisfacción 100%
         </p>
       </div>

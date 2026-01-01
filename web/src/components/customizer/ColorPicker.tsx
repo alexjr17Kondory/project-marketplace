@@ -1,3 +1,5 @@
+import { useSettings } from '../../context/SettingsContext';
+
 interface ColorPickerProps {
   colors: string[];
   selectedColor: string;
@@ -6,26 +8,41 @@ interface ColorPickerProps {
 }
 
 export const ColorPicker = ({ colors, selectedColor, onColorChange, label = 'Color' }: ColorPickerProps) => {
+  const { settings } = useSettings();
+
+  // Colores de marca dinámicos
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
+
   return (
-    <div className="space-y-3">
-      <label className="block text-sm font-semibold text-gray-900">{label}</label>
-      <div className="grid grid-cols-5 gap-2">
+    <div>
+      <span className="text-sm font-semibold text-gray-900 mb-2 block">{label}</span>
+      <div className="flex flex-wrap gap-2">
         {colors.map((color) => (
           <button
             key={color}
             onClick={() => onColorChange(color)}
-            className={`w-full aspect-square rounded-lg border-2 transition-all hover:scale-110 ${
+            className={`w-9 h-9 rounded-lg border-2 transition-all hover:scale-105 flex-shrink-0 ${
               selectedColor === color
-                ? 'border-purple-600 ring-2 ring-purple-600 ring-offset-2'
+                ? ''
                 : 'border-gray-300 hover:border-gray-400'
             }`}
-            style={{ backgroundColor: color }}
+            style={{
+              backgroundColor: color,
+              ...(selectedColor === color ? {
+                borderColor: brandColors.primary,
+                boxShadow: `0 0 0 2px white, 0 0 0 4px ${brandColors.primary}`
+              } : {})
+            }}
             title={color}
           >
             {selectedColor === color && (
               <div className="w-full h-full flex items-center justify-center">
                 <svg
-                  className="w-5 h-5 text-white drop-shadow-lg"
+                  className="w-4 h-4 text-white drop-shadow-lg"
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"

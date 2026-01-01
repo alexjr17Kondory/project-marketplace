@@ -722,6 +722,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       await settingsService.updateFrontendPaymentSettings(newPayment);
     } catch (err) {
       console.error('Error persisting payment settings:', err);
+      throw err; // Propagar el error para que el llamador pueda manejarlo
     }
   };
 
@@ -885,9 +886,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       ...method,
       id: `pm-${Date.now()}`,
     };
+    const currentPayment = settings.payment || { taxRate: 0, taxIncluded: false, methods: [] };
     const newPayment = {
-      ...settings.payment,
-      methods: [...settings.payment.methods, newMethod],
+      ...currentPayment,
+      methods: [...(currentPayment.methods || []), newMethod],
     };
 
     setSettings((prev) => ({ ...prev, payment: newPayment, updatedAt: new Date() }));
@@ -895,9 +897,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updatePaymentMethod = async (id: string, data: Partial<PaymentMethodConfig>): Promise<void> => {
+    const currentPayment = settings.payment || { taxRate: 0, taxIncluded: false, methods: [] };
     const newPayment = {
-      ...settings.payment,
-      methods: settings.payment.methods.map((method) =>
+      ...currentPayment,
+      methods: (currentPayment.methods || []).map((method) =>
         method.id === id ? { ...method, ...data } : method
       ),
     };
@@ -907,9 +910,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deletePaymentMethod = async (id: string): Promise<void> => {
+    const currentPayment = settings.payment || { taxRate: 0, taxIncluded: false, methods: [] };
     const newPayment = {
-      ...settings.payment,
-      methods: settings.payment.methods.filter((method) => method.id !== id),
+      ...currentPayment,
+      methods: (currentPayment.methods || []).filter((method) => method.id !== id),
     };
 
     setSettings((prev) => ({ ...prev, payment: newPayment, updatedAt: new Date() }));
@@ -917,9 +921,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const togglePaymentMethod = async (id: string): Promise<void> => {
+    const currentPayment = settings.payment || { taxRate: 0, taxIncluded: false, methods: [] };
     const newPayment = {
-      ...settings.payment,
-      methods: settings.payment.methods.map((method) =>
+      ...currentPayment,
+      methods: (currentPayment.methods || []).map((method) =>
         method.id === id ? { ...method, isActive: !method.isActive } : method
       ),
     };

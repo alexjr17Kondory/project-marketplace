@@ -69,8 +69,8 @@ export async function generateBarcodeImage(
 ): Promise<Buffer> {
   const {
     format = 'png',
-    width = 2,
-    height = 50,
+    width = 3,
+    height = 12,
     includeText = true,
   } = options;
 

@@ -78,6 +78,19 @@ export interface VariantFilter {
   sizeId?: number;
   isActive?: boolean;
   lowStock?: boolean;
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 // ==================== API ====================
@@ -208,4 +221,80 @@ export async function getLowStockVariants(): Promise<ProductVariant[]> {
     headers: getAuthHeader(),
   });
   return response.data.data;
+}
+
+/**
+ * Obtener solo variantes de PRODUCTOS (no templates) - con paginación del servidor
+ */
+export async function getProductVariants(filter: VariantFilter = {}): Promise<PaginatedResult<ProductVariant>> {
+  const params = new URLSearchParams();
+
+  if (filter.productId) params.append('productId', filter.productId.toString());
+  if (filter.colorId) params.append('colorId', filter.colorId.toString());
+  if (filter.sizeId) params.append('sizeId', filter.sizeId.toString());
+  if (filter.isActive !== undefined) params.append('isActive', filter.isActive.toString());
+  if (filter.lowStock) params.append('lowStock', 'true');
+  if (filter.page) params.append('page', filter.page.toString());
+  if (filter.limit) params.append('limit', filter.limit.toString());
+  if (filter.search) params.append('search', filter.search);
+
+  const response = await axios.get(`${API_URL}/variants/products?${params.toString()}`, {
+    headers: getAuthHeader(),
+  });
+  return {
+    data: response.data.data,
+    pagination: response.data.pagination,
+  };
+}
+
+/**
+ * Obtener solo variantes de TEMPLATES (plantillas) - con paginación y stock calculado desde insumos
+ */
+export async function getTemplateVariants(filter: VariantFilter = {}): Promise<PaginatedResult<ProductVariant>> {
+  const params = new URLSearchParams();
+
+  if (filter.productId) params.append('productId', filter.productId.toString());
+  if (filter.colorId) params.append('colorId', filter.colorId.toString());
+  if (filter.sizeId) params.append('sizeId', filter.sizeId.toString());
+  if (filter.isActive !== undefined) params.append('isActive', filter.isActive.toString());
+  if (filter.lowStock) params.append('lowStock', 'true');
+  if (filter.page) params.append('page', filter.page.toString());
+  if (filter.limit) params.append('limit', filter.limit.toString());
+  if (filter.search) params.append('search', filter.search);
+
+  const response = await axios.get(`${API_URL}/variants/templates?${params.toString()}`, {
+    headers: getAuthHeader(),
+  });
+  return {
+    data: response.data.data,
+    pagination: response.data.pagination,
+  };
+}
+
+/**
+ * Buscar variante por productId, colorHex y sizeName
+ * Útil para verificar stock desde el carrito
+ */
+export async function getVariantByProductColorSize(
+  productId: number,
+  colorHex: string,
+  sizeName: string
+): Promise<ProductVariant | null> {
+  try {
+    const params = new URLSearchParams({
+      productId: productId.toString(),
+      colorHex,
+      sizeName,
+    });
+
+    const response = await axios.get(`${API_URL}/variants/lookup?${params.toString()}`, {
+      headers: getAuthHeader(),
+    });
+    return response.data.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
