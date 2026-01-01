@@ -504,24 +504,13 @@ export async function updateOrderStatus(
   // Agregar campos específicos según el estado
   if (data.status === 'PAID') {
     updateData.paidAt = new Date();
-  } else if (data.status === 'SHIPPED') {
-    updateData.shippedAt = new Date();
-    if (data.trackingNumber) {
-      updateData.trackingNumber = data.trackingNumber;
-    }
-    if (data.trackingUrl) {
-      updateData.trackingUrl = data.trackingUrl;
-    }
-  } else if (data.status === 'DELIVERED') {
-    updateData.deliveredAt = new Date();
-  } else if (data.status === 'CANCELLED') {
-    // Restaurar stock de variantes (solo para productos regulares)
+
+    // Consumir insumos para templates cuando se paga la orden
     const items = await prisma.orderItem.findMany({
       where: { orderId: id },
     });
 
     for (const item of items) {
-      // Obtener el producto para verificar si es template
       const product = await prisma.product.findUnique({
         where: { id: item.productId },
         include: {
@@ -534,10 +523,8 @@ export async function updateOrderStatus(
         },
       });
 
-      // Solo restaurar stock para productos regulares (no templates)
-      // Para templates el stock está en los insumos
-      if (product && !product.isTemplate) {
-        // Buscar la variante correspondiente
+      if (product?.isTemplate) {
+        // Buscar la variante del template
         const variant = product.variants.find((v) => {
           const colorMatch = v.color?.hexCode?.toLowerCase() === item.color?.toLowerCase();
           const sizeMatch = v.size?.name === item.size || v.size?.abbreviation === item.size;
@@ -545,15 +532,168 @@ export async function updateOrderStatus(
         });
 
         if (variant) {
-          await prisma.productVariant.update({
-            where: { id: variant.id },
-            data: {
-              stock: {
-                increment: item.quantity,
-              },
-            },
+          // Obtener recetas del template
+          const recipes = await prisma.templateRecipe.findMany({
+            where: { variantId: variant.id },
           });
+
+          // Consumir cada insumo de la receta
+          for (const recipe of recipes) {
+            const inputQuantityToConsume = Number(recipe.quantity) * item.quantity;
+
+            // Obtener stock actual del insumo
+            const inputVariant = await prisma.inputVariant.findUnique({
+              where: { id: recipe.inputVariantId },
+              include: { input: { select: { name: true } } },
+            });
+
+            if (inputVariant) {
+              const previousStock = Number(inputVariant.currentStock);
+              const newStock = previousStock - inputQuantityToConsume;
+
+              // Descontar stock del insumo
+              await prisma.inputVariant.update({
+                where: { id: recipe.inputVariantId },
+                data: {
+                  currentStock: {
+                    decrement: inputQuantityToConsume,
+                  },
+                },
+              });
+
+              // Registrar movimiento de insumo
+              await prisma.inputVariantMovement.create({
+                data: {
+                  inputVariantId: recipe.inputVariantId,
+                  movementType: 'SALIDA' as InputMovementType,
+                  quantity: -inputQuantityToConsume,
+                  previousStock,
+                  newStock,
+                  referenceType: 'order',
+                  referenceId: id,
+                  reason: `Venta online - Orden ${order.orderNumber} - Template ${product.name}`,
+                },
+              });
+            }
+          }
         }
+      }
+    }
+  } else if (data.status === 'SHIPPED') {
+    updateData.shippedAt = new Date();
+    if (data.trackingNumber) {
+      updateData.trackingNumber = data.trackingNumber;
+    }
+    if (data.trackingUrl) {
+      updateData.trackingUrl = data.trackingUrl;
+    }
+  } else if (data.status === 'DELIVERED') {
+    updateData.deliveredAt = new Date();
+  } else if (data.status === 'CANCELLED') {
+    // Restaurar stock según el tipo de producto y el estado previo
+    const items = await prisma.orderItem.findMany({
+      where: { orderId: id },
+    });
+
+    // Si la orden estaba pagada (PAID, PROCESSING, SHIPPED), los insumos de templates ya fueron consumidos
+    const wasPaid = ['PAID', 'PROCESSING', 'SHIPPED'].includes(order.status);
+
+    for (const item of items) {
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId },
+        include: {
+          variants: {
+            include: {
+              color: true,
+              size: true,
+            },
+          },
+        },
+      });
+
+      if (!product) continue;
+
+      // Buscar la variante correspondiente
+      const variant = product.variants.find((v) => {
+        const colorMatch = v.color?.hexCode?.toLowerCase() === item.color?.toLowerCase();
+        const sizeMatch = v.size?.name === item.size || v.size?.abbreviation === item.size;
+        return colorMatch && sizeMatch;
+      });
+
+      if (!variant) continue;
+
+      if (product.isTemplate) {
+        // Templates: restaurar insumos solo si la orden ya estaba pagada
+        if (wasPaid) {
+          const recipes = await prisma.templateRecipe.findMany({
+            where: { variantId: variant.id },
+          });
+
+          for (const recipe of recipes) {
+            const inputQuantityToRestore = Number(recipe.quantity) * item.quantity;
+
+            const inputVariant = await prisma.inputVariant.findUnique({
+              where: { id: recipe.inputVariantId },
+              include: { input: { select: { name: true } } },
+            });
+
+            if (inputVariant) {
+              const previousStock = Number(inputVariant.currentStock);
+              const newStock = previousStock + inputQuantityToRestore;
+
+              // Restaurar stock del insumo
+              await prisma.inputVariant.update({
+                where: { id: recipe.inputVariantId },
+                data: {
+                  currentStock: {
+                    increment: inputQuantityToRestore,
+                  },
+                },
+              });
+
+              // Registrar movimiento de devolución
+              await prisma.inputVariantMovement.create({
+                data: {
+                  inputVariantId: recipe.inputVariantId,
+                  movementType: 'DEVOLUCION' as InputMovementType,
+                  quantity: inputQuantityToRestore,
+                  previousStock,
+                  newStock,
+                  referenceType: 'order_cancel',
+                  referenceId: id,
+                  reason: `Cancelación orden ${order.orderNumber} - Template ${product.name}`,
+                },
+              });
+            }
+          }
+        }
+      } else {
+        // Productos regulares: restaurar stock de variante y registrar movimiento
+        const previousStock = variant.stock;
+        const newStock = previousStock + item.quantity;
+
+        await prisma.productVariant.update({
+          where: { id: variant.id },
+          data: {
+            stock: {
+              increment: item.quantity,
+            },
+          },
+        });
+
+        // Registrar movimiento de devolución
+        await prisma.variantMovement.create({
+          data: {
+            variantId: variant.id,
+            movementType: 'RETURN' as VariantMovementType,
+            quantity: item.quantity,
+            previousStock,
+            newStock,
+            referenceType: 'order_cancel',
+            referenceId: id,
+            reason: `Cancelación orden ${order.orderNumber}`,
+          },
+        });
       }
     }
   }
