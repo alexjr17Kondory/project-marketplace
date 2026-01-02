@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma } from '../config/database';
 import * as emailService from './email.service';
 import * as settingsService from './settings.service';
+import * as ordersService from './orders.service';
 
 // Estados de transacción de Wompi
 export type WompiTransactionStatus = 'APPROVED' | 'DECLINED' | 'VOIDED' | 'ERROR' | 'PENDING';
@@ -174,29 +175,25 @@ async function handleApprovedTransaction(order: any, transactionId: string) {
     return;
   }
 
-  // Actualizar orden a PAID
+  // Actualizar paymentRef primero (antes de cambiar estado)
   await prisma.order.update({
     where: { id: order.id },
     data: {
-      status: 'PAID',
-      paidAt: new Date(),
       paymentRef: transactionId,
-      statusHistory: [
-        ...(order.statusHistory as any[]),
-        {
-          status: 'PAID',
-          timestamp: new Date().toISOString(),
-          note: `Pago confirmado via Wompi. Transacción: ${transactionId}`,
-        },
-      ],
     },
   });
 
-  console.log(`✅ Orden ${order.orderNumber} marcada como PAID`);
+  // Usar updateOrderStatus para que se procesen los movimientos de inventario
+  // (consumo de insumos para templates, etc.)
+  await ordersService.updateOrderStatus(order.id, {
+    status: 'PAID',
+    notes: `Pago confirmado via Wompi. Transacción: ${transactionId}`,
+  });
+
+  console.log(`✅ Orden ${order.orderNumber} marcada como PAID (con consumo de insumos)`);
 
   // Enviar email de confirmación
   if (order.user?.email) {
-    const shippingData = order.shipping as any;
     await emailService.sendOrderStatusUpdate(order.user.email, {
       orderNumber: order.orderNumber,
       customerName: order.user.name,
@@ -256,34 +253,14 @@ async function handleFailedTransaction(
 async function handleVoidedTransaction(order: any, transactionId: string) {
   // Si la orden ya fue pagada y se anuló, marcar como cancelada
   if (order.status === 'PAID') {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'CANCELLED',
-        statusHistory: [
-          ...(order.statusHistory as any[]),
-          {
-            status: 'CANCELLED',
-            timestamp: new Date().toISOString(),
-            note: `Pago anulado. Transacción: ${transactionId}`,
-          },
-        ],
-      },
+    // Usar updateOrderStatus para restaurar stock correctamente
+    // (restaura ProductVariant.stock para productos regulares y InputVariant.currentStock para templates)
+    await ordersService.updateOrderStatus(order.id, {
+      status: 'CANCELLED',
+      notes: `Pago anulado via Wompi. Transacción: ${transactionId}`,
     });
 
-    console.log(`🚫 Orden ${order.orderNumber} cancelada por pago anulado`);
-
-    // Restaurar stock
-    const items = await prisma.orderItem.findMany({
-      where: { orderId: order.id },
-    });
-
-    for (const item of items) {
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: { stock: { increment: item.quantity } },
-      });
-    }
+    console.log(`🚫 Orden ${order.orderNumber} cancelada por pago anulado (stock restaurado)`);
   }
 }
 

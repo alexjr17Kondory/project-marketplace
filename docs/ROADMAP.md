@@ -2,11 +2,11 @@
 
 ## ESTADO GENERAL
 
-**Fecha:** 2025-12-27
+**Fecha:** 2026-01-01
 **Deploy Frontend:** https://project-marketplace.vercel.app
 **Backend Local:** http://localhost:3001/api
 **Progreso Total:** 99%
-**Versión Actual:** 6.1
+**Versión Actual:** 6.2
 
 ---
 
@@ -449,6 +449,24 @@ docker exec marketplace-backend npx prisma studio
 
 ## CHANGELOG RECIENTE
 
+### v6.2 (2026-01-01)
+- ✅ **Movimientos de Inventario en E-commerce**
+  - Registro automático de movimientos SALE al crear órdenes (productos regulares)
+  - Consumo de insumos de templates al aprobar pago (estado PAID)
+  - Restauración de stock al cancelar órdenes pagadas (estado CANCELLED)
+  - Soporte para múltiples ingredientes por receta (TemplateRecipe 1:N)
+  - Fallback a ProductInput cuando template_recipes está vacío
+  - Movimientos tipo SALIDA/DEVOLUCION en InputVariantMovement
+  - Movimientos tipo SALE/RETURN en VariantMovement
+- ✅ **Integración Wompi con Inventario**
+  - handleApprovedTransaction usa updateOrderStatus para consumo automático
+  - handleVoidedTransaction usa updateOrderStatus para restauración de stock
+  - Trazabilidad completa de pagos con consumo de insumos
+- ✅ **Mejoras de Trazabilidad**
+  - referenceType y referenceId en movimientos (order, order_cancel)
+  - Reason descriptivo con número de orden y nombre de producto
+  - previousStock y newStock en cada movimiento
+
 ### v6.1 (2025-12-27)
 - ✅ **Sistema de Template Recipes (Recetas de Plantillas)**
   - Modelo TemplateRecipe con soporte 1:N para múltiples ingredientes
@@ -668,5 +686,5 @@ docker exec marketplace-backend npx prisma studio
 
 ---
 
-**Ultima actualizacion:** 2025-12-27
-**Version:** 6.1
+**Ultima actualizacion:** 2026-01-01
+**Version:** 6.2
