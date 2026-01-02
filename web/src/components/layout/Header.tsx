@@ -9,6 +9,7 @@ import { LoginModal } from '../auth/LoginModal';
 import { MobileUserMenu } from '../auth/MobileUserMenu';
 import AppSwitcher from '../common/AppSwitcher';
 import { CategoriesMenu } from './CategoriesMenu';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 export const Header = () => {
   const location = useLocation();
@@ -203,6 +204,9 @@ export const Header = () => {
                   />
                 </button>
               )}
+
+              {/* Notifications */}
+              <NotificationBell />
 
               {/* Cart Icon */}
               <Link

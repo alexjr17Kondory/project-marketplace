@@ -37,6 +37,11 @@ model User {
   // Carrito de compras
   cart Cart?
 
+  // Reviews y notificaciones
+  reviews       Review[]
+  helpfulVotes  ReviewHelpfulVote[]
+  notifications Notification[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -168,9 +173,10 @@ model Product {
   variants ProductVariant[]
 
   rating       Decimal? @db.Decimal(2, 1)
-  reviewsCount Int?
+  reviewsCount Int?     @default(0)
 
   orderItems OrderItem[]
+  reviews    Review[]
 
   // Relación con zonas de template (si isTemplate = true)
   templateZones TemplateZone[]
@@ -1530,4 +1536,104 @@ enum ConversionStatus {
 enum ConversionType {
   MANUAL   // Conversión manual: insumos → productos
   TEMPLATE // Conversión desde plantilla: plantilla + insumo → producto terminado
+}
+
+// ==================== REVIEWS Y CALIFICACIONES ====================
+
+// Review de producto (solo usuarios que compraron)
+model Review {
+  id        Int @id @default(autoincrement())
+
+  // Relaciones
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Contenido
+  rating  Int          // 1-5 estrellas
+  title   String?      @db.VarChar(200)
+  comment String       @db.Text
+
+  // Siempre es compra verificada (solo pueden dejar review los que compraron)
+  verifiedPurchase Boolean @default(true)
+
+  // Contador de votos útiles
+  helpfulCount Int @default(0)
+
+  // Estado de moderación
+  status ReviewStatus @default(APPROVED) // Por defecto se publican automáticamente
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Votos de utilidad
+  helpfulVotes ReviewHelpfulVote[]
+
+  @@unique([userId, productId]) // Un usuario = una review por producto
+  @@index([productId])
+  @@index([userId])
+  @@index([status])
+  @@map("reviews")
+}
+
+// Voto de utilidad en review
+model ReviewHelpfulVote {
+  id       Int     @id @default(autoincrement())
+  reviewId Int
+  review   Review  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId   Int
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isHelpful Boolean // true = útil, false = no útil
+
+  createdAt DateTime @default(now())
+
+  @@unique([reviewId, userId]) // Un voto por usuario por review
+  @@index([reviewId])
+  @@map("review_helpful_votes")
+}
+
+enum ReviewStatus {
+  PENDING   // Esperando moderación
+  APPROVED  // Aprobado y visible
+  REJECTED  // Rechazado
+}
+
+// ==================== NOTIFICACIONES ====================
+
+// Notificación para usuario
+model Notification {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Tipo de notificación
+  type NotificationType
+
+  // Contenido
+  title   String
+  message String @db.Text
+
+  // Referencia opcional (ej: productId, orderId)
+  referenceType String? // "product", "order", "review"
+  referenceId   Int?
+
+  // Estado
+  isRead Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([type])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  REVIEW_AVAILABLE  // Puede dejar review de un producto comprado
+  ORDER_STATUS      // Cambio de estado de pedido
+  PROMO             // Promoción
+  SYSTEM            // Notificación del sistema
 }

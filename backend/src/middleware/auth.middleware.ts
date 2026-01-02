@@ -61,3 +61,28 @@ export function requireAdmin(req: AuthenticatedRequest, _res: Response, next: Ne
 
   next();
 }
+
+// Middleware de autenticación opcional (no falla si no hay token)
+export function optionalAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // Sin token, continuar sin usuario
+      return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    if (!token) {
+      return next();
+    }
+
+    const payload = verifyToken(token);
+    req.user = payload;
+    next();
+  } catch {
+    // Token inválido, continuar sin usuario
+    next();
+  }
+}

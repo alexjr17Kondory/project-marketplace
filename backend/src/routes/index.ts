@@ -28,6 +28,8 @@ import inventoryRoutes from './inventory.routes';
 import inventoryCountsRoutes from './inventory-counts.routes';
 import inventoryConversionsRoutes from './inventory-conversions.routes';
 import cartRoutes from './cart.routes';
+import reviewsRoutes from './reviews.routes';
+import notificationsRoutes from './notifications.routes';
 
 const router = Router();
 
@@ -153,5 +155,11 @@ router.use('/inventory-counts', inventoryCountsRoutes);
 
 // Rutas de conversión de inventario (insumos a productos)
 router.use('/inventory-conversions', inventoryConversionsRoutes);
+
+// Rutas de reviews/reseñas de productos
+router.use('/reviews', reviewsRoutes);
+
+// Rutas de notificaciones
+router.use('/notifications', notificationsRoutes);
 
 export default router;

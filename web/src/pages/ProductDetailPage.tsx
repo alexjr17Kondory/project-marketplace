@@ -8,6 +8,7 @@ import { getVariantByProductColorSize } from '../services/variants.service';
 import productsService from '../services/products.service';
 import type { Product } from '../types/product';
 import { RelatedProducts } from '../components/products/RelatedProducts';
+import { ProductReviewSection } from '../components/reviews/ProductReviewSection';
 
 // Iconos de redes sociales como componentes SVG
 const FacebookIcon = () => (
@@ -595,6 +596,13 @@ export default function ProductDetailPage() {
       {/* Productos relacionados - fuera del área principal, con scroll propio */}
       <div className="max-w-6xl w-full mx-auto px-4 pb-4">
         <RelatedProducts product={product} />
+      </div>
+
+      {/* Sección de Reviews */}
+      <div className="max-w-6xl w-full mx-auto px-4 pb-8">
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <ProductReviewSection productId={product.id} />
+        </div>
       </div>
 
       {/* Modal de compartir */}

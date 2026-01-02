@@ -649,6 +649,13 @@ export async function updateOrderStatus(
     }
   } else if (data.status === 'DELIVERED') {
     updateData.deliveredAt = new Date();
+
+    // Crear notificaciones de review para los productos de la orden
+    if (order.userId) {
+      // Importar dinámicamente para evitar dependencia circular
+      const notificationsService = await import('./notifications.service');
+      await notificationsService.createReviewNotificationsForOrder(order.userId, id);
+    }
   } else if (data.status === 'CANCELLED') {
     // Restaurar stock según el tipo de producto y el estado previo
     const items = await prisma.orderItem.findMany({

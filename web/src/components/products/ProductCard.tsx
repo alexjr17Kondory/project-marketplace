@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Star } from 'lucide-react';
 import { useCurrency } from '../../hooks/useCurrency';
 import type { Product } from '../../types/product';
 
@@ -47,6 +48,25 @@ export const ProductCard = ({ product }: ProductCardProps) => {
         <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">
           {product.name}
         </h3>
+
+        {/* Rating */}
+        <div className="flex items-center gap-1">
+          <div className="flex gap-0.5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Star
+                key={index}
+                className={`w-3 h-3 ${
+                  index < Math.round(product.rating || 0)
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'fill-gray-200 text-gray-200'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-gray-500">
+            ({product.reviewsCount || 0})
+          </span>
+        </div>
 
         {/* Colores */}
         <div className="flex items-center gap-1">
