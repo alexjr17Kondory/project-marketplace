@@ -87,6 +87,7 @@ export const SettingsHomePage = () => {
   const [sectionForm, setSectionForm] = useState<Omit<ProductSection, 'id'>>({
     title: '',
     subtitle: '',
+    showSubtitle: true,
     filters: {},
     maxProducts: 5,
     showViewAll: true,
@@ -186,6 +187,7 @@ export const SettingsHomePage = () => {
       setSectionForm({
         title: section.title,
         subtitle: section.subtitle,
+        showSubtitle: section.showSubtitle ?? true,
         filters: section.filters || {},
         maxProducts: section.maxProducts,
         showViewAll: section.showViewAll,
@@ -198,6 +200,7 @@ export const SettingsHomePage = () => {
       setSectionForm({
         title: '',
         subtitle: '',
+        showSubtitle: true,
         filters: {},
         maxProducts: 5,
         showViewAll: true,
@@ -1006,6 +1009,15 @@ export const SettingsHomePage = () => {
               onChange={(e) => setSectionForm({ ...sectionForm, subtitle: e.target.value })}
               placeholder="Descripción opcional"
             />
+            <label className="flex items-center gap-2 mt-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sectionForm.showSubtitle ?? true}
+                onChange={(e) => setSectionForm({ ...sectionForm, showSubtitle: e.target.checked })}
+                className="w-4 h-4 text-orange-600 border-gray-300 rounded"
+              />
+              <span className="text-sm text-gray-600">Mostrar subtítulo</span>
+            </label>
           </div>
 
           {/* Filtros de selección */}

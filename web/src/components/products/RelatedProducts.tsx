@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Loader2, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
+import { useSettings } from '../../context/SettingsContext';
+import { ProductCard } from './ProductCard';
 import productsService from '../../services/products.service';
 import type { Product } from '../../types/product';
 
@@ -9,9 +11,56 @@ interface RelatedProductsProps {
   limit?: number;
 }
 
-export function RelatedProducts({ product, limit = 8 }: RelatedProductsProps) {
+export function RelatedProducts({ product, limit = 12 }: RelatedProductsProps) {
+  const navigate = useNavigate();
+  const { settings } = useSettings();
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Carrusel
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  // Colores de marca
+  const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
+    primary: '#7c3aed',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+  };
+
+  const updateScrollButtons = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      setCanScrollLeft(container.scrollLeft > 0);
+      setCanScrollRight(container.scrollLeft < container.scrollWidth - container.clientWidth - 1);
+    }
+  }, []);
+
+  const scroll = (direction: 'left' | 'right') => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const cardWidth = container.querySelector('a')?.offsetWidth || 200;
+      const scrollAmount = cardWidth * 2;
+      container.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      updateScrollButtons();
+      container.addEventListener('scroll', updateScrollButtons);
+      window.addEventListener('resize', updateScrollButtons);
+      return () => {
+        container.removeEventListener('scroll', updateScrollButtons);
+        window.removeEventListener('resize', updateScrollButtons);
+      };
+    }
+  }, [relatedProducts, updateScrollButtons]);
 
   useEffect(() => {
     const fetchRelatedProducts = async () => {
@@ -20,7 +69,7 @@ export function RelatedProducts({ product, limit = 8 }: RelatedProductsProps) {
         // Obtener productos de la misma categoría
         const response = await productsService.getAll({
           category: product.categorySlug || product.category,
-          limit: limit + 5, // Pedir más para filtrar
+          limit: limit + 5,
         });
 
         // Filtrar el producto actual
@@ -35,7 +84,6 @@ export function RelatedProducts({ product, limit = 8 }: RelatedProductsProps) {
           });
         }
 
-        // Limitar resultados
         setRelatedProducts(filtered.slice(0, limit));
       } catch (error) {
         console.error('Error fetching related products:', error);
@@ -53,72 +101,72 @@ export function RelatedProducts({ product, limit = 8 }: RelatedProductsProps) {
     return null;
   }
 
-  return (
-    <div className="mt-12">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Productos relacionados</h2>
+  // Link al catálogo filtrado por categoría
+  const viewAllLink = product.categorySlug
+    ? `/catalog?category=${product.categorySlug}`
+    : '/catalog';
 
+  return (
+    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm mt-4">
+      {/* Header */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+            Productos relacionados
+          </h2>
+          <button
+            onClick={() => navigate(viewAllLink)}
+            className="flex items-center gap-1 text-sm font-semibold transition-colors group"
+            style={{ color: brandColors.primary }}
+          >
+            Ver todo
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
+      </div>
+
+      {/* Carrusel */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+          <Loader2 className="w-10 h-10 animate-spin text-gray-400" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {relatedProducts.map((relatedProduct) => (
-            <RelatedProductCard key={relatedProduct.id} product={relatedProduct} />
-          ))}
+        <div className="relative group/carousel">
+          {/* Flecha Izquierda */}
+          {canScrollLeft && (
+            <button
+              onClick={() => scroll('left')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-all opacity-0 group-hover/carousel:opacity-100 -translate-x-1/2"
+              style={{ color: brandColors.primary }}
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Contenedor Scroll */}
+          <div
+            ref={scrollContainerRef}
+            className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth"
+          >
+            {relatedProducts.map((relatedProduct) => (
+              <div key={relatedProduct.id} className="flex-shrink-0 w-[160px] sm:w-[180px] md:w-[200px]">
+                <ProductCard product={relatedProduct} />
+              </div>
+            ))}
+          </div>
+
+          {/* Flecha Derecha */}
+          {canScrollRight && (
+            <button
+              onClick={() => scroll('right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-all opacity-0 group-hover/carousel:opacity-100 translate-x-1/2"
+              style={{ color: brandColors.primary }}
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
         </div>
       )}
     </div>
-  );
-}
-
-// Card simplificada para productos relacionados
-function RelatedProductCard({ product }: { product: Product }) {
-  const imageUrl = product.images.front || '/placeholder-product.png';
-
-  return (
-    <Link
-      to={`/product/${product.id}`}
-      className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
-    >
-      {/* Imagen */}
-      <div className="aspect-square bg-gray-100 overflow-hidden">
-        <img
-          src={imageUrl}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-        />
-      </div>
-
-      {/* Info */}
-      <div className="p-3">
-        <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1 group-hover:text-gray-700">
-          {product.name}
-        </h3>
-
-        {/* Colores disponibles */}
-        {product.colors && product.colors.length > 0 && (
-          <div className="flex gap-1 mb-2">
-            {product.colors.slice(0, 4).map((color) => (
-              <span
-                key={color.hexCode}
-                className="w-4 h-4 rounded-full border border-gray-200"
-                style={{ backgroundColor: color.hexCode }}
-                title={color.name}
-              />
-            ))}
-            {product.colors.length > 4 && (
-              <span className="text-xs text-gray-400">+{product.colors.length - 4}</span>
-            )}
-          </div>
-        )}
-
-        {/* Precio */}
-        <p className="text-sm font-bold text-gray-900">
-          ${product.basePrice.toLocaleString('es-CO')}
-        </p>
-      </div>
-    </Link>
   );
 }

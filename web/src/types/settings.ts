@@ -283,6 +283,7 @@ export interface ProductSection {
   id: string;
   title: string;
   subtitle?: string;
+  showSubtitle?: boolean; // Mostrar/ocultar subtítulo
   // Filtros aplicados a esta sección
   filters: SectionFilters;
   maxProducts: number;

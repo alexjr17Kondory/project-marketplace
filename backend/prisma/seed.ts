@@ -2146,6 +2146,70 @@ async function main() {
     console.log(`    ✅ Generada 1 variante (11oz)`);*/
   }
 
+  // 4-18. MÁS PRODUCTOS DE EJEMPLO PARA PROBAR CARRUSEL
+  const productosExtra = [
+    { sku: 'PROD-SUE-002', slug: 'sueter-cuello-redondo', name: 'Suéter Cuello Redondo', price: 42000, type: sueterType, category: ropaCategoryRecord },
+    { sku: 'PROD-SUE-003', slug: 'sueter-oversize', name: 'Suéter Oversize', price: 48000, type: sueterType, category: ropaCategoryRecord },
+    { sku: 'PROD-SUE-004', slug: 'sueter-deportivo', name: 'Suéter Deportivo', price: 52000, type: sueterType, category: ropaCategoryRecord },
+    { sku: 'PROD-SUE-005', slug: 'sueter-premium', name: 'Suéter Premium', price: 65000, type: sueterType, category: ropaCategoryRecord },
+    { sku: 'PROD-BLU-002', slug: 'blusa-manga-larga', name: 'Blusa Manga Larga', price: 38000, type: blusaType, category: ropaCategoryRecord },
+    { sku: 'PROD-BLU-003', slug: 'blusa-cuello-v', name: 'Blusa Cuello V', price: 32000, type: blusaType, category: ropaCategoryRecord },
+    { sku: 'PROD-BLU-004', slug: 'blusa-estampada', name: 'Blusa Estampada', price: 36000, type: blusaType, category: ropaCategoryRecord },
+    { sku: 'PROD-BLU-005', slug: 'blusa-casual', name: 'Blusa Casual', price: 28000, type: blusaType, category: ropaCategoryRecord },
+    { sku: 'PROD-TAZ-002', slug: 'taza-magica', name: 'Taza Mágica Térmica', price: 25000, type: tazaType, category: bebidasCategoryRecord },
+    { sku: 'PROD-TAZ-003', slug: 'taza-viajera', name: 'Taza Viajera 15oz', price: 32000, type: tazaType, category: bebidasCategoryRecord },
+    { sku: 'PROD-TAZ-004', slug: 'taza-corazon', name: 'Taza Corazón', price: 22000, type: tazaType, category: bebidasCategoryRecord },
+    { sku: 'PROD-TAZ-005', slug: 'taza-brillante', name: 'Taza Brillante', price: 24000, type: tazaType, category: bebidasCategoryRecord },
+    { sku: 'PROD-SUE-006', slug: 'hoodie-basico', name: 'Hoodie Básico', price: 55000, type: sueterType, category: ropaCategoryRecord },
+    { sku: 'PROD-SUE-007', slug: 'hoodie-crop', name: 'Hoodie Crop Top', price: 48000, type: sueterType, category: ropaCategoryRecord },
+    { sku: 'PROD-SUE-008', slug: 'hoodie-zip', name: 'Hoodie con Cierre', price: 62000, type: sueterType, category: ropaCategoryRecord },
+  ];
+
+  for (const prod of productosExtra) {
+    if (prod.type && prod.category) {
+      const producto = await prisma.product.upsert({
+        where: { sku: prod.sku },
+        update: {},
+        create: {
+          sku: prod.sku,
+          slug: prod.slug,
+          name: prod.name,
+          description: `${prod.name} personalizable de alta calidad`,
+          categoryId: prod.category.id,
+          typeId: prod.type.id,
+          basePrice: prod.price,
+          stock: 0,
+          featured: Math.random() > 0.5, // Algunos destacados aleatoriamente
+          images: {},
+          tags: JSON.parse(JSON.stringify([prod.slug.split('-')[0], 'personalizado'])),
+          isActive: true,
+        },
+      });
+
+      // Asociar colores
+      const coloresProducto = [colorNegro, colorBlanco, colorGris, colorAzul].filter(c => c !== null).slice(0, 3);
+      for (const color of coloresProducto) {
+        await prisma.productColor.upsert({
+          where: { productId_colorId: { productId: producto.id, colorId: color!.id } },
+          update: {},
+          create: { productId: producto.id, colorId: color!.id },
+        });
+      }
+
+      // Asociar tallas
+      const tallasProducto = [tallaM, tallaL, tallaXL, tallaUnica].filter(t => t !== null).slice(0, 3);
+      for (const talla of tallasProducto) {
+        await prisma.productSize.upsert({
+          where: { productId_sizeId: { productId: producto.id, sizeId: talla!.id } },
+          update: {},
+          create: { productId: producto.id, sizeId: talla!.id },
+        });
+      }
+
+      console.log(`  ✅ Producto extra: ${prod.name}`);
+    }
+  }
+
   console.log('  ✅ Productos de ejemplo creados');
 
   // ==================== PROVEEDORES ====================

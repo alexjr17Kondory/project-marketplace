@@ -8,6 +8,7 @@ import { UserMenu } from '../auth/UserMenu';
 import { LoginModal } from '../auth/LoginModal';
 import { MobileUserMenu } from '../auth/MobileUserMenu';
 import AppSwitcher from '../common/AppSwitcher';
+import { CategoriesMenu } from './CategoriesMenu';
 
 export const Header = () => {
   const location = useLocation();
@@ -156,17 +157,9 @@ export const Header = () => {
                 <Home className="w-4 h-4" strokeWidth={isActive('/') ? 2.5 : 2} />
                 Inicio
               </Link>
-              <Link
-                to="/catalog"
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                  isActive('/catalog')
-                    ? 'bg-gray-100 text-gray-900'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <Package className="w-4 h-4" strokeWidth={isActive('/catalog') ? 2.5 : 2} />
-                Catálogo
-              </Link>
+
+              {/* Mega Menu Categorías */}
+              <CategoriesMenu />
               {enableCustomizer && (
                 <Link
                   to="/customize"

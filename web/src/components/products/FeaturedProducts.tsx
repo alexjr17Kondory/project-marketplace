@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductCard } from './ProductCard';
 import { productsService, type ProductFilters } from '../../services/products.service';
 import { useSettings } from '../../context/SettingsContext';
-import { useIsMobile } from '../../hooks/useIsMobile';
 import type { ProductSection } from '../../types/settings';
 import type { Product } from '../../types/product';
 
@@ -17,9 +16,46 @@ interface FeaturedProductsProps {
 export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsProps) => {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const isMobile = useIsMobile(768); // md breakpoint
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Carrusel
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollButtons = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      setCanScrollLeft(container.scrollLeft > 0);
+      setCanScrollRight(container.scrollLeft < container.scrollWidth - container.clientWidth - 1);
+    }
+  }, []);
+
+  const scroll = (direction: 'left' | 'right') => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const cardWidth = container.querySelector('div')?.offsetWidth || 200;
+      const scrollAmount = cardWidth * 2; // Scroll 2 cards at a time
+      container.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      updateScrollButtons();
+      container.addEventListener('scroll', updateScrollButtons);
+      window.addEventListener('resize', updateScrollButtons);
+      return () => {
+        container.removeEventListener('scroll', updateScrollButtons);
+        window.removeEventListener('resize', updateScrollButtons);
+      };
+    }
+  }, [products, updateScrollButtons]);
 
   // Cargar productos desde la API
   useEffect(() => {
@@ -83,12 +119,6 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
     loadProducts();
   }, [section?.filters, section?.maxProducts]);
 
-  // En móvil (2 columnas): si es impar, mostrar uno menos para evitar espacios en blanco
-  // En desktop: mostrar todos los productos configurados
-  const featuredProducts = isMobile && products.length % 2 !== 0
-    ? products.slice(0, -1)
-    : products;
-
   // Colores de marca dinámicos
   const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
     primary: '#7c3aed',
@@ -133,64 +163,81 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
   const showViewAll = section?.showViewAll ?? true;
 
   // Si no hay productos y ya terminó de cargar, no mostrar la sección
-  if (!isLoading && featuredProducts.length === 0) {
+  if (!isLoading && products.length === 0) {
     return null;
   }
 
   return (
-    <section className="py-12 md:py-16 px-4 bg-gradient-to-b from-gray-50 to-white">
-      <div className="container mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-              {title || section?.title || 'Productos Destacados'}
-            </h2>
-            <p className="text-gray-600">
-              {subtitle || section?.subtitle || 'Los más populares y personalizables de nuestra colección'}
-            </p>
+    <section className="py-4 md:py-6">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm">
+          {/* Header */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+                {title || section?.title || 'Productos Destacados'}
+              </h2>
+              {showViewAll && (
+                <button
+                  onClick={() => navigate(viewAllLink)}
+                  className="flex items-center gap-1 text-sm font-semibold transition-colors group"
+                  style={{ color: brandColors.primary }}
+                >
+                  Ver todo
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
+            </div>
+            {(section?.showSubtitle !== false) && (subtitle || section?.subtitle) && (
+              <p className="text-gray-500 text-sm mt-1">
+                {subtitle || section?.subtitle}
+              </p>
+            )}
           </div>
-          {showViewAll && (
-            <button
-              onClick={() => navigate(viewAllLink)}
-              className="hidden md:flex items-center gap-2 font-semibold transition-colors group"
-              style={{ color: brandColors.primary }}
-            >
-              Ver todo
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
+
+          {/* Products Carousel */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-gray-600"></div>
+            </div>
+          ) : (
+            <div className="relative group/carousel">
+              {/* Flecha Izquierda */}
+              {canScrollLeft && (
+                <button
+                  onClick={() => scroll('left')}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-all opacity-0 group-hover/carousel:opacity-100 -translate-x-1/2"
+                  style={{ color: brandColors.primary }}
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
+
+              {/* Contenedor Scroll */}
+              <div
+                ref={scrollContainerRef}
+                className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth"
+              >
+                {products.map((product) => (
+                  <div key={product.id} className="flex-shrink-0 w-[160px] sm:w-[180px] md:w-[200px]">
+                    <ProductCard product={product} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Flecha Derecha */}
+              {canScrollRight && (
+                <button
+                  onClick={() => scroll('right')}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-all opacity-0 group-hover/carousel:opacity-100 translate-x-1/2"
+                  style={{ color: brandColors.primary }}
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              )}
+            </div>
           )}
         </div>
-
-        {/* Products Grid */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-gray-600"></div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {featuredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Mobile View All Button */}
-        {showViewAll && (
-          <div className="md:hidden mt-8 text-center">
-            <button
-              onClick={() => navigate(viewAllLink)}
-              className="inline-flex items-center gap-2 text-white font-semibold px-6 py-3 rounded-lg transition-colors hover:opacity-90"
-              style={{ backgroundColor: brandColors.primary }}
-            >
-              Ver todos los productos
-              <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
-        )}
       </div>
     </section>
   );
