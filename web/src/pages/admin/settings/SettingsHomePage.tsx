@@ -120,6 +120,19 @@ export const SettingsHomePage = () => {
     isActive: true,
   });
 
+  // Sincronizar estado local con settings cuando se cargan de la API
+  useEffect(() => {
+    if (settings.home.hero?.cards) {
+      setHeroCards(settings.home.hero.cards);
+    }
+    if (settings.home.cta) {
+      setCtaForm(settings.home.cta);
+    }
+    if (settings.home.whatsappButton) {
+      setWhatsappForm(settings.home.whatsappButton);
+    }
+  }, [settings.home.hero?.cards, settings.home.cta, settings.home.whatsappButton]);
+
   // Load categories and types from database
   useEffect(() => {
     const loadCatalogsData = async () => {
