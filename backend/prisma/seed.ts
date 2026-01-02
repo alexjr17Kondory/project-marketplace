@@ -1187,6 +1187,198 @@ async function main() {
   });
   console.log('  ✅ Configuración de notificaciones');
 
+  // Home Settings con Hero Cards por defecto
+  await prisma.setting.upsert({
+    where: { key: 'home_settings' },
+    update: {},
+    create: {
+      key: 'home_settings',
+      value: {
+        enableCustomizer: true,
+        hero: {
+          cards: [
+            {
+              id: 'main',
+              position: 'main',
+              order: 0,
+              title: 'Diseñado por ti,',
+              titleLine2: 'hecho por Vexa',
+              subtitle: 'Personaliza camisetas, hoodies y más con tus propios diseños.',
+              showSubtitle: true,
+              showBadge: false,
+              badge: '',
+              buttons: [
+                {
+                  id: 'btn-1',
+                  text: 'Crear diseño',
+                  link: '/customizer',
+                  style: 'primary',
+                  icon: 'palette',
+                  isActive: true,
+                },
+                {
+                  id: 'btn-2',
+                  text: 'Ver catálogo',
+                  link: '/catalog',
+                  style: 'secondary',
+                  icon: 'shoppingBag',
+                  isActive: true,
+                },
+              ],
+              background: {
+                type: 'gradient',
+                overlayOpacity: 0,
+              },
+              isActive: true,
+            },
+            {
+              id: 'side-1',
+              position: 'side',
+              order: 1,
+              title: 'Personaliza',
+              subtitle: 'Tu creatividad',
+              showSubtitle: true,
+              showBadge: false,
+              badge: '',
+              buttons: [
+                {
+                  id: 'btn-side-1',
+                  text: 'Personalizar',
+                  link: '/customizer',
+                  style: 'primary',
+                  isActive: true,
+                },
+              ],
+              background: {
+                type: 'gradient',
+                gradientColors: {
+                  from: '#ec4899',
+                  to: '#ec4899',
+                },
+                overlayOpacity: 20,
+              },
+              isActive: true,
+            },
+            {
+              id: 'side-2',
+              position: 'side',
+              order: 2,
+              title: 'Lo más vendido',
+              subtitle: 'Tendencias',
+              showSubtitle: true,
+              showBadge: false,
+              badge: '',
+              buttons: [
+                {
+                  id: 'btn-side-2',
+                  text: 'Ver más',
+                  link: '/catalog?featured=true',
+                  style: 'primary',
+                  isActive: true,
+                },
+              ],
+              background: {
+                type: 'gradient',
+                gradientColors: {
+                  from: '#f59e0b',
+                  to: '#f59e0b',
+                },
+                overlayOpacity: 20,
+              },
+              isActive: true,
+            },
+          ],
+          showSideCards: true,
+          sideCardsVisibleOnMobile: false,
+        },
+        showFeatures: true,
+        features: [
+          {
+            id: 'feature-1',
+            icon: 'palette',
+            title: 'Personalización Fácil',
+            description: 'Editor visual intuitivo para crear diseños únicos',
+            isActive: true,
+            order: 1,
+          },
+          {
+            id: 'feature-2',
+            icon: 'sparkles',
+            title: 'Alta Calidad',
+            description: 'Productos premium con impresión HD',
+            isActive: true,
+            order: 2,
+          },
+          {
+            id: 'feature-3',
+            icon: 'truck',
+            title: 'Envío Rápido',
+            description: 'Entrega en tiempo récord',
+            isActive: true,
+            order: 3,
+          },
+          {
+            id: 'feature-4',
+            icon: 'shield',
+            title: 'Garantía',
+            description: 'Satisfacción garantizada o devolución',
+            isActive: true,
+            order: 4,
+          },
+        ],
+        productSections: [
+          {
+            id: 'section-featured',
+            title: 'Productos Destacados',
+            subtitle: 'Los favoritos de nuestros clientes',
+            showSubtitle: true,
+            filters: { featured: true },
+            maxProducts: 8,
+            showViewAll: true,
+            viewAllLink: '/catalog?featured=true',
+            isActive: true,
+            order: 1,
+          },
+          {
+            id: 'section-new',
+            title: 'Novedades',
+            subtitle: 'Recién llegados a la tienda',
+            showSubtitle: true,
+            filters: { newArrivals: true },
+            maxProducts: 8,
+            showViewAll: true,
+            viewAllLink: '/catalog?newArrivals=true',
+            isActive: true,
+            order: 2,
+          },
+        ],
+        cta: {
+          badge: 'Crea sin límites',
+          showBadge: true,
+          title: '¿Listo para crear algo único?',
+          subtitle: 'Tu creatividad merece la mejor calidad. Empieza a diseñar ahora.',
+          buttonText: 'Empezar a diseñar',
+          buttonLink: '/customizer',
+          showButton: true,
+          isActive: true,
+        },
+        whatsappButton: {
+          isActive: true,
+          phoneNumber: '573001234567',
+          defaultMessage: '¡Hola! Me interesa obtener más información sobre sus productos.',
+          position: 'bottom-right',
+          showOnMobile: true,
+          showOnDesktop: true,
+          buttonColor: '#25D366',
+          pulseAnimation: true,
+          showTooltip: true,
+          tooltipText: '¿Necesitas ayuda?',
+        },
+      },
+    },
+  });
+  console.log('  ✅ Configuración del Home (Hero Cards, Features, Secciones)');
+
   // ==================== TIPOS DE ZONA ====================
   console.log('\n📐 Creando tipos de zona...');
 
