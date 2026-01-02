@@ -9,7 +9,6 @@ import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
 import { ColorPicker } from '../components/customizer/ColorPicker';
 import { ImageUploader, type ImageUploadData } from '../components/customizer/ImageUploader';
-import { DesignControls } from '../components/customizer/DesignControls';
 import { SizeGuideModal } from '../components/customizer/SizeGuideModal';
 import { ImageCarousel } from '../components/customizer/ImageCarousel';
 import { applyColorToImage } from '../utils/imageColorizer';
@@ -1510,18 +1509,6 @@ export const CustomizerPage = () => {
                         ${selectedTemplate.basePrice.toLocaleString('es-CO')} COP
                       </p>
                     </div>
-                    {/* Botón eliminar diseño discreto */}
-                    {currentDesign && (
-                      <button
-                        onClick={handleDesignDelete}
-                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                        title="Eliminar diseño"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    )}
                   </div>
 
                   {/* Control de tamaño compacto - solo si hay diseño */}
@@ -2018,6 +2005,15 @@ export const CustomizerPage = () => {
                         <p className="text-xs font-medium" style={{ color: brandColors.secondary }}>Diseño cargado</p>
                         <p className="text-xs" style={{ color: `${brandColors.secondary}cc` }}>Sube otra para reemplazar</p>
                       </div>
+                      <button
+                        onClick={handleDesignDelete}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors flex-shrink-0"
+                        title="Eliminar diseño"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   )}
 
@@ -2043,101 +2039,7 @@ export const CustomizerPage = () => {
                 </div>
               )}
             </div>
-
-            {/* Panel de controles avanzados - solo visible en desktop o cuando hay diseño */}
-            <div className="bg-white rounded-xl shadow-md p-4 lg:p-6 hidden lg:block">
-              <h3 className="text-base lg:text-lg font-bold text-gray-900 mb-3 lg:mb-4">Controles Avanzados</h3>
-              <DesignControls
-                design={currentDesign || null}
-                onUpdate={handleDesignUpdate}
-                onDelete={handleDesignDelete}
-                maxZoneSize={(() => {
-                  // Calcular el tamaño máximo basado en la zona más grande disponible
-                  if (availableZones.length === 0) return null;
-                  const maxWidth = Math.max(...availableZones.map(z => z.widthPercent));
-                  const maxHeight = Math.max(...availableZones.map(z => z.heightPercent));
-                  return { width: maxWidth, height: maxHeight };
-                })()}
-              />
-            </div>
           </aside>
-
-          {/* Botones de acción - solo visible en desktop */}
-          <div className="hidden lg:block lg:col-span-6 lg:col-start-4 order-4">
-            <div className="bg-white rounded-xl shadow-md p-4 lg:p-6">
-              {designs.size > 0 && (
-                <p className="text-sm text-gray-600 mb-3 text-center">
-                  {designs.size} zona{designs.size > 1 ? 's' : ''} con diseño
-                </p>
-              )}
-
-              {/* Cantidad y Stock - centrado */}
-              {!isEditMode && (
-                <div className="flex flex-col items-center gap-2 mb-3">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-gray-700">Cantidad:</label>
-                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200"
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        max={availableStock !== null ? availableStock : 99}
-                        value={quantity}
-                        onChange={(e) => setQuantity(Math.max(1, Math.min(availableStock || 99, parseInt(e.target.value) || 1)))}
-                        className="w-14 text-center py-2 border-x border-gray-300"
-                      />
-                      <button
-                        onClick={() => setQuantity(Math.min(availableStock || 99, quantity + 1))}
-                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  {/* Indicador de stock */}
-                  {availableStock !== null && (
-                    <span className={`text-sm font-medium ${availableStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {loadingStock ? 'Verificando stock...' : availableStock > 0 ? `${availableStock} unidades disponibles` : 'Sin stock disponible'}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Botones de acción */}
-              <div className="flex gap-3">
-                <button
-                  onClick={handleExportDesigns}
-                  disabled={designs.size === 0 || isExporting}
-                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  title="Descargar diseños como ZIP"
-                >
-                  {isExporting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Download className="w-5 h-5" />
-                  )}
-                  <span>
-                    {isExporting ? 'Exportando...' : 'Descargar'}
-                  </span>
-                </button>
-
-                <button
-                  onClick={handleAddToCart}
-                  disabled={!selectedTemplate || availableStock === 0}
-                  className="flex-1 font-bold py-2.5 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white hover:opacity-90"
-                  style={{ backgroundColor: availableStock === 0 ? '#dc2626' : isEditMode ? '#2563eb' : brandColors.primary }}
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  {availableStock === 0 ? 'Sin Stock' : isEditMode ? 'Guardar Cambios' : designs.size > 0 ? 'Agregar al Carrito' : 'Comprar Sin Diseño'}
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

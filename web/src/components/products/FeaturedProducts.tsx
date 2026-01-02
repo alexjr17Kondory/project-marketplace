@@ -1,10 +1,12 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { ProductCard } from './ProductCard';
-import { getProducts } from '../../data/mockProducts';
+import { productsService, type ProductFilters } from '../../services/products.service';
 import { useSettings } from '../../context/SettingsContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import type { ProductSection } from '../../types/settings';
+import type { Product } from '../../types/product';
 
 interface FeaturedProductsProps {
   title?: string;
@@ -16,44 +18,76 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
   const navigate = useNavigate();
   const { settings } = useSettings();
   const isMobile = useIsMobile(768); // md breakpoint
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Convertir filtros de sección a filtros de getProducts
-  const getProductFilters = () => {
-    if (!section?.filters) {
-      return { featured: true, limit: 5 };
-    }
+  // Cargar productos desde la API
+  useEffect(() => {
+    const loadProducts = async () => {
+      setIsLoading(true);
+      try {
+        const filters: ProductFilters = {
+          limit: section?.maxProducts || 8,
+        };
 
-    const filters = section.filters;
-    const productFilters: {
-      category?: string;
-      type?: string;
-      featured?: boolean;
-      bestsellers?: boolean;
-      newArrivals?: boolean;
-      inStock?: boolean;
-      sortBy?: 'rating' | 'price' | 'newest' | 'reviewsCount';
-      limit?: number;
-    } = { limit: section.maxProducts || 5 };
+        // Aplicar filtros de la sección
+        if (section?.filters) {
+          const sectionFilters = section.filters;
 
-    // Aplicar filtros de la sección
-    if (filters.featured) productFilters.featured = true;
-    if (filters.bestsellers) productFilters.bestsellers = true;
-    if (filters.newArrivals) productFilters.newArrivals = true;
-    if (filters.inStock) productFilters.inStock = true;
-    // Usar los campos nuevos (category, type) con fallback a los antiguos para compatibilidad
-    if (filters.category || filters.categoryId) productFilters.category = filters.category || filters.categoryId;
-    if (filters.type || filters.productTypeId) productFilters.type = filters.type || filters.productTypeId;
-    if (filters.sortBy) productFilters.sortBy = filters.sortBy;
+          // Filtros de categoría y tipo
+          const category = sectionFilters.category || sectionFilters.categoryId;
+          const type = sectionFilters.type || sectionFilters.productTypeId;
+          if (category) filters.category = category;
+          if (type) filters.type = type;
 
-    return productFilters;
-  };
+          // Filtros booleanos
+          if (sectionFilters.featured) filters.featured = true;
+          if (sectionFilters.inStock) filters.inStock = true;
 
-  const allFeaturedProducts = getProducts(getProductFilters());
+          // Ordenamiento
+          if (sectionFilters.sortBy) {
+            switch (sectionFilters.sortBy) {
+              case 'price':
+                filters.sortBy = 'basePrice';
+                filters.sortOrder = 'asc';
+                break;
+              case 'rating':
+                filters.sortBy = 'rating';
+                filters.sortOrder = 'desc';
+                break;
+              case 'newest':
+                filters.sortBy = 'createdAt';
+                filters.sortOrder = 'desc';
+                break;
+              case 'reviewsCount':
+                filters.sortBy = 'reviewsCount';
+                filters.sortOrder = 'desc';
+                break;
+            }
+          }
+        } else {
+          // Por defecto, productos destacados
+          filters.featured = true;
+        }
+
+        const response = await productsService.getAll(filters);
+        setProducts(response.data || []);
+      } catch (error) {
+        console.error('Error loading featured products:', error);
+        setProducts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [section?.filters, section?.maxProducts]);
+
   // En móvil (2 columnas): si es impar, mostrar uno menos para evitar espacios en blanco
   // En desktop: mostrar todos los productos configurados
-  const featuredProducts = isMobile && allFeaturedProducts.length % 2 !== 0
-    ? allFeaturedProducts.slice(0, -1)
-    : allFeaturedProducts;
+  const featuredProducts = isMobile && products.length % 2 !== 0
+    ? products.slice(0, -1)
+    : products;
 
   // Colores de marca dinámicos
   const brandColors = settings.appearance?.brandColors || settings.general.brandColors || {
@@ -98,8 +132,8 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
   const viewAllLink = getViewAllLink();
   const showViewAll = section?.showViewAll ?? true;
 
-  // Si no hay productos, no mostrar la sección
-  if (featuredProducts.length === 0) {
+  // Si no hay productos y ya terminó de cargar, no mostrar la sección
+  if (!isLoading && featuredProducts.length === 0) {
     return null;
   }
 
@@ -129,14 +163,20 @@ export const FeaturedProducts = ({ title, subtitle, section }: FeaturedProductsP
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-          {featuredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-gray-600"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+            {featuredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Mobile View All Button */}
         {showViewAll && (
