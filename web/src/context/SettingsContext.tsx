@@ -264,20 +264,9 @@ const mockSettings: Settings = {
   home: {
     enableCustomizer: true,
     hero: {
-      badge: '100% Personalizable',
-      title: 'Dale Vida a tu',
-      titleHighlight: 'Creatividad',
-      subtitle: 'Crea diseños únicos en camisetas y hoodies.\nSube tus imágenes y hazlas realidad.',
-      primaryButtonText: 'Personalizar Ahora',
-      primaryButtonLink: '/customize',
-      showPrimaryButton: true,
-      secondaryButtonText: 'Ver Catálogo',
-      secondaryButtonLink: '/catalog',
-      showSecondaryButton: true,
-      showBadge: true,
-      highlights: ['Sin mínimos', 'Envío rápido', 'Alta calidad'],
-      showHighlights: true,
-      useGradientBackground: true,
+      cards: [], // Se usan los defaults de HeroSection si está vacío
+      showSideCards: true,
+      sideCardsVisibleOnMobile: false,
     },
     features: [
       {

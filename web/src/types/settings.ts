@@ -285,29 +285,13 @@ export interface HeroCard {
   isActive: boolean;
 }
 
-// Hero Section - Nueva estructura con cartas configurables
+// Hero Section - Estructura con cartas configurables
 export interface HeroSettings {
   // Cartas del hero (1 principal + hasta 3 laterales)
   cards: HeroCard[];
   // Configuración general del hero
   showSideCards: boolean; // Mostrar cartas laterales en desktop
   sideCardsVisibleOnMobile: boolean; // Mostrar laterales en mobile (como stack)
-  // Legacy fields (para compatibilidad)
-  badge: string;
-  title: string;
-  titleHighlight?: string;
-  subtitle: string;
-  primaryButtonText: string;
-  primaryButtonLink: string;
-  showPrimaryButton: boolean;
-  secondaryButtonText: string;
-  secondaryButtonLink: string;
-  showSecondaryButton: boolean;
-  showBadge: boolean;
-  highlights: string[];
-  showHighlights: boolean;
-  backgroundImage?: string;
-  useGradientBackground: boolean;
 }
 
 // Característica/Feature Card
