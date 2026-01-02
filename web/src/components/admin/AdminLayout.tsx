@@ -37,6 +37,7 @@ import {
   ClipboardList,
   Building2,
   Store,
+  Star,
 } from 'lucide-react';
 import type { Permission } from '../../types/roles';
 import AppSwitcher from '../common/AppSwitcher';
@@ -74,6 +75,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/orders', label: 'Pedidos', icon: FileText, permission: 'orders.view' },
       { path: '/admin-panel/payments', label: 'Pagos', icon: DollarSign, permission: 'settings.payment' },
       { path: '/admin-panel/orders/shipping', label: 'Despachos', icon: Truck, permission: 'orders.manage' },
+      { path: '/admin-panel/reviews', label: 'Reseñas', icon: Star, permission: 'orders.view' },
     ],
   },
   // 2. PUNTO DE VENTA - POS y códigos de barras

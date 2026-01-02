@@ -60,6 +60,7 @@ import InventoryConversionsPage from './pages/admin/InventoryConversionsPage';
 import InventoryConversionDetailPage from './pages/admin/InventoryConversionDetailPage';
 import InventoryConversionFromTemplatePage from './pages/admin/InventoryConversionFromTemplatePage';
 import TemplateRecipesPage from './pages/admin/TemplateRecipesPage';
+import ReviewsPage from './pages/admin/ReviewsPage';
 import {
   SettingsGeneralPage,
   SettingsAppearancePage,
@@ -509,6 +510,16 @@ function App() {
                                       element={
                                         <PermissionRoute permission="inventory.manage">
                                           <TemplateRecipesPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+
+                                    {/* Reseñas */}
+                                    <Route
+                                      path="/reviews"
+                                      element={
+                                        <PermissionRoute permission="orders.view">
+                                          <ReviewsPage />
                                         </PermissionRoute>
                                       }
                                     />
