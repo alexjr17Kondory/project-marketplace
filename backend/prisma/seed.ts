@@ -1188,12 +1188,7 @@ async function main() {
   console.log('  ✅ Configuración de notificaciones');
 
   // Home Settings con Hero Cards por defecto
-  await prisma.setting.upsert({
-    where: { key: 'home_settings' },
-    update: {},
-    create: {
-      key: 'home_settings',
-      value: {
+  const homeSettingsValue = {
         enableCustomizer: true,
         hero: {
           cards: [
@@ -1374,8 +1369,12 @@ async function main() {
           showTooltip: true,
           tooltipText: '¿Necesitas ayuda?',
         },
-      },
-    },
+  };
+
+  await prisma.setting.upsert({
+    where: { key: 'home_settings' },
+    update: { value: homeSettingsValue },
+    create: { key: 'home_settings', value: homeSettingsValue },
   });
   console.log('  ✅ Configuración del Home (Hero Cards, Features, Secciones)');
 
