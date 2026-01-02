@@ -2,11 +2,11 @@
 
 ## ESTADO GENERAL
 
-**Fecha:** 2026-01-01
+**Fecha:** 2026-01-02
 **Deploy Frontend:** https://project-marketplace.vercel.app
 **Backend Local:** http://localhost:3001/api
 **Progreso Total:** 99%
-**Versión Actual:** 6.2
+**Versión Actual:** 6.3
 
 ---
 
@@ -18,7 +18,7 @@
 | 2 | Usuarios + Autenticacion + Roles | ✅ | 100% |
 | 3 | Pedidos + Pagos + Historial | ✅ | 100% |
 | 4 | Facturacion + Despachos Avanzados | ⚪ | Futuro |
-| 5 | Notificaciones + Emails | ⚪ | 0% |
+| 5 | Notificaciones + Emails | 🟡 | 50% |
 | 6 | Configuracion General | ✅ | 100% |
 | 7 | Backend + Base de Datos | ✅ | 95% |
 | 8 | Punto de Venta (POS) | ✅ | 100% |
@@ -92,12 +92,18 @@
 
 ## FASE 5: NOTIFICACIONES + EMAILS
 
-**Estado:** No iniciada
+**Estado:** 50% Completado
+
+### Completado
+- [x] Sistema de notificaciones in-app
+- [x] Modelo Notification con tipos (REVIEW_AVAILABLE, ORDER_STATUS, PROMO, SYSTEM)
+- [x] API de notificaciones (CRUD, marcar leídas, contador)
+- [x] NotificationBell en Header con dropdown
+- [x] Notificaciones automáticas al entregar pedidos
 
 ### Pendiente
 - [ ] Configurar servicio de email (Resend)
 - [ ] Templates de email transaccionales
-- [ ] Sistema de notificaciones in-app
 - [ ] Configuracion de notificaciones (admin)
 
 ---
@@ -151,6 +157,8 @@
 | Inventory Conversions | CRUD + from-template + status workflow | ✅ |
 | Variants | CRUD + stock + barcode | ✅ |
 | Cash Registers | CRUD + sessions | ✅ |
+| Reviews | CRUD + votos + verificación compra | ✅ |
+| Notifications | CRUD + marcar leídas + contador | ✅ |
 
 ### Integracion Frontend ✅
 
@@ -449,6 +457,25 @@ docker exec marketplace-backend npx prisma studio
 
 ## CHANGELOG RECIENTE
 
+### v6.3 (2026-01-02)
+- ✅ **Sistema de Reseñas y Calificaciones**
+  - Modelo Review con rating 1-5, título, comentario, compra verificada
+  - Modelo ReviewHelpfulVote para votos de utilidad
+  - API completa: CRUD, votos útil/no útil, verificación de compra
+  - Solo usuarios que compraron pueden dejar reseña
+  - Componentes: RatingStars, ReviewCard, ReviewForm, ReviewList, ReviewSummary
+  - ProductReviewSection integrado en ProductDetailPage
+  - Estrellas de calificación en ProductCard (siempre visibles)
+- ✅ **Sistema de Notificaciones In-App**
+  - Modelo Notification con tipos: REVIEW_AVAILABLE, ORDER_STATUS, PROMO, SYSTEM
+  - API de notificaciones: listar, marcar leídas, contador no leídas
+  - NotificationBell en Header con dropdown y badge contador
+  - Notificaciones automáticas al entregar pedidos (status DELIVERED)
+  - Middleware optionalAuth para rutas públicas con auth opcional
+- ✅ **Mejoras de UI**
+  - ProductCard muestra estrellas y cantidad de reseñas
+  - Estrellas grises con "(0)" cuando no hay reseñas
+
 ### v6.2 (2026-01-01)
 - ✅ **Movimientos de Inventario en E-commerce**
   - Registro automático de movimientos SALE al crear órdenes (productos regulares)
@@ -686,5 +713,5 @@ docker exec marketplace-backend npx prisma studio
 
 ---
 
-**Ultima actualizacion:** 2026-01-01
-**Version:** 6.2
+**Ultima actualizacion:** 2026-01-02
+**Version:** 6.3
