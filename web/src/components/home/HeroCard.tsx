@@ -1,6 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Palette, ShoppingBag, Sparkles, Flame } from 'lucide-react';
+import {
+  ChevronRight,
+  Palette,
+  ShoppingBag,
+  Sparkles,
+  Flame,
+  Package,
+  Truck,
+  Shield,
+  Heart,
+  Star,
+  Zap,
+  Gift,
+  Percent,
+} from 'lucide-react';
 import type { HeroCard as HeroCardType, HeroCardBackground } from '../../types/settings';
 import { useSettings } from '../../context/SettingsContext';
 
@@ -11,6 +25,14 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   sparkles: Sparkles,
   flame: Flame,
   chevronRight: ChevronRight,
+  package: Package,
+  truck: Truck,
+  shield: Shield,
+  heart: Heart,
+  star: Star,
+  zap: Zap,
+  gift: Gift,
+  percent: Percent,
 };
 
 interface HeroCardProps {
@@ -58,6 +80,19 @@ const CarouselBackground = ({
   );
 };
 
+// Helper para extraer ID de YouTube
+const getYouTubeId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/shorts\/([^&\n?#]+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+};
+
 // Componente para el fondo de video
 const VideoBackground = ({
   videoUrl,
@@ -71,15 +106,32 @@ const VideoBackground = ({
   loop?: boolean;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const youtubeId = getYouTubeId(videoUrl);
 
   useEffect(() => {
-    if (videoRef.current) {
+    if (videoRef.current && !youtubeId) {
       videoRef.current.play().catch(() => {
         // Autoplay puede fallar sin interacción del usuario
       });
     }
-  }, []);
+  }, [youtubeId]);
 
+  // Si es YouTube, usar iframe
+  if (youtubeId) {
+    return (
+      <div className="absolute inset-0 overflow-hidden">
+        <iframe
+          className="absolute top-1/2 left-1/2 w-[300%] h-[300%] -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&loop=1&playlist=${youtubeId}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1`}
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+          title="Video background"
+        />
+      </div>
+    );
+  }
+
+  // Video normal (mp4, webm, etc)
   return (
     <video
       ref={videoRef}
@@ -138,9 +190,9 @@ const CardBackground = ({
         />
       )}
 
-      {background.type === 'carousel' && background.carouselImages && (
+      {background.type === 'carousel' && background.carouselImages && background.carouselImages.length > 0 && (
         <CarouselBackground
-          images={background.carouselImages}
+          images={background.carouselImages.filter(img => img.trim() !== '')}
           interval={background.carouselInterval}
           transition={background.carouselTransition}
         />
@@ -184,14 +236,29 @@ export const HeroCard = ({ card, isMain = false, className = '' }: HeroCardProps
       {/* Fondo */}
       <CardBackground background={card.background} brandColors={brandColors} />
 
+      {/* Degradado para mejorar legibilidad del texto */}
+      {isMain && (
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent z-[1]" />
+      )}
+
       {/* Decorative Elements */}
       <div className="absolute -right-10 -bottom-10 w-40 h-40 md:w-60 md:h-60 bg-white/10 rounded-full blur-3xl" />
       <div className="absolute -left-10 -top-10 w-32 h-32 md:w-40 md:h-40 bg-white/10 rounded-full blur-2xl" />
 
       {/* Contenido */}
-      <div className={`relative z-10 h-full flex flex-col justify-${isMain ? 'center' : 'between'} ${isMain ? 'p-5 md:p-8' : 'p-4'}`}>
-        {/* Badge */}
-        {card.showBadge && card.badge && (
+      <div className={`relative z-10 h-full flex flex-col ${isMain ? 'justify-center p-5 md:p-8' : 'justify-between p-4'}`}>
+        {/* Para cartas laterales: Icono arriba */}
+        {!isMain && (() => {
+          const IconComponent = iconMap[card.icon || 'sparkles'] || Sparkles;
+          return (
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <IconComponent className="w-5 h-5 text-white" />
+            </div>
+          );
+        })()}
+
+        {/* Badge (solo carta principal) */}
+        {isMain && card.showBadge && card.badge && (
           <span className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1 rounded-full w-fit mb-2">
             <Sparkles className="w-3 h-3" />
             {card.badge}
@@ -200,18 +267,22 @@ export const HeroCard = ({ card, isMain = false, className = '' }: HeroCardProps
 
         {/* Título */}
         {isMain ? (
-          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-black text-white drop-shadow-lg leading-tight mb-2 md:mb-3">
+          <h1
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-black text-white leading-tight mb-2 md:mb-3"
+            style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)' }}
+          >
             <span className="block">{card.title}</span>
             {card.titleLine2 && (
-              <span className="block text-white/90">{card.titleLine2}</span>
+              <span className="block text-white/95">{card.titleLine2}</span>
             )}
           </h1>
         ) : (
-          <div className="mt-auto">
+          /* Para cartas laterales: Texto abajo */
+          <div className="drop-shadow-lg">
             {card.subtitle && card.showSubtitle && (
-              <p className="text-white/80 text-xs font-medium">{card.subtitle}</p>
+              <p className="text-white/90 text-xs font-medium drop-shadow">{card.subtitle}</p>
             )}
-            <h3 className="text-white text-lg font-bold flex items-center gap-1.5">
+            <h3 className="text-white text-lg font-bold flex items-center gap-1.5 drop-shadow-lg">
               {card.title}
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </h3>
@@ -220,16 +291,12 @@ export const HeroCard = ({ card, isMain = false, className = '' }: HeroCardProps
 
         {/* Subtítulo (solo en carta principal) */}
         {isMain && card.showSubtitle && card.subtitle && (
-          <p className="text-sm md:text-base text-white/90 mb-4 max-w-md">
+          <p
+            className="text-sm md:text-base text-white/95 mb-4 max-w-md"
+            style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.7)' }}
+          >
             {card.subtitle}
           </p>
-        )}
-
-        {/* Icono para cartas laterales */}
-        {!isMain && (
-          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center mb-auto">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
         )}
 
         {/* Botones (solo en carta principal) */}

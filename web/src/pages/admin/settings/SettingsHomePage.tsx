@@ -4,7 +4,8 @@ import { useToast } from '../../../context/ToastContext';
 import { Button } from '../../../components/shared/Button';
 import { Input } from '../../../components/shared/Input';
 import { Modal } from '../../../components/shared/Modal';
-import type { FeatureCard, ProductSection, HeroSettings, CTASettings, WhatsAppButtonSettings, SectionFilters, HeroCard, HeroCardBackground } from '../../../types/settings';
+import { ImageUploadField } from '../../../components/admin/ImageUploadField';
+import type { FeatureCard, ProductSection, HeroSettings, CTASettings, WhatsAppButtonSettings, SectionFilters, HeroCard, HeroCardBackground, PromoBanner } from '../../../types/settings';
 import { FEATURE_ICONS } from '../../../types/settings';
 import { productsService } from '../../../services/products.service';
 import {
@@ -35,12 +36,18 @@ import {
   Images,
   Layers,
   X,
+  Flame,
+  Megaphone,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from 'lucide-react';
 
 // Map de iconos
-const iconComponents: Record<FeatureCard['icon'], typeof Palette> = {
+const iconComponents: Record<string, typeof Palette> = {
   palette: Palette,
   sparkles: Sparkles,
+  flame: Flame,
   package: Package,
   truck: Truck,
   shield: Shield,
@@ -73,14 +80,21 @@ export const SettingsHomePage = () => {
   const [heroCards, setHeroCards] = useState<HeroCard[]>(settings.home.hero?.cards || []);
   const [ctaForm, setCtaForm] = useState<CTASettings>(settings.home.cta);
   const [whatsappForm, setWhatsappForm] = useState<WhatsAppButtonSettings>(settings.home.whatsappButton);
+  const [promoBanners, setPromoBanners] = useState<PromoBanner[]>(settings.home.promoBanners || []);
+
+  // Drag and drop state
+  const [draggedItem, setDraggedItem] = useState<{ type: 'section' | 'banner'; id: string } | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<{ type: 'section' | 'banner'; id: string } | null>(null);
 
   // Modal states
   const [isFeatureModalOpen, setIsFeatureModalOpen] = useState(false);
   const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
   const [isHeroCardModalOpen, setIsHeroCardModalOpen] = useState(false);
+  const [isPromoBannerModalOpen, setIsPromoBannerModalOpen] = useState(false);
   const [editingFeature, setEditingFeature] = useState<FeatureCard | null>(null);
   const [editingSection, setEditingSection] = useState<ProductSection | null>(null);
   const [editingHeroCard, setEditingHeroCard] = useState<HeroCard | null>(null);
+  const [editingPromoBanner, setEditingPromoBanner] = useState<PromoBanner | null>(null);
 
   // Form states para modales
   const [featureForm, setFeatureForm] = useState<Omit<FeatureCard, 'id'>>({
@@ -112,11 +126,28 @@ export const SettingsHomePage = () => {
     showSubtitle: true,
     showBadge: false,
     badge: '',
+    icon: 'sparkles',
     buttons: [],
     background: {
       type: 'gradient',
       overlayOpacity: 20,
     },
+    isActive: true,
+  });
+
+  // Promo banner form
+  const [promoBannerForm, setPromoBannerForm] = useState<Omit<PromoBanner, 'id'>>({
+    order: 0,
+    title: '',
+    subtitle: '',
+    buttonText: '',
+    buttonLink: '',
+    background: {
+      type: 'gradient',
+      overlayOpacity: 20,
+    },
+    height: 'medium',
+    contentAlign: 'center',
     isActive: true,
   });
 
@@ -131,7 +162,10 @@ export const SettingsHomePage = () => {
     if (settings.home.whatsappButton) {
       setWhatsappForm(settings.home.whatsappButton);
     }
-  }, [settings.home.hero?.cards, settings.home.cta, settings.home.whatsappButton]);
+    if (settings.home.promoBanners) {
+      setPromoBanners(settings.home.promoBanners);
+    }
+  }, [settings.home.hero?.cards, settings.home.cta, settings.home.whatsappButton, settings.home.promoBanners]);
 
   // Load categories and types from database
   useEffect(() => {
@@ -150,16 +184,6 @@ export const SettingsHomePage = () => {
     loadCatalogsData();
   }, []);
 
-  const handleSaveHeroCards = () => {
-    updateHomeSettings({
-      hero: {
-        ...settings.home.hero,
-        cards: heroCards,
-      }
-    });
-    toast.success('Hero actualizado');
-  };
-
   // Hero card handlers
   const handleOpenHeroCardModal = (card?: HeroCard) => {
     if (card) {
@@ -173,6 +197,7 @@ export const SettingsHomePage = () => {
         showSubtitle: card.showSubtitle,
         showBadge: card.showBadge,
         badge: card.badge || '',
+        icon: card.icon || 'sparkles',
         buttons: card.buttons,
         background: card.background,
         isActive: card.isActive,
@@ -189,6 +214,7 @@ export const SettingsHomePage = () => {
         showSubtitle: true,
         showBadge: false,
         badge: '',
+        icon: 'sparkles',
         buttons: [{
           id: `btn-${Date.now()}`,
           text: 'Ver más',
@@ -206,39 +232,251 @@ export const SettingsHomePage = () => {
     setIsHeroCardModalOpen(true);
   };
 
-  const handleSaveHeroCard = () => {
+  const handleSaveHeroCard = async () => {
+    // Limpiar URLs vacías del carrusel antes de guardar
+    const cleanedForm = {
+      ...heroCardForm,
+      background: {
+        ...heroCardForm.background,
+        carouselImages: heroCardForm.background.carouselImages?.filter(url => url.trim() !== '') || []
+      }
+    };
+
+    let newCards: HeroCard[];
+
     if (editingHeroCard) {
-      setHeroCards(heroCards.map(c =>
-        c.id === editingHeroCard.id ? { ...heroCardForm, id: c.id } : c
-      ));
-      toast.success('Carta actualizada');
+      newCards = heroCards.map(c =>
+        c.id === editingHeroCard.id ? { ...cleanedForm, id: c.id } : c
+      );
     } else {
       const newCard: HeroCard = {
-        ...heroCardForm,
+        ...cleanedForm,
         id: `card-${Date.now()}`,
       };
-      setHeroCards([...heroCards, newCard]);
-      toast.success('Carta creada');
+      newCards = [...heroCards, newCard];
     }
-    setIsHeroCardModalOpen(false);
+
+    try {
+      // Persistir inmediatamente a la API
+      await updateHomeSettings({
+        hero: {
+          ...settings.home.hero,
+          cards: newCards,
+        }
+      });
+      setHeroCards(newCards);
+      toast.success(editingHeroCard ? 'Carta actualizada' : 'Carta creada');
+      setIsHeroCardModalOpen(false);
+    } catch (error) {
+      console.error('Error guardando carta:', error);
+      toast.error('Error al guardar la carta. Verifica la conexión.');
+    }
   };
 
-  const handleDeleteHeroCard = (id: string) => {
+  const handleDeleteHeroCard = async (id: string) => {
     if (confirm('¿Eliminar esta carta del hero?')) {
-      setHeroCards(heroCards.filter(c => c.id !== id));
-      toast.success('Carta eliminada');
+      const newCards = heroCards.filter(c => c.id !== id);
+      try {
+        await updateHomeSettings({
+          hero: {
+            ...settings.home.hero,
+            cards: newCards,
+          }
+        });
+        setHeroCards(newCards);
+        toast.success('Carta eliminada');
+      } catch (error) {
+        toast.error('Error al eliminar la carta');
+      }
     }
   };
 
-  const handleToggleHeroCard = (id: string) => {
-    setHeroCards(heroCards.map(c =>
+  const handleToggleHeroCard = async (id: string) => {
+    const newCards = heroCards.map(c =>
       c.id === id ? { ...c, isActive: !c.isActive } : c
-    ));
+    );
+    try {
+      await updateHomeSettings({
+        hero: {
+          ...settings.home.hero,
+          cards: newCards,
+        }
+      });
+      setHeroCards(newCards);
+    } catch (error) {
+      toast.error('Error al cambiar estado de la carta');
+    }
   };
 
-  const handleSaveCTA = () => {
-    updateHomeSettings({ cta: ctaForm });
-    toast.success('CTA actualizado');
+  // Promo Banner handlers
+  const handleOpenPromoBannerModal = (banner?: PromoBanner, insertOrder?: number) => {
+    if (banner) {
+      setEditingPromoBanner(banner);
+      setPromoBannerForm({
+        order: banner.order,
+        title: banner.title,
+        subtitle: banner.subtitle || '',
+        buttonText: banner.buttonText || '',
+        buttonLink: banner.buttonLink || '',
+        background: banner.background,
+        height: banner.height,
+        contentAlign: banner.contentAlign,
+        isActive: banner.isActive,
+      });
+    } else {
+      setEditingPromoBanner(null);
+      // Si se especifica insertOrder, usarlo; si no, calcular el siguiente orden
+      const allItems = [
+        ...settings.home.productSections.map(s => s.order),
+        ...promoBanners.map(b => b.order),
+      ];
+      const nextOrder = insertOrder !== undefined ? insertOrder : (Math.max(0, ...allItems) + 1);
+      setPromoBannerForm({
+        order: nextOrder,
+        title: '',
+        subtitle: '',
+        buttonText: '',
+        buttonLink: '',
+        background: {
+          type: 'gradient',
+          overlayOpacity: 20,
+        },
+        height: 'medium',
+        contentAlign: 'center',
+        isActive: true,
+      });
+    }
+    setIsPromoBannerModalOpen(true);
+  };
+
+  const handleSavePromoBanner = async () => {
+    let newBanners: PromoBanner[];
+
+    if (editingPromoBanner) {
+      newBanners = promoBanners.map(b =>
+        b.id === editingPromoBanner.id ? { ...promoBannerForm, id: b.id } : b
+      );
+    } else {
+      const newBanner: PromoBanner = {
+        ...promoBannerForm,
+        id: `banner-${Date.now()}`,
+      };
+      newBanners = [...promoBanners, newBanner];
+    }
+
+    try {
+      await updateHomeSettings({ promoBanners: newBanners });
+      setPromoBanners(newBanners);
+      toast.success(editingPromoBanner ? 'Banner actualizado' : 'Banner creado');
+      setIsPromoBannerModalOpen(false);
+    } catch (error) {
+      console.error('Error guardando banner:', error);
+      toast.error('Error al guardar el banner');
+    }
+  };
+
+  const handleDeletePromoBanner = async (id: string) => {
+    if (confirm('¿Eliminar este banner promocional?')) {
+      const newBanners = promoBanners.filter(b => b.id !== id);
+      try {
+        await updateHomeSettings({ promoBanners: newBanners });
+        setPromoBanners(newBanners);
+        toast.success('Banner eliminado');
+      } catch (error) {
+        toast.error('Error al eliminar el banner');
+      }
+    }
+  };
+
+  const handleTogglePromoBanner = async (id: string) => {
+    const newBanners = promoBanners.map(b =>
+      b.id === id ? { ...b, isActive: !b.isActive } : b
+    );
+    try {
+      await updateHomeSettings({ promoBanners: newBanners });
+      setPromoBanners(newBanners);
+    } catch (error) {
+      toast.error('Error al cambiar estado del banner');
+    }
+  };
+
+  // Drag and drop handlers para contenido del home
+  const handleDragStart = (type: 'section' | 'banner', id: string) => {
+    setDraggedItem({ type, id });
+  };
+
+  const handleDragOver = (e: React.DragEvent, type: 'section' | 'banner', id: string) => {
+    e.preventDefault();
+    if (draggedItem && (draggedItem.type !== type || draggedItem.id !== id)) {
+      setDragOverItem({ type, id });
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverItem(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetType: 'section' | 'banner', targetId: string) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    // Crear lista combinada ordenada
+    type ContentItem = { type: 'section' | 'banner'; id: string; order: number };
+    const allItems: ContentItem[] = [
+      ...settings.home.productSections.map(s => ({ type: 'section' as const, id: s.id, order: s.order })),
+      ...promoBanners.map(b => ({ type: 'banner' as const, id: b.id, order: b.order })),
+    ].sort((a, b) => a.order - b.order);
+
+    // Encontrar índices
+    const draggedIndex = allItems.findIndex(item => item.type === draggedItem.type && item.id === draggedItem.id);
+    const targetIndex = allItems.findIndex(item => item.type === targetType && item.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
+      setDraggedItem(null);
+      setDragOverItem(null);
+      return;
+    }
+
+    // Reordenar: mover el elemento arrastrado a la posición del target
+    const [removed] = allItems.splice(draggedIndex, 1);
+    allItems.splice(targetIndex, 0, removed);
+
+    // Asignar nuevos órdenes secuenciales
+    const newSections = settings.home.productSections.map(section => {
+      const newIndex = allItems.findIndex(item => item.type === 'section' && item.id === section.id);
+      return { ...section, order: newIndex + 1 };
+    });
+
+    const newBanners = promoBanners.map(banner => {
+      const newIndex = allItems.findIndex(item => item.type === 'banner' && item.id === banner.id);
+      return { ...banner, order: newIndex + 1 };
+    });
+
+    try {
+      await updateHomeSettings({ productSections: newSections, promoBanners: newBanners });
+      setPromoBanners(newBanners);
+      toast.success('Orden actualizado');
+    } catch (error) {
+      toast.error('Error al reordenar');
+    }
+
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  const handleSaveCTA = async () => {
+    try {
+      await updateHomeSettings({ cta: ctaForm });
+      toast.success('CTA actualizado');
+    } catch (error) {
+      console.error('Error guardando CTA:', error);
+      toast.error('Error al guardar el CTA');
+    }
   };
 
   const handleSaveWhatsApp = () => {
@@ -246,14 +484,31 @@ export const SettingsHomePage = () => {
     toast.success('Botón de WhatsApp actualizado');
   };
 
-  const handleToggleCustomizer = () => {
-    updateHomeSettings({ enableCustomizer: !settings.home.enableCustomizer });
-    toast.success(settings.home.enableCustomizer ? 'Personalización deshabilitada' : 'Personalización habilitada');
+  const handleToggleCustomizer = async () => {
+    try {
+      await updateHomeSettings({ enableCustomizer: !settings.home.enableCustomizer });
+      toast.success(settings.home.enableCustomizer ? 'Personalización deshabilitada' : 'Personalización habilitada');
+    } catch (error) {
+      toast.error('Error al cambiar estado de personalización');
+    }
   };
 
-  const handleToggleFeatures = () => {
-    updateHomeSettings({ showFeatures: !settings.home.showFeatures });
-    toast.success(settings.home.showFeatures ? 'Características ocultadas' : 'Características visibles');
+  const handleToggleFeatures = async () => {
+    try {
+      await updateHomeSettings({ showFeatures: !settings.home.showFeatures });
+      toast.success(settings.home.showFeatures ? 'Características ocultadas' : 'Características visibles');
+    } catch (error) {
+      toast.error('Error al cambiar visibilidad');
+    }
+  };
+
+  const handleToggleCTA = async () => {
+    try {
+      await updateHomeSettings({ cta: { ...settings.home.cta, isActive: !settings.home.cta.isActive } });
+      toast.success(settings.home.cta.isActive ? 'CTA ocultado' : 'CTA visible');
+    } catch (error) {
+      toast.error('Error al cambiar visibilidad del CTA');
+    }
   };
 
   // Feature handlers
@@ -299,7 +554,7 @@ export const SettingsHomePage = () => {
   };
 
   // Section handlers
-  const handleOpenSectionModal = (section?: ProductSection) => {
+  const handleOpenSectionModal = (section?: ProductSection, insertOrder?: number) => {
     if (section) {
       setEditingSection(section);
       setSectionForm({
@@ -315,6 +570,12 @@ export const SettingsHomePage = () => {
       });
     } else {
       setEditingSection(null);
+      // Si se especifica insertOrder, usarlo; si no, calcular el siguiente orden
+      const allItems = [
+        ...settings.home.productSections.map(s => s.order),
+        ...promoBanners.map(b => b.order),
+      ];
+      const nextOrder = insertOrder !== undefined ? insertOrder : (Math.max(0, ...allItems) + 1);
       setSectionForm({
         title: '',
         subtitle: '',
@@ -324,7 +585,7 @@ export const SettingsHomePage = () => {
         showViewAll: true,
         viewAllLink: '/catalog',
         isActive: true,
-        order: settings.home.productSections.length + 1,
+        order: nextOrder,
       });
     }
     setIsSectionModalOpen(true);
@@ -462,18 +723,12 @@ export const SettingsHomePage = () => {
               <Layers className="w-5 h-5 text-orange-500" />
               Hero (Cartas)
             </h3>
-            <div className="flex items-center gap-2">
-              {heroCards.filter(c => c.position === 'side').length < 3 && (
-                <Button variant="admin-secondary" onClick={() => handleOpenHeroCardModal()}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Carta
-                </Button>
-              )}
-              <Button onClick={handleSaveHeroCards}>
-                <Save className="w-4 h-4 mr-2" />
-                Guardar
+            {heroCards.filter(c => c.position === 'side').length < 3 && (
+              <Button variant="admin-secondary" onClick={() => handleOpenHeroCardModal()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Agregar Carta
               </Button>
-            </div>
+            )}
           </div>
 
           {/* Preview de estructura */}
@@ -715,71 +970,178 @@ export const SettingsHomePage = () => {
           </div>
         </div>
 
-        {/* Product Sections */}
+        {/* Secciones de Productos y Banners - Lista Unificada */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-orange-500" />
-              Secciones de Productos
+              Contenido del Home
             </h3>
-            <Button onClick={() => handleOpenSectionModal()}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva Sección
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="admin-secondary" onClick={() => handleOpenPromoBannerModal()}>
+                <Megaphone className="w-4 h-4 mr-2" />
+                Agregar Banner
+              </Button>
+              <Button onClick={() => handleOpenSectionModal()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nueva Sección
+              </Button>
+            </div>
           </div>
 
+          <p className="text-sm text-gray-500 mb-4">
+            Organiza el orden de las secciones de productos y banners promocionales que aparecen en el home.
+          </p>
+
           <div className="space-y-3">
-            {settings.home.productSections
-              .sort((a, b) => a.order - b.order)
-              .map((section) => {
-                const filterDesc = getFilterDescription(section.filters || {});
+            {/* Unir secciones y banners, ordenar por order */}
+            {(() => {
+              type ContentItem =
+                | { type: 'section'; data: typeof settings.home.productSections[0] }
+                | { type: 'banner'; data: PromoBanner };
+
+              const allItems: ContentItem[] = [
+                ...settings.home.productSections.map(s => ({ type: 'section' as const, data: s })),
+                ...promoBanners.map(b => ({ type: 'banner' as const, data: b })),
+              ].sort((a, b) => a.data.order - b.data.order);
+
+              if (allItems.length === 0) {
                 return (
-                  <div
-                    key={section.id}
-                    className={`flex items-center gap-4 p-4 border rounded-lg ${
-                      section.isActive ? 'border-gray-200' : 'border-gray-100 bg-gray-50'
-                    }`}
-                  >
-                    <GripVertical className="w-5 h-5 text-gray-400 cursor-move" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-medium text-gray-900">{section.title}</h4>
-                        {!section.isActive && (
-                          <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactiva</span>
-                        )}
-                      </div>
-                      {section.subtitle && (
-                        <p className="text-sm text-gray-500">{section.subtitle}</p>
-                      )}
-                      <p className="text-xs text-orange-600 mt-1 font-medium">
-                        {filterDesc}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Máx. {section.maxProducts} productos • {section.showViewAll ? 'Con "Ver todo"' : 'Sin "Ver todo"'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleOpenSectionModal(section)}
-                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSection(section.id)}
-                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div className="text-center py-8 text-gray-500">
+                    No hay contenido configurado. Agrega secciones de productos o banners promocionales.
                   </div>
                 );
-              })}
-            {settings.home.productSections.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No hay secciones de productos configuradas
-              </div>
-            )}
+              }
+
+              return allItems.map((item, index) => {
+                if (item.type === 'section') {
+                  const section = item.data;
+                  const filterDesc = getFilterDescription(section.filters || {});
+                  const isDragging = draggedItem?.type === 'section' && draggedItem?.id === section.id;
+                  const isDragOver = dragOverItem?.type === 'section' && dragOverItem?.id === section.id;
+                  return (
+                    <div
+                      key={`section-${section.id}`}
+                      draggable
+                      onDragStart={() => handleDragStart('section', section.id)}
+                      onDragOver={(e) => handleDragOver(e, 'section', section.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, 'section', section.id)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex items-center gap-4 p-4 border rounded-lg transition-all ${
+                        isDragging ? 'opacity-50 scale-[0.98]' : ''
+                      } ${isDragOver ? 'border-blue-500 border-2 bg-blue-100/50' : ''} ${
+                        !isDragging && !isDragOver ? (section.isActive ? 'border-blue-200 bg-blue-50/30' : 'border-gray-100 bg-gray-50') : ''
+                      }`}
+                    >
+                      <GripVertical className="w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing" />
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <ShoppingBag className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">SECCIÓN</span>
+                          <h4 className="font-medium text-gray-900 truncate">{section.title}</h4>
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">#{section.order}</span>
+                          {!section.isActive && (
+                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactiva</span>
+                          )}
+                        </div>
+                        {section.subtitle && (
+                          <p className="text-sm text-gray-500 truncate">{section.subtitle}</p>
+                        )}
+                        <p className="text-xs text-orange-600 mt-1 font-medium truncate">
+                          {filterDesc}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Máx. {section.maxProducts} productos
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => handleOpenSectionModal(section)}
+                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSection(section.id)}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                } else {
+                  const banner = item.data;
+                  const isDragging = draggedItem?.type === 'banner' && draggedItem?.id === banner.id;
+                  const isDragOver = dragOverItem?.type === 'banner' && dragOverItem?.id === banner.id;
+                  return (
+                    <div
+                      key={`banner-${banner.id}`}
+                      draggable
+                      onDragStart={() => handleDragStart('banner', banner.id)}
+                      onDragOver={(e) => handleDragOver(e, 'banner', banner.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, 'banner', banner.id)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex items-center gap-4 p-4 border rounded-lg transition-all ${
+                        isDragging ? 'opacity-50 scale-[0.98]' : ''
+                      } ${isDragOver ? 'border-orange-500 border-2 bg-orange-100/50' : ''} ${
+                        !isDragging && !isDragOver ? (banner.isActive ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100 bg-gray-50') : ''
+                      }`}
+                    >
+                      <GripVertical className="w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing" />
+                      <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <Megaphone className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-medium">BANNER</span>
+                          <h4 className="font-medium text-gray-900 truncate">{banner.title}</h4>
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">#{banner.order}</span>
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded capitalize">
+                            {banner.height === 'small' ? 'Pequeño' : banner.height === 'medium' ? 'Mediano' : 'Grande'}
+                          </span>
+                          {!banner.isActive && (
+                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactivo</span>
+                          )}
+                        </div>
+                        {banner.subtitle && (
+                          <p className="text-sm text-gray-500 truncate">{banner.subtitle}</p>
+                        )}
+                        {banner.buttonText && (
+                          <p className="text-xs text-gray-400">
+                            Botón: {banner.buttonText} → {banner.buttonLink}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => handleTogglePromoBanner(banner.id)}
+                          className={`p-2 rounded-lg ${banner.isActive ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'}`}
+                        >
+                          {banner.isActive ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                        </button>
+                        <button
+                          onClick={() => handleOpenPromoBannerModal(banner)}
+                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePromoBanner(banner.id)}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+              });
+            })()}
           </div>
         </div>
 
@@ -791,7 +1153,7 @@ export const SettingsHomePage = () => {
               CTA Final (Llamada a la Acción)
             </h3>
             <button
-              onClick={() => updateHomeSettings({ cta: { ...settings.home.cta, isActive: !settings.home.cta.isActive } })}
+              onClick={handleToggleCTA}
               className={`p-1 rounded ${settings.home.cta.isActive ? 'text-green-600' : 'text-gray-400'}`}
               title={settings.home.cta.isActive ? 'Visible' : 'Oculto'}
             >
@@ -1477,14 +1839,14 @@ export const SettingsHomePage = () => {
             {/* Configuración según tipo de fondo */}
             {heroCardForm.background.type === 'image' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL de la imagen</label>
-                <Input
+                <ImageUploadField
+                  label="Imagen de fondo"
                   value={heroCardForm.background.imageUrl || ''}
-                  onChange={(e) => setHeroCardForm({
+                  onChange={(newUrl) => setHeroCardForm({
                     ...heroCardForm,
-                    background: { ...heroCardForm.background, imageUrl: e.target.value }
+                    background: { ...heroCardForm.background, imageUrl: newUrl }
                   })}
-                  placeholder="https://..."
+                  placeholder="https://imagen.jpg"
                 />
               </div>
             )}
@@ -1519,20 +1881,61 @@ export const SettingsHomePage = () => {
             {heroCardForm.background.type === 'carousel' && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">URLs de imágenes (una por línea)</label>
-                  <textarea
-                    value={(heroCardForm.background.carouselImages || []).join('\n')}
-                    onChange={(e) => setHeroCardForm({
-                      ...heroCardForm,
-                      background: {
-                        ...heroCardForm.background,
-                        carouselImages: e.target.value.split('\n').filter(Boolean)
-                      }
-                    })}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    placeholder="https://imagen1.jpg&#10;https://imagen2.jpg&#10;https://imagen3.jpg"
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Imágenes del carrusel</label>
+                    <button
+                      type="button"
+                      onClick={() => setHeroCardForm({
+                        ...heroCardForm,
+                        background: {
+                          ...heroCardForm.background,
+                          carouselImages: [...(heroCardForm.background.carouselImages || []), '']
+                        }
+                      })}
+                      className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Agregar imagen
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {(heroCardForm.background.carouselImages || []).map((url, idx) => (
+                      <div key={idx} className="relative p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-600">Imagen {idx + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newImages = (heroCardForm.background.carouselImages || []).filter((_, i) => i !== idx);
+                              setHeroCardForm({
+                                ...heroCardForm,
+                                background: { ...heroCardForm.background, carouselImages: newImages }
+                              });
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-100 rounded"
+                            title="Eliminar imagen"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <ImageUploadField
+                          label=""
+                          value={url}
+                          onChange={(newUrl) => {
+                            const newImages = [...(heroCardForm.background.carouselImages || [])];
+                            newImages[idx] = newUrl;
+                            setHeroCardForm({
+                              ...heroCardForm,
+                              background: { ...heroCardForm.background, carouselImages: newImages }
+                            });
+                          }}
+                          placeholder="https://imagen.jpg"
+                        />
+                      </div>
+                    ))}
+                    {(heroCardForm.background.carouselImages || []).length === 0 && (
+                      <p className="text-sm text-gray-400 italic text-center py-4">No hay imágenes. Agrega al menos una.</p>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Intervalo (segundos)</label>
@@ -1571,6 +1974,33 @@ export const SettingsHomePage = () => {
               />
             </div>
           </div>
+
+          {/* Icono (solo para cartas laterales) */}
+          {heroCardForm.position === 'side' && (
+            <div className="border-t pt-4">
+              <label className="block text-sm font-semibold text-gray-900 mb-3">Icono</label>
+              <div className="grid grid-cols-5 gap-2">
+                {FEATURE_ICONS.map((iconOption) => {
+                  const IconComp = iconComponents[iconOption.id as FeatureCard['icon']];
+                  return (
+                    <button
+                      key={iconOption.id}
+                      type="button"
+                      onClick={() => setHeroCardForm({ ...heroCardForm, icon: iconOption.id })}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        heroCardForm.icon === iconOption.id
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      title={iconOption.label}
+                    >
+                      <IconComp className="w-6 h-6 mx-auto text-gray-600" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Botones (solo para carta principal) */}
           {heroCardForm.position === 'main' && (
@@ -1682,6 +2112,190 @@ export const SettingsHomePage = () => {
             </Button>
             <Button onClick={handleSaveHeroCard} className="flex-1">
               {editingHeroCard ? 'Guardar' : 'Crear'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal para Promo Banner */}
+      <Modal
+        isOpen={isPromoBannerModalOpen}
+        onClose={() => setIsPromoBannerModalOpen(false)}
+        title={editingPromoBanner ? 'Editar Banner' : 'Nuevo Banner Promocional'}
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Título */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <Input
+              value={promoBannerForm.title}
+              onChange={(e) => setPromoBannerForm({ ...promoBannerForm, title: e.target.value })}
+              placeholder="Ej: ¡Descuento del 20%!"
+            />
+          </div>
+
+          {/* Subtítulo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
+            <Input
+              value={promoBannerForm.subtitle || ''}
+              onChange={(e) => setPromoBannerForm({ ...promoBannerForm, subtitle: e.target.value })}
+              placeholder="Ej: Solo por tiempo limitado"
+            />
+          </div>
+
+          {/* Botón */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Texto del botón</label>
+              <Input
+                value={promoBannerForm.buttonText || ''}
+                onChange={(e) => setPromoBannerForm({ ...promoBannerForm, buttonText: e.target.value })}
+                placeholder="Ej: Ver ofertas"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Link del botón</label>
+              <Input
+                value={promoBannerForm.buttonLink || ''}
+                onChange={(e) => setPromoBannerForm({ ...promoBannerForm, buttonLink: e.target.value })}
+                placeholder="/catalog?discount=true"
+              />
+            </div>
+          </div>
+
+          {/* Orden y Altura */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Orden</label>
+              <Input
+                type="number"
+                min="1"
+                value={promoBannerForm.order}
+                onChange={(e) => setPromoBannerForm({ ...promoBannerForm, order: parseInt(e.target.value) || 1 })}
+              />
+              <p className="text-xs text-gray-500 mt-1">Define la posición en el home</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Altura</label>
+              <div className="flex gap-2">
+                {(['small', 'medium', 'large'] as const).map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setPromoBannerForm({ ...promoBannerForm, height: h })}
+                    className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                      promoBannerForm.height === h
+                        ? 'border-orange-500 bg-orange-50 text-orange-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {h === 'small' ? 'S' : h === 'medium' ? 'M' : 'L'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Alineación del contenido */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Alineación del contenido</label>
+            <div className="flex gap-2">
+              {([
+                { id: 'left', Icon: AlignLeft, label: 'Izquierda' },
+                { id: 'center', Icon: AlignCenter, label: 'Centro' },
+                { id: 'right', Icon: AlignRight, label: 'Derecha' },
+              ] as const).map(({ id, Icon, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setPromoBannerForm({ ...promoBannerForm, contentAlign: id })}
+                  className={`flex-1 py-2 px-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 ${
+                    promoBannerForm.contentAlign === id
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tipo de fondo */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-2">Fondo</label>
+            <div className="flex gap-2 mb-3">
+              {[
+                { type: 'gradient' as const, label: 'Gradiente', Icon: Palette },
+                { type: 'image' as const, label: 'Imagen', Icon: Image },
+              ].map(({ type, label, Icon }) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setPromoBannerForm({
+                    ...promoBannerForm,
+                    background: { ...promoBannerForm.background, type }
+                  })}
+                  className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                    promoBannerForm.background.type === type
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-xs">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Configuración según tipo */}
+            {promoBannerForm.background.type === 'image' && (
+              <div>
+                <ImageUploadField
+                  label="Imagen de fondo"
+                  value={promoBannerForm.background.imageUrl || ''}
+                  onChange={(newUrl) => setPromoBannerForm({
+                    ...promoBannerForm,
+                    background: { ...promoBannerForm.background, imageUrl: newUrl }
+                  })}
+                  placeholder="https://imagen.jpg"
+                />
+              </div>
+            )}
+
+            {/* Overlay */}
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Overlay oscuro: {promoBannerForm.background.overlayOpacity ?? 20}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="80"
+                value={promoBannerForm.background.overlayOpacity ?? 20}
+                onChange={(e) => setPromoBannerForm({
+                  ...promoBannerForm,
+                  background: { ...promoBannerForm.background, overlayOpacity: parseInt(e.target.value) }
+                })}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Botones del modal */}
+          <div className="flex gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsPromoBannerModalOpen(false)}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSavePromoBanner} className="flex-1">
+              {editingPromoBanner ? 'Guardar' : 'Crear'}
             </Button>
           </div>
         </div>

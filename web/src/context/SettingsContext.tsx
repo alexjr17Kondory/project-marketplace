@@ -17,6 +17,7 @@ import type {
   ProductSection,
   WhatsAppButtonSettings,
   CatalogSettings,
+  PromoBanner,
 } from '../types/settings';
 import { settingsService } from '../services/settings.service';
 import { useAuth } from './AuthContext';
@@ -341,6 +342,7 @@ const mockSettings: Settings = {
         order: 4,
       },
     ],
+    promoBanners: [],
     cta: {
       badge: 'Crea sin límites',
       showBadge: true,
@@ -721,6 +723,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       await settingsService.updateHomeSettings(newHome);
     } catch (err) {
       console.error('Error persisting home settings:', err);
+      throw err; // Propagar el error para que el llamador pueda manejarlo
     }
   };
 
@@ -926,8 +929,14 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const updateHomeSettings = async (data: Partial<HomeSettings>): Promise<void> => {
     const newHome = { ...settings.home, ...data };
 
-    setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
-    await persistHomeSettings(newHome);
+    try {
+      await settingsService.updateHomeSettings(newHome);
+      // Solo actualizar el estado local si la persistencia fue exitosa
+      setSettings((prev) => ({ ...prev, home: newHome, updatedAt: new Date() }));
+    } catch (err) {
+      console.error('Error persisting home settings:', err);
+      throw err; // Propagar el error para que el componente pueda mostrarlo
+    }
   };
 
   // Catalog settings

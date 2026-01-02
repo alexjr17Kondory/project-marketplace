@@ -127,59 +127,49 @@ export const HeroSection = ({ className = '' }: HeroSectionProps) => {
   // Configuración de visibilidad
   const showSideCards = heroSettings?.showSideCards ?? true;
 
-  // Calcular el grid según la cantidad de cartas laterales
-  const getSideCardsGridClass = () => {
-    if (!showSideCards || sideCards.length === 0) return '';
-    switch (sideCards.length) {
-      case 1:
-        return 'md:grid-cols-3'; // Main ocupa 2, side ocupa 1
-      case 2:
-        return 'md:grid-cols-3'; // Main ocupa 2, 2 sides
-      case 3:
-        return 'md:grid-cols-4'; // Main ocupa 2, 3 sides más pequeños
-      default:
-        return 'md:grid-cols-3';
-    }
-  };
-
-  // Calcular el height de cada carta lateral basado en la cantidad
-  const getSideCardHeight = () => {
-    switch (sideCards.length) {
-      case 1:
-        return 'min-h-[300px]'; // Una sola carta lateral, altura completa
-      case 2:
-        return 'min-h-[142px]'; // 2 cartas, se dividen la altura
-      case 3:
-        return 'min-h-[93px]'; // 3 cartas, cada una más pequeña
-      default:
-        return 'min-h-[142px]';
-    }
-  };
-
   if (!mainCard) {
     return null; // No mostrar hero si no hay carta principal
   }
 
+  // Calcular la altura total del hero basada en cantidad de cartas
+  const getHeroHeight = () => {
+    if (!showSideCards || sideCards.length === 0) return 'md:h-[350px]';
+    switch (sideCards.length) {
+      case 1:
+        return 'md:h-[350px]';
+      case 2:
+        return 'md:h-[380px]';
+      case 3:
+        return 'md:h-[420px]';
+      default:
+        return 'md:h-[350px]';
+    }
+  };
+
   return (
     <div className={`bg-gray-100 py-4 md:py-6 ${className}`}>
       <div className="max-w-7xl mx-auto px-4">
-        {/* Bento Grid Container */}
-        <div className={`grid grid-cols-1 ${showSideCards && sideCards.length > 0 ? getSideCardsGridClass() : ''} gap-3 md:gap-4`}>
-          {/* Main Card - Ocupa 2 columnas y su altura se adapta a las laterales */}
+        {/* Bento Layout con Flexbox */}
+        <div className={`flex flex-col md:flex-row gap-3 md:gap-4 ${getHeroHeight()}`}>
+          {/* Main Card - Ocupa 2/3 del ancho y toda la altura */}
           <HeroCard
             card={mainCard}
             isMain
-            className={`${showSideCards && sideCards.length > 0 ? 'md:col-span-2 md:row-span-' + sideCards.length : ''} min-h-[220px] md:min-h-[300px]`}
+            className={`min-h-[220px] md:min-h-0 ${showSideCards && sideCards.length > 0 ? 'md:flex-[2]' : 'md:flex-1'} h-full`}
           />
 
-          {/* Side Cards */}
-          {showSideCards && sideCards.map((card) => (
-            <HeroCard
-              key={card.id}
-              card={card}
-              className={`hidden md:flex hover:scale-[1.02] transition-transform flex-col ${getSideCardHeight()}`}
-            />
-          ))}
+          {/* Side Cards Container - Columna vertical */}
+          {showSideCards && sideCards.length > 0 && (
+            <div className="hidden md:flex md:flex-col md:flex-1 gap-3 md:gap-4">
+              {sideCards.map((card) => (
+                <HeroCard
+                  key={card.id}
+                  card={card}
+                  className="flex-1 hover:scale-[1.02] transition-transform"
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

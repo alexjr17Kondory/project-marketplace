@@ -277,6 +277,8 @@ export interface HeroCard {
   titleLine2?: string; // Segunda línea del título (opcional)
   subtitle?: string;
   showSubtitle: boolean;
+  // Icono para cartas laterales
+  icon?: string;
   // Botones (máximo 2)
   buttons: HeroCardButton[];
   // Configuración de fondo
@@ -387,6 +389,32 @@ export interface CatalogSettings {
   showSortOptions: boolean;
 }
 
+// Banner promocional para intercalar entre secciones de productos
+export interface PromoBanner {
+  id: string;
+  // Orden global en el que aparece mezclado con las secciones de productos
+  order: number;
+  // Contenido
+  title: string;
+  subtitle?: string;
+  // Botón de acción
+  buttonText?: string;
+  buttonLink?: string;
+  // Fondo (reutiliza el mismo sistema del hero)
+  background: HeroCardBackground;
+  // Altura del banner
+  height: 'small' | 'medium' | 'large'; // small: 120px, medium: 180px, large: 240px
+  // Alineación del contenido
+  contentAlign: 'left' | 'center' | 'right';
+  // Estado
+  isActive: boolean;
+}
+
+// Tipo discriminado para contenido mixto del Home (secciones + banners)
+export type HomeContentItem =
+  | { itemType: 'section'; data: ProductSection }
+  | { itemType: 'banner'; data: PromoBanner };
+
 // Configuración completa del Home
 export interface HomeSettings {
   // Habilitar/deshabilitar módulo de personalización
@@ -398,6 +426,8 @@ export interface HomeSettings {
   showFeatures: boolean;
   // Secciones de productos
   productSections: ProductSection[];
+  // Banners promocionales entre secciones
+  promoBanners: PromoBanner[];
   // CTA final
   cta: CTASettings;
   // Botón flotante de WhatsApp
@@ -408,6 +438,7 @@ export interface HomeSettings {
 export const FEATURE_ICONS = [
   { id: 'palette', label: 'Paleta (Personalización)' },
   { id: 'sparkles', label: 'Destellos (Calidad)' },
+  { id: 'flame', label: 'Fuego (Hot/Tendencia)' },
   { id: 'package', label: 'Paquete (Envío)' },
   { id: 'truck', label: 'Camión (Delivery)' },
   { id: 'shield', label: 'Escudo (Garantía)' },

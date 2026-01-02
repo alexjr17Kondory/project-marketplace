@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Sparkles, ShoppingBag, Palette, Package, Truck, Shield, Heart, Star, Zap, Gift, Percent, Quote, ChevronRight } from 'lucide-react';
 import { FeaturedProducts } from '../components/products/FeaturedProducts';
 import { HeroSection } from '../components/home/HeroSection';
+import { PromoBanner } from '../components/home/PromoBanner';
 import { useSettings } from '../context/SettingsContext';
 
 // Mapeo de iconos por ID
@@ -63,6 +64,17 @@ export const HomePage = () => {
   const showFeatures = homeSettings?.showFeatures ?? true;
   const cta = homeSettings?.cta;
   const productSections = homeSettings?.productSections?.filter(s => s.isActive).sort((a, b) => a.order - b.order) || [];
+  const promoBanners = homeSettings?.promoBanners?.filter(b => b.isActive) || [];
+
+  // Combinar secciones y banners, ordenados por order
+  type ContentItem =
+    | { type: 'section'; data: typeof productSections[0] }
+    | { type: 'banner'; data: typeof promoBanners[0] };
+
+  const allHomeContent: ContentItem[] = [
+    ...productSections.map(s => ({ type: 'section' as const, data: s })),
+    ...promoBanners.map(b => ({ type: 'banner' as const, data: b })),
+  ].sort((a, b) => a.data.order - b.data.order);
 
   return (
     <div className="overflow-x-hidden bg-gray-100 min-h-screen">
@@ -99,11 +111,21 @@ export const HomePage = () => {
         </div>
       )}
 
-      {/* Product Sections - Dinámico */}
-      {productSections.length > 0 ? (
-        productSections.map((section) => (
-          <FeaturedProducts key={section.id} section={section} />
-        ))
+      {/* Contenido del Home - Secciones y Banners ordenados */}
+      {allHomeContent.length > 0 ? (
+        allHomeContent.map((item) => {
+          if (item.type === 'section') {
+            return <FeaturedProducts key={`section-${item.data.id}`} section={item.data} />;
+          } else {
+            return (
+              <div key={`banner-${item.data.id}`} className="py-4 md:py-6">
+                <div className="max-w-7xl mx-auto px-4">
+                  <PromoBanner banner={item.data} />
+                </div>
+              </div>
+            );
+          }
+        })
       ) : (
         <FeaturedProducts />
       )}
