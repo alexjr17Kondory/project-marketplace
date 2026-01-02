@@ -226,23 +226,86 @@ export interface LegalSettings {
 // Configuración de la Página de Inicio (Home)
 // ============================================
 
-// Hero Section
+// Tipo de fondo para las cartas del hero
+export type HeroBackgroundType = 'gradient' | 'image' | 'video' | 'carousel';
+
+// Configuración de fondo para una carta del hero
+export interface HeroCardBackground {
+  type: HeroBackgroundType;
+  // Para tipo 'gradient' - usa los colores de marca por defecto
+  gradientColors?: {
+    from: string;
+    via?: string;
+    to: string;
+  };
+  // Para tipo 'image'
+  imageUrl?: string;
+  // Para tipo 'video'
+  videoUrl?: string;
+  videoPoster?: string; // Imagen de preview mientras carga el video
+  videoMuted?: boolean;
+  videoLoop?: boolean;
+  // Para tipo 'carousel'
+  carouselImages?: string[];
+  carouselInterval?: number; // Intervalo en ms (default: 5000)
+  carouselTransition?: 'fade' | 'slide'; // Tipo de transición
+  // Overlay oscuro sobre el fondo (para mejor legibilidad del texto)
+  overlayOpacity?: number; // 0-100
+}
+
+// Botón de una carta del hero
+export interface HeroCardButton {
+  id: string;
+  text: string;
+  link: string;
+  style: 'primary' | 'secondary' | 'outline';
+  icon?: string; // Icono de lucide-react
+  isActive: boolean;
+}
+
+// Carta individual del hero
+export interface HeroCard {
+  id: string;
+  // Posición: 'main' para la carta principal, 'side' para las laterales
+  position: 'main' | 'side';
+  // Orden de las cartas laterales (1, 2, 3)
+  order: number;
+  // Contenido
+  badge?: string;
+  showBadge: boolean;
+  title: string;
+  titleLine2?: string; // Segunda línea del título (opcional)
+  subtitle?: string;
+  showSubtitle: boolean;
+  // Botones (máximo 2)
+  buttons: HeroCardButton[];
+  // Configuración de fondo
+  background: HeroCardBackground;
+  // Estado
+  isActive: boolean;
+}
+
+// Hero Section - Nueva estructura con cartas configurables
 export interface HeroSettings {
-  badge: string; // Texto del badge (ej: "100% Personalizable")
-  title: string; // Título principal
-  titleHighlight?: string; // Parte destacada del título
-  subtitle: string; // Subtítulo descriptivo
+  // Cartas del hero (1 principal + hasta 3 laterales)
+  cards: HeroCard[];
+  // Configuración general del hero
+  showSideCards: boolean; // Mostrar cartas laterales en desktop
+  sideCardsVisibleOnMobile: boolean; // Mostrar laterales en mobile (como stack)
+  // Legacy fields (para compatibilidad)
+  badge: string;
+  title: string;
+  titleHighlight?: string;
+  subtitle: string;
   primaryButtonText: string;
   primaryButtonLink: string;
-  showPrimaryButton: boolean; // Mostrar/ocultar botón principal
+  showPrimaryButton: boolean;
   secondaryButtonText: string;
   secondaryButtonLink: string;
   showSecondaryButton: boolean;
   showBadge: boolean;
-  // Puntos destacados debajo del CTA
   highlights: string[];
-  showHighlights: boolean; // Mostrar/ocultar highlights
-  // Imagen de fondo (opcional - si no, usa el gradiente)
+  showHighlights: boolean;
   backgroundImage?: string;
   useGradientBackground: boolean;
 }
