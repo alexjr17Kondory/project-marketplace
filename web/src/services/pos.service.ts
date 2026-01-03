@@ -59,11 +59,26 @@ export interface CreateSaleRequest {
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
-  paymentMethod: 'cash' | 'card' | 'mixed';
+  customerCedula?: string; // NIT/Cédula del cliente para registro
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'mixed';
   cashAmount?: number;
   cardAmount?: number;
   discount?: number;
   notes?: string;
+  // Datos de pago con tarjeta/transferencia
+  cardReference?: string;
+  cardType?: string;
+  cardLastFour?: string;
+}
+
+export interface POSCustomer {
+  id: number;
+  cedula: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  totalPurchases: number;
+  totalSpent: number;
 }
 
 export interface Sale {
@@ -71,7 +86,8 @@ export interface Sale {
   orderNumber: string;
   cashRegisterId: number;
   sellerId: number;
-  customerId: number | null;
+  posCustomerId: number | null;
+  posCustomer: POSCustomer | null;
   customerName: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
@@ -82,6 +98,12 @@ export interface Sale {
   tax: number;
   total: number;
   paymentMethod: string;
+  cardType?: string | null;
+  cardLastFour?: string | null;
+  cardReference?: string | null;
+  cashAmount?: number | null;
+  cardAmount?: number | null;
+  paymentEvidence?: string | null;
   status: string;
   notes: string | null;
   createdAt: string;
@@ -274,4 +296,144 @@ export async function getSaleDetail(saleId: number): Promise<Sale> {
     },
   });
   return response.data.data;
+}
+
+// ==================== CUSTOMER & INVOICE ====================
+
+export interface CustomerSearchResult {
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  cedula: string;
+  totalPurchases: number;
+  totalSpent: number;
+}
+
+/**
+ * Search customer by cédula
+ */
+export async function searchCustomerByCedula(cedula: string): Promise<CustomerSearchResult | null> {
+  const response = await axios.get(`${API_URL}/pos/customer/search`, {
+    params: { cedula },
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+  });
+  return response.data.data;
+}
+
+/**
+ * Send invoice by email
+ */
+export async function sendInvoiceEmail(saleId: number, email: string): Promise<{ message: string }> {
+  const response = await axios.post(
+    `${API_URL}/pos/sale/${saleId}/send-invoice`,
+    { email },
+    {
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    }
+  );
+  return { message: response.data.message };
+}
+
+/**
+ * Get invoice PDF URL for printing
+ */
+export function getInvoicePDFUrl(saleId: number): string {
+  return `${API_URL}/pos/sale/${saleId}/invoice-pdf`;
+}
+
+/**
+ * Get invoice PDF as Blob (for preview modal)
+ */
+export async function getInvoicePDFBlob(saleId: number): Promise<Blob> {
+  const token = getAuthToken();
+  const url = `${API_URL}/pos/sale/${saleId}/invoice-pdf`;
+
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    responseType: 'blob',
+  });
+
+  return new Blob([response.data], { type: 'application/pdf' });
+}
+
+/**
+ * Print invoice PDF - opens print dialog directly
+ */
+export async function printInvoicePDF(saleId: number): Promise<void> {
+  // Get PDF as blob
+  const blob = await getInvoicePDFBlob(saleId);
+  const pdfUrl = URL.createObjectURL(blob);
+
+  // Create hidden iframe for printing
+  const printFrame = document.createElement('iframe');
+  printFrame.id = 'print-invoice-frame';
+  printFrame.style.position = 'fixed';
+  printFrame.style.right = '0';
+  printFrame.style.bottom = '0';
+  printFrame.style.width = '0';
+  printFrame.style.height = '0';
+  printFrame.style.border = 'none';
+  printFrame.src = pdfUrl;
+
+  document.body.appendChild(printFrame);
+
+  // Wait for PDF to load then trigger print dialog
+  printFrame.onload = () => {
+    setTimeout(() => {
+      printFrame.contentWindow?.focus();
+      printFrame.contentWindow?.print();
+    }, 300);
+  };
+
+  // Cleanup after printing (when user closes print dialog)
+  const cleanup = () => {
+    const frame = document.getElementById('print-invoice-frame');
+    if (frame) {
+      document.body.removeChild(frame);
+    }
+    URL.revokeObjectURL(pdfUrl);
+    window.removeEventListener('focus', cleanup);
+  };
+
+  // Remove iframe when window regains focus (print dialog closed)
+  setTimeout(() => {
+    window.addEventListener('focus', cleanup);
+  }, 1000);
+}
+
+// ==================== PAYMENT EVIDENCE ====================
+
+/**
+ * Upload payment evidence for a transfer sale
+ */
+export async function uploadPaymentEvidence(saleId: number, evidence: string): Promise<Sale> {
+  const response = await axios.post(
+    `${API_URL}/pos/sale/${saleId}/payment-evidence`,
+    { evidence },
+    {
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    }
+  );
+  return response.data.data;
+}
+
+/**
+ * Get payment evidence for a sale
+ */
+export async function getPaymentEvidence(saleId: number): Promise<string | null> {
+  const response = await axios.get(`${API_URL}/pos/sale/${saleId}/payment-evidence`, {
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+  });
+  return response.data.data?.evidence || null;
 }

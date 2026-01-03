@@ -44,6 +44,9 @@ interface AuthContextType {
   logout: () => void;
   updateProfile: (profile: Partial<UserProfile> & { name?: string }) => Promise<void>;
   refreshUser: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  validateResetToken: (token: string, email: string) => Promise<boolean>;
+  resetPassword: (token: string, email: string, password: string) => Promise<void>;
   // Helpers de permisos
   hasPermission: (permission: string) => boolean;
   hasModuleAccess: (module: string) => boolean;
@@ -113,6 +116,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   ): Promise<void> => {
     const response = await authService.register({ email, password, name, phone });
     setUser(mapApiUserToUser(response.user, response));
+  };
+
+  // Recuperar contraseña
+  const requestPasswordReset = async (email: string): Promise<void> => {
+    await authService.requestPasswordReset(email);
+  };
+
+  // Validar token de reset
+  const validateResetToken = async (token: string, email: string): Promise<boolean> => {
+    return authService.validateResetToken(token, email);
+  };
+
+  // Resetear contraseña
+  const resetPassword = async (token: string, _email: string, password: string): Promise<void> => {
+    await authService.resetPassword(token, password);
   };
 
   // Logout
@@ -208,6 +226,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         updateProfile,
         refreshUser,
+        requestPasswordReset,
+        validateResetToken,
+        resetPassword,
         hasPermission,
         hasModuleAccess,
         canAccessAdmin,

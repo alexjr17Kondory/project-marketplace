@@ -95,9 +95,13 @@ export async function createSale(req: AuthenticatedRequest, res: Response): Prom
       customerName,
       customerEmail,
       customerPhone,
+      customerCedula,
       paymentMethod,
       cashAmount,
       cardAmount,
+      cardReference,
+      cardType,
+      cardLastFour,
       discount,
       notes,
     } = req.body;
@@ -118,9 +122,13 @@ export async function createSale(req: AuthenticatedRequest, res: Response): Prom
       customerName,
       customerEmail,
       customerPhone,
+      customerCedula,
       paymentMethod,
       cashAmount: cashAmount ? Number(cashAmount) : undefined,
       cardAmount: cardAmount ? Number(cardAmount) : undefined,
+      cardReference,
+      cardType,
+      cardLastFour,
       discount: discount ? Number(discount) : undefined,
       notes,
     });
@@ -259,6 +267,151 @@ export async function calculateSale(req: AuthenticatedRequest, res: Response): P
     res.status(400).json({
       success: false,
       message: error.message || 'Error al calcular venta',
+    });
+  }
+}
+
+/**
+ * Buscar cliente por cédula
+ * GET /api/pos/customer/search?cedula=123456
+ */
+export async function searchCustomerByCedula(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { cedula } = req.query;
+
+    if (!cedula || typeof cedula !== 'string') {
+      res.status(400).json({
+        success: false,
+        message: 'La cédula es requerida',
+      });
+      return;
+    }
+
+    const customer = await posService.searchCustomerByCedula(cedula);
+
+    res.json({
+      success: true,
+      data: customer,
+    });
+  } catch (error: any) {
+    console.error('Error searching customer:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al buscar cliente',
+    });
+  }
+}
+
+/**
+ * Enviar factura por email
+ * POST /api/pos/sale/:id/send-invoice
+ */
+export async function sendInvoiceEmail(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        message: 'El email es requerido',
+      });
+      return;
+    }
+
+    const result = await posService.sendInvoiceEmail(Number(id), email);
+
+    res.json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error: any) {
+    console.error('Error sending invoice:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al enviar factura',
+    });
+  }
+}
+
+/**
+ * Generar PDF de factura
+ * GET /api/pos/sale/:id/invoice-pdf
+ */
+export async function getInvoicePDF(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+
+    const pdfBuffer = await posService.generateInvoicePDF(Number(id));
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Factura_${id}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    console.error('Error generating invoice PDF:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al generar factura PDF',
+    });
+  }
+}
+
+/**
+ * Subir evidencia de pago para transferencias
+ * POST /api/pos/sale/:id/payment-evidence
+ */
+export async function uploadPaymentEvidence(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { evidence } = req.body;
+
+    if (!evidence) {
+      res.status(400).json({
+        success: false,
+        message: 'La evidencia de pago es requerida',
+      });
+      return;
+    }
+
+    const sale = await posService.uploadPaymentEvidence(
+      Number(id),
+      evidence,
+      req.user!.userId
+    );
+
+    res.json({
+      success: true,
+      message: 'Evidencia de pago subida exitosamente',
+      data: sale,
+    });
+  } catch (error: any) {
+    console.error('Error uploading payment evidence:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al subir evidencia de pago',
+    });
+  }
+}
+
+/**
+ * Obtener evidencia de pago
+ * GET /api/pos/sale/:id/payment-evidence
+ */
+export async function getPaymentEvidence(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+
+    const evidence = await posService.getPaymentEvidence(Number(id));
+
+    res.json({
+      success: true,
+      data: { evidence },
+    });
+  } catch (error: any) {
+    console.error('Error getting payment evidence:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al obtener evidencia de pago',
     });
   }
 }

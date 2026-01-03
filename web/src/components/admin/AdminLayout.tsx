@@ -166,6 +166,7 @@ const menuWithSubmenus: {
       { path: '/admin-panel/settings/shipping', label: 'Envíos', permission: 'settings.shipping' },
       { path: '/admin-panel/settings/payment', label: 'Pagos', permission: 'settings.payment' },
       { path: '/admin-panel/settings/legal', label: 'Legal', permission: 'settings.legal' },
+      { path: '/admin-panel/settings/printing', label: 'Impresión', permission: 'settings.general' },
       { path: '/admin-panel/settings/label-templates', label: 'Plantillas de Etiquetas', permission: 'settings.general' },
     ],
   },

@@ -1,19 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePOS } from '../../context/POSContext';
 import { useToast } from '../../context/ToastContext';
+import { useSettings } from '../../context/SettingsContext';
 import * as posService from '../../services/pos.service';
+import settingsService from '../../services/settings.service';
 import OpenSessionPrompt from '../../components/pos/OpenSessionPrompt';
-import { History, Receipt, Calendar, DollarSign, CreditCard, User, Printer } from 'lucide-react';
+import PrintPreviewModal from '../../components/pos/PrintPreviewModal';
+import type { PrintSettings } from '../../types/settings';
+import { DEFAULT_PRINT_SETTINGS } from '../../types/settings';
+import { History, Receipt, Calendar, DollarSign, CreditCard, User, Printer, Mail, X, Loader2, CheckCircle, Smartphone, Eye, RefreshCw, Camera, Upload, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function SalesHistoryPage() {
   const { currentSession } = usePOS();
   const { showToast } = useToast();
+  const { settings } = useSettings();
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Email modal state
+  const [emailModalSale, setEmailModalSale] = useState<any | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  // Print preview modal state
+  const [printPreviewSale, setPrintPreviewSale] = useState<any | null>(null);
+  const [printSettings, setPrintSettings] = useState<PrintSettings>(DEFAULT_PRINT_SETTINGS);
+
+  // Evidence modal state
+  const [evidenceModalSale, setEvidenceModalSale] = useState<any | null>(null);
+  const [evidencePreview, setEvidencePreview] = useState<string | null>(null);
+  const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
+  const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Ref para almacenar la imagen sin causar re-renders
+  const imageDataRef = useRef<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   useEffect(() => {
-    loadSales();
+    loadPrintSettings();
   }, []);
+
+  // Load sales when session is available
+  useEffect(() => {
+    if (currentSession) {
+      loadSales();
+    }
+  }, [currentSession]);
+
+  // Attach camera stream to video element when stream changes
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch(console.error);
+    }
+  }, [cameraStream, isCameraActive]);
+
+  // Cleanup resources when component unmounts or modal closes
+  useEffect(() => {
+    return () => {
+      // Limpiar cámara al desmontar
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [cameraStream]);
+
+  const loadPrintSettings = async () => {
+    try {
+      const data = await settingsService.getPrintingSettings();
+      setPrintSettings({ ...DEFAULT_PRINT_SETTINGS, ...data });
+    } catch (error) {
+      console.error('Error loading print settings:', error);
+    }
+  };
 
   const loadSales = async () => {
     if (!currentSession) {
@@ -32,142 +97,281 @@ export default function SalesHistoryPage() {
     }
   };
 
-  // Imprimir ticket de una venta
-  const handlePrintTicket = (sale: any) => {
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    if (!printWindow) {
-      showToast('No se pudo abrir la ventana de impresión', 'error');
+  // Imprimir ticket de una venta (usa el mismo PDF que se envía por email)
+  const handlePrintTicket = async (sale: any) => {
+    // Si está habilitado el modal de vista previa, mostrarlo
+    if (printSettings.showPreviewModal) {
+      setPrintPreviewSale(sale);
       return;
     }
 
-    const paymentMethodText = sale.paymentMethod === 'cash' ? 'Efectivo' : sale.paymentMethod === 'card' ? 'Tarjeta' : 'Mixto';
-    const date = new Date(sale.createdAt).toLocaleString('es-CO');
-
-    const ticketHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Ticket - ${sale.orderNumber}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            width: 80mm;
-            padding: 10px;
-          }
-          .header { text-align: center; margin-bottom: 15px; }
-          .header h1 { font-size: 16px; margin-bottom: 5px; }
-          .header p { font-size: 10px; color: #666; }
-          .divider { border-top: 1px dashed #000; margin: 10px 0; }
-          .info { margin-bottom: 10px; }
-          .info-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
-          .items { margin-bottom: 10px; }
-          .item { margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dotted #ccc; }
-          .item-name { font-weight: bold; }
-          .item-details { display: flex; justify-content: space-between; font-size: 11px; color: #666; }
-          .item-total { text-align: right; font-weight: bold; }
-          .totals { margin-top: 10px; }
-          .totals .row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-          .totals .total { font-size: 16px; font-weight: bold; border-top: 2px solid #000; padding-top: 5px; }
-          .payment { margin-top: 10px; background: #f5f5f5; padding: 10px; }
-          .footer { text-align: center; margin-top: 15px; font-size: 10px; color: #666; }
-          @media print {
-            body { width: 80mm; }
-            @page { margin: 0; size: 80mm auto; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>MARKETPLACE</h1>
-          <p>Ticket de Venta</p>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="info">
-          <div class="info-row">
-            <span>Orden:</span>
-            <span><strong>${sale.orderNumber}</strong></span>
-          </div>
-          <div class="info-row">
-            <span>Fecha:</span>
-            <span>${date}</span>
-          </div>
-          ${sale.customerName ? `
-          <div class="info-row">
-            <span>Cliente:</span>
-            <span>${sale.customerName}</span>
-          </div>
-          ` : ''}
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="items">
-          ${(sale.items || []).map((item: any) => `
-            <div class="item">
-              <div class="item-name">${item.productName}</div>
-              <div class="item-details">
-                <span>${item.color || ''} ${item.size || ''}</span>
-                <span>${item.quantity} x $${Number(item.unitPrice).toLocaleString('es-CO')}</span>
-              </div>
-              <div class="item-total">$${(item.quantity * Number(item.unitPrice)).toLocaleString('es-CO')}</div>
-            </div>
-          `).join('')}
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="totals">
-          <div class="row">
-            <span>Subtotal:</span>
-            <span>$${Number(sale.subtotal).toLocaleString('es-CO')}</span>
-          </div>
-          ${Number(sale.discount) > 0 ? `
-          <div class="row" style="color: red;">
-            <span>Descuento:</span>
-            <span>-$${Number(sale.discount).toLocaleString('es-CO')}</span>
-          </div>
-          ` : ''}
-          <div class="row">
-            <span>IVA (19%):</span>
-            <span>$${Number(sale.tax).toLocaleString('es-CO')}</span>
-          </div>
-          <div class="row total">
-            <span>TOTAL:</span>
-            <span>$${Number(sale.total).toLocaleString('es-CO')}</span>
-          </div>
-        </div>
-
-        <div class="payment">
-          <div class="info-row">
-            <span>Método de pago:</span>
-            <span>${paymentMethodText}</span>
-          </div>
-        </div>
-
-        <div class="footer">
-          <p>Gracias por su compra!</p>
-          <p>Conserve este ticket</p>
-        </div>
-
-        <script>
-          window.onload = function() {
-            window.print();
-            window.onafterprint = function() {
-              window.close();
-            };
-          };
-        </script>
-      </body>
-      </html>
-    `;
-
-    printWindow.document.write(ticketHTML);
-    printWindow.document.close();
+    // Si no, imprimir directamente
+    try {
+      await posService.printInvoicePDF(sale.id);
+    } catch (error) {
+      console.error('Error printing invoice:', error);
+      showToast('Error al imprimir la factura', 'error');
+    }
   };
+
+  // Abrir modal para enviar factura
+  const handleOpenEmailModal = (sale: any) => {
+    setEmailModalSale(sale);
+    setEmailInput(sale.customerEmail || '');
+  };
+
+  // Enviar factura por email
+  const handleSendInvoice = async () => {
+    if (!emailModalSale || !emailInput.trim()) {
+      showToast('Ingresa un email válido', 'error');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      await posService.sendInvoiceEmail(emailModalSale.id, emailInput.trim());
+      showToast('Factura enviada exitosamente', 'success');
+
+      // Actualizar el sale con el email
+      setSales(prevSales =>
+        prevSales.map(s =>
+          s.id === emailModalSale.id
+            ? { ...s, customerEmail: emailInput.trim() }
+            : s
+        )
+      );
+
+      setEmailModalSale(null);
+      setEmailInput('');
+    } catch (error: any) {
+      console.error('Error sending invoice:', error);
+      showToast(error.response?.data?.message || 'Error al enviar factura', 'error');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  // Abrir modal de evidencia
+  const handleOpenEvidenceModal = async (sale: any) => {
+    // Limpiar todo primero
+    imageDataRef.current = null;
+    setEvidenceModalSale(sale);
+    setIsCameraActive(false);
+    setEvidencePreview(null);
+
+    // Si ya tiene evidencia, cargarla desde el servidor
+    if (sale.paymentEvidence) {
+      setIsLoadingEvidence(true);
+      try {
+        const evidence = await posService.getPaymentEvidence(sale.id);
+        imageDataRef.current = evidence;
+        setEvidencePreview(evidence);
+      } catch (error) {
+        console.error('Error loading evidence:', error);
+        setEvidencePreview(null);
+      } finally {
+        setIsLoadingEvidence(false);
+      }
+    }
+  };
+
+  // Cerrar modal de evidencia
+  const handleCloseEvidenceModal = () => {
+    stopCamera();
+    imageDataRef.current = null;
+    setEvidenceModalSale(null);
+    setEvidencePreview(null);
+    setIsCameraActive(false);
+  };
+
+  // Detectar si es móvil para ajustar compresión
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // Comprimir imagen para optimizar memoria en móviles
+  const compressImage = (
+    source: HTMLVideoElement | HTMLImageElement,
+    sourceWidth: number,
+    sourceHeight: number
+  ): string => {
+    // MUY agresivo en móviles para evitar problemas de memoria
+    const MAX_SIZE = isMobile ? 400 : 800;
+    const QUALITY = isMobile ? 0.4 : 0.6;
+
+    let width = sourceWidth;
+    let height = sourceHeight;
+
+    // Redimensionar si es necesario
+    if (width > MAX_SIZE || height > MAX_SIZE) {
+      if (width > height) {
+        height = Math.round((height * MAX_SIZE) / width);
+        width = MAX_SIZE;
+      } else {
+        width = Math.round((width * MAX_SIZE) / height);
+        height = MAX_SIZE;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(source, 0, 0, width, height);
+      const result = canvas.toDataURL('image/jpeg', QUALITY);
+      // Limpiar canvas para liberar memoria
+      canvas.width = 0;
+      canvas.height = 0;
+      return result;
+    }
+    return '';
+  };
+
+  // Manejar selección de archivo
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('La imagen no debe superar 10MB', 'error');
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        // Comprimir imagen para optimizar memoria
+        const compressed = compressImage(img, img.width, img.height);
+        if (compressed) {
+          // Guardar en ref Y en state (state para preview, ref para upload)
+          imageDataRef.current = compressed;
+          setEvidencePreview(compressed);
+          stopCamera();
+          setIsCameraActive(false);
+        }
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = () => {
+        showToast('Error al procesar la imagen', 'error');
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(file);
+    }
+  };
+
+  // Iniciar cámara
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+      });
+      setCameraStream(stream);
+      setIsCameraActive(true);
+      // El useEffect se encarga de asignar el stream al video element
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      showToast('No se pudo acceder a la cámara', 'error');
+    }
+  };
+
+  // Detener cámara
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+  };
+
+  // Capturar foto de la cámara
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const imageData = compressImage(
+        videoRef.current,
+        videoRef.current.videoWidth,
+        videoRef.current.videoHeight
+      );
+      if (imageData) {
+        // Guardar en ref Y en state
+        imageDataRef.current = imageData;
+        setEvidencePreview(imageData);
+        stopCamera();
+        setIsCameraActive(false);
+      }
+    }
+  };
+
+  // Subir evidencia - optimizado para móviles
+  const handleUploadEvidence = async () => {
+    // Validación inicial
+    if (!evidenceModalSale) {
+      showToast('Error: No hay venta seleccionada', 'error');
+      return;
+    }
+
+    // Usar ref que tiene la imagen (no depende del state)
+    const imageToUpload = imageDataRef.current;
+    if (!imageToUpload) {
+      showToast('Selecciona una imagen primero', 'error');
+      return;
+    }
+
+    // Guardar ID antes de cualquier cambio
+    const saleId = evidenceModalSale.id;
+
+    // PRIMERO: Limpiar memoria liberando la imagen del state
+    setEvidencePreview(null);
+
+    // Luego mostrar loading
+    setIsUploadingEvidence(true);
+
+    try {
+      // Hacer el request usando la referencia (no el state)
+      await posService.uploadPaymentEvidence(saleId, imageToUpload);
+
+      // Limpiar ref después del upload exitoso
+      imageDataRef.current = null;
+
+      // Detener cámara si está activa
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+        setCameraStream(null);
+      }
+
+      // Cerrar modal primero
+      setIsCameraActive(false);
+      setIsUploadingEvidence(false);
+      setEvidenceModalSale(null);
+
+      // Actualizar lista de ventas después de cerrar modal
+      setSales((prevSales) =>
+        prevSales.map((s) =>
+          s.id === saleId ? { ...s, paymentEvidence: 'uploaded' } : s
+        )
+      );
+
+      // Toast al final
+      showToast('Evidencia subida correctamente', 'success');
+
+    } catch (error: any) {
+      // En caso de error, restaurar la imagen para reintentar
+      setEvidencePreview(imageToUpload);
+      setIsUploadingEvidence(false);
+      const errorMsg = error?.response?.data?.message
+        || error?.message
+        || 'Error al subir';
+      showToast(`Error: ${errorMsg}`, 'error');
+    }
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(sales.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedSales = sales.slice(startIndex, endIndex);
+
+  // Reset to page 1 when sales change
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [sales.length, totalPages, currentPage]);
 
   if (!currentSession) {
     return (
@@ -201,51 +405,90 @@ export default function SalesHistoryPage() {
             </p>
           </div>
         </div>
+        <button
+          onClick={loadSales}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Actualizar
+        </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Ventas</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-medium text-gray-500">Total Ventas</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">
                 {currentSession.salesCount}
               </p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Receipt className="w-6 h-6 text-blue-600" />
+            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Receipt className="w-5 h-5 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-white rounded-lg shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Vendido</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-medium text-gray-500">Total Vendido</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">
                 ${currentSession.totalSales.toLocaleString()}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-green-600" />
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-green-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-white rounded-lg shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Ticket Promedio</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-medium text-gray-500">Ticket Promedio</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">
                 $
                 {currentSession.salesCount > 0
                   ? Math.round(currentSession.totalSales / currentSession.salesCount).toLocaleString()
                   : 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Receipt className="w-6 h-6 text-purple-600" />
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Receipt className="w-5 h-5 text-purple-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-500">Por Método</p>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-1" title="Efectivo">
+                  <DollarSign className="w-3.5 h-3.5 text-green-600" />
+                  <span className="text-sm font-semibold text-gray-700">
+                    {sales.filter(s => s.paymentMethod === 'cash').length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1" title="Transferencia">
+                  <Smartphone className="w-3.5 h-3.5 text-purple-600" />
+                  <span className="text-sm font-semibold text-gray-700">
+                    {sales.filter(s => s.paymentMethod === 'transfer').length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1" title="Mixto">
+                  <span className="text-xs text-orange-600 font-semibold">M</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {sales.filter(s => s.paymentMethod === 'mixed').length}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+              <CreditCard className="w-5 h-5 text-orange-600" />
             </div>
           </div>
         </div>
@@ -266,6 +509,7 @@ export default function SalesHistoryPage() {
             </p>
           </div>
         ) : (
+        <>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -294,7 +538,7 @@ export default function SalesHistoryPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sales.map((sale) => (
+                {paginatedSales.map((sale) => (
                   <tr key={sale.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
@@ -317,9 +561,16 @@ export default function SalesHistoryPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-900">
-                          {sale.user?.name || 'Cliente general'}
-                        </span>
+                        <div>
+                          <span className="text-sm text-gray-900 block">
+                            {sale.posCustomer?.name || sale.customerName || 'Cliente general'}
+                          </span>
+                          {sale.posCustomer?.cedula && (
+                            <span className="text-xs text-gray-500">
+                              CC: {sale.posCustomer.cedula}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -329,16 +580,34 @@ export default function SalesHistoryPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        {sale.paymentMethod === 'card' ? (
-                          <CreditCard className="w-4 h-4 text-blue-600" />
-                        ) : (
+                        {sale.paymentMethod === 'cash' && (
                           <DollarSign className="w-4 h-4 text-green-600" />
                         )}
-                        <span className="text-sm text-gray-600 capitalize">
-                          {sale.paymentMethod === 'cash' && 'Efectivo'}
-                          {sale.paymentMethod === 'card' && 'Tarjeta'}
-                          {sale.paymentMethod === 'mixed' && 'Mixto'}
-                        </span>
+                        {sale.paymentMethod === 'card' && (
+                          <CreditCard className="w-4 h-4 text-blue-600" />
+                        )}
+                        {sale.paymentMethod === 'transfer' && (
+                          <Smartphone className="w-4 h-4 text-purple-600" />
+                        )}
+                        {sale.paymentMethod === 'mixed' && (
+                          <div className="flex -space-x-1">
+                            <DollarSign className="w-4 h-4 text-green-600" />
+                            <Smartphone className="w-4 h-4 text-purple-600" />
+                          </div>
+                        )}
+                        <div className="text-sm">
+                          <span className="text-gray-700 font-medium">
+                            {sale.paymentMethod === 'cash' && 'Efectivo'}
+                            {sale.paymentMethod === 'card' && 'Tarjeta'}
+                            {sale.paymentMethod === 'transfer' && 'Transferencia'}
+                            {sale.paymentMethod === 'mixed' && 'Mixto'}
+                          </span>
+                          {sale.cardType && (
+                            <span className="text-xs text-gray-500 block capitalize">
+                              {sale.cardType}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -347,22 +616,414 @@ export default function SalesHistoryPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <button
-                        onClick={() => handlePrintTicket(sale)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
-                        title="Imprimir ticket"
-                      >
-                        <Printer className="w-4 h-4" />
-                        Imprimir
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handlePrintTicket(sale)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+                          title="Imprimir ticket"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenEmailModal(sale)}
+                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                            sale.customerEmail
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                              : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                          }`}
+                          title={sale.customerEmail ? `Enviado a: ${sale.customerEmail}` : 'Enviar factura por email'}
+                        >
+                          {sale.customerEmail ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <Mail className="w-4 h-4" />
+                          )}
+                        </button>
+                        {/* Botón de evidencia solo para transferencias */}
+                        {sale.paymentMethod === 'transfer' && (
+                          <button
+                            onClick={() => handleOpenEvidenceModal(sale)}
+                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                              sale.paymentEvidence
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                            }`}
+                            title={sale.paymentEvidence ? 'Ver/Editar evidencia de pago' : 'Subir evidencia de pago'}
+                          >
+                            {sale.paymentEvidence ? (
+                              <ImageIcon className="w-4 h-4" />
+                            ) : (
+                              <Camera className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {sales.length > pageSize && (
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-700">
+                Mostrando{' '}
+                <span className="font-medium">{startIndex + 1}</span> a{' '}
+                <span className="font-medium">{Math.min(endIndex, sales.length)}</span> de{' '}
+                <span className="font-medium">{sales.length}</span> ventas
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                <div className="flex gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      // Show first, last, current and adjacent pages
+                      if (page === 1 || page === totalPages) return true;
+                      if (Math.abs(page - currentPage) <= 1) return true;
+                      return false;
+                    })
+                    .reduce((acc: (number | string)[], page, idx, arr) => {
+                      // Add ellipsis where there are gaps
+                      if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                        acc.push('...');
+                      }
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((page, idx) =>
+                      page === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="px-2 py-1 text-gray-500">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page as number)}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    )}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
         )}
       </div>
+
+      {/* Email Modal */}
+      {emailModalSale && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200 bg-purple-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-purple-600" />
+                  <h2 className="text-lg font-semibold text-purple-800">
+                    Enviar Factura por Email
+                  </h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setEmailModalSale(null);
+                    setEmailInput('');
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Info de la venta */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600 text-sm">Orden:</span>
+                  <span className="font-mono font-medium">{emailModalSale.orderNumber}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600 text-sm">Fecha:</span>
+                  <span className="text-sm">
+                    {new Date(emailModalSale.createdAt).toLocaleString('es-CO')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Total:</span>
+                  <span className="text-lg font-bold text-gray-900">
+                    ${Number(emailModalSale.total).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Email ya enviado */}
+              {emailModalSale.customerEmail && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-700">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-sm">
+                      Factura enviada anteriormente a: <strong>{emailModalSale.customerEmail}</strong>
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Input de email */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {emailModalSale.customerEmail ? 'Reenviar a otro email:' : 'Email del cliente:'}
+                </label>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="cliente@email.com"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendInvoice()}
+                  autoFocus
+                />
+              </div>
+
+              {/* Botones */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setEmailModalSale(null);
+                    setEmailInput('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSendInvoice}
+                  disabled={isSendingEmail || !emailInput.trim()}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Enviar Factura
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Preview Modal */}
+      <PrintPreviewModal
+        isOpen={!!printPreviewSale}
+        onClose={() => setPrintPreviewSale(null)}
+        saleId={printPreviewSale?.id || 0}
+        orderNumber={printPreviewSale?.orderNumber}
+      />
+
+      {/* Evidence Modal */}
+      {evidenceModalSale && (
+        <div
+          key={`evidence-modal-${evidenceModalSale.id}`}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 bg-amber-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-amber-600" />
+                  <h2 className="text-lg font-semibold text-amber-800">
+                    Evidencia de Pago
+                  </h2>
+                </div>
+                <button
+                  onClick={handleCloseEvidenceModal}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Info de la venta */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600 text-sm">Orden:</span>
+                  <span className="font-mono font-medium">{evidenceModalSale.orderNumber}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600 text-sm">Método:</span>
+                  <span className="text-sm font-medium text-purple-600">Transferencia</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Total:</span>
+                  <span className="text-lg font-bold text-gray-900">
+                    ${Number(evidenceModalSale.total).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Vista previa de imagen o cámara */}
+              <div className="mb-4">
+                {isLoadingEvidence ? (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+                    <Loader2 className="w-12 h-12 mx-auto mb-3 text-amber-500 animate-spin" />
+                    <p className="text-gray-600">Cargando evidencia...</p>
+                  </div>
+                ) : isCameraActive ? (
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full rounded-lg bg-black"
+                      style={{ maxHeight: '300px' }}
+                    />
+                    <button
+                      onClick={capturePhoto}
+                      className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-white rounded-full border-4 border-amber-500 hover:border-amber-600 flex items-center justify-center shadow-lg"
+                    >
+                      <div className="w-12 h-12 bg-amber-500 rounded-full" />
+                    </button>
+                  </div>
+                ) : isUploadingEvidence ? (
+                  <div className="border-2 border-dashed border-amber-300 rounded-lg p-8 text-center bg-amber-50">
+                    <Loader2 className="w-12 h-12 mx-auto mb-3 text-amber-500 animate-spin" />
+                    <p className="text-amber-700 font-medium">Subiendo evidencia...</p>
+                    <p className="text-sm text-amber-600 mt-1">
+                      Por favor espera
+                    </p>
+                  </div>
+                ) : evidencePreview ? (
+                  <div className="relative">
+                    <img
+                      src={evidencePreview}
+                      alt="Evidencia de pago"
+                      className="w-full rounded-lg object-contain"
+                      style={{ maxHeight: '300px' }}
+                      onError={() => {
+                        showToast('Error al cargar la imagen', 'error');
+                        setEvidencePreview(null);
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        imageDataRef.current = null;
+                        setEvidencePreview(null);
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      title="Eliminar imagen"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+                    <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                    <p className="text-gray-600 mb-2">No hay imagen de evidencia</p>
+                    <p className="text-sm text-gray-500">
+                      Sube una imagen o usa la cámara para capturar
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Botones de acción */}
+              {!isCameraActive && !isLoadingEvidence && !isUploadingEvidence && (
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <label className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors cursor-pointer">
+                    <Upload className="w-5 h-5" />
+                    <span className="font-medium">Subir imagen</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    onClick={startCamera}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+                  >
+                    <Camera className="w-5 h-5" />
+                    <span className="font-medium">Usar cámara</span>
+                  </button>
+                </div>
+              )}
+
+              {isCameraActive && (
+                <button
+                  onClick={() => {
+                    stopCamera();
+                    setIsCameraActive(false);
+                  }}
+                  className="w-full mb-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancelar cámara
+                </button>
+              )}
+
+              {/* Botones de guardar/cancelar */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCloseEvidenceModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleUploadEvidence}
+                  disabled={isUploadingEvidence || isLoadingEvidence || !evidencePreview}
+                  className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isUploadingEvidence ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Guardar Evidencia
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

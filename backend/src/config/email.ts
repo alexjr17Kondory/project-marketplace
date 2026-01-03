@@ -1,10 +1,19 @@
 import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
-// Configuración del transporter de nodemailer
-const createTransporter = () => {
+// Transporter lazy-loaded (se crea en el primer uso, después de cargar .env)
+let _transporter: Transporter | null | undefined;
+
+const getTransporter = (): Transporter | null => {
+  // Si ya fue inicializado, retornarlo
+  if (_transporter !== undefined) {
+    return _transporter;
+  }
+
   // Si hay credenciales de Gmail configuradas
   if (process.env['SMTP_HOST'] && process.env['SMTP_USER']) {
-    return nodemailer.createTransport({
+    console.log('✅ Configuración SMTP cargada correctamente');
+    _transporter = nodemailer.createTransport({
       host: process.env['SMTP_HOST'],
       port: parseInt(process.env['SMTP_PORT'] || '587'),
       secure: process.env['SMTP_SECURE'] === 'true',
@@ -13,17 +22,25 @@ const createTransporter = () => {
         pass: process.env['SMTP_PASS'],
       },
     });
+    return _transporter;
   }
 
-  // Fallback: Ethereal (para desarrollo/testing)
-  // Crea una cuenta de prueba automáticamente
+  // Fallback: sin SMTP configurado
   console.log('⚠️ No hay configuración SMTP. Los emails se simularán.');
-  return null;
+  _transporter = null;
+  return _transporter;
 };
 
-export const transporter = createTransporter();
+// Getter para el transporter (lazy)
+export const transporter = {
+  get instance(): Transporter | null {
+    return getTransporter();
+  }
+};
 
-export const EMAIL_FROM = process.env['EMAIL_FROM'] || 'Marketplace <noreply@marketplace.com>';
+export const getEmailFrom = (): string => {
+  return process.env['EMAIL_FROM'] || 'Marketplace <noreply@marketplace.com>';
+};
 
 // Templates de email
 export const EMAIL_TEMPLATES = {

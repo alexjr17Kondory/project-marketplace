@@ -8,6 +8,7 @@ import type {
   HomeSettings,
   CatalogSettings,
   LegalSettings,
+  PrintSettings,
 } from '../types/settings';
 
 export interface PublicSettings {
@@ -244,6 +245,19 @@ export const settingsService = {
   async updateLegalSettings(data: Partial<LegalSettings>): Promise<LegalSettings> {
     const response = await api.put<{ value: LegalSettings }>('/settings/legal/config', data);
     if (!response.data) throw new Error('Error actualizando configuración legal');
+    return response.data.value;
+  },
+
+  // Printing Settings
+  async getPrintingSettings(): Promise<PrintSettings> {
+    const response = await api.get<PrintSettings>('/settings/printing/config');
+    if (!response.data) throw new Error('Error obteniendo configuración de impresión');
+    return response.data;
+  },
+
+  async updatePrintingSettings(data: Partial<PrintSettings>): Promise<PrintSettings> {
+    const response = await api.put<{ value: PrintSettings }>('/settings/printing/config', data);
+    if (!response.data) throw new Error('Error actualizando configuración de impresión');
     return response.data.value;
   },
 

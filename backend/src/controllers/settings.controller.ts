@@ -290,3 +290,22 @@ export async function updateLegalSettings(req: Request, res: Response, next: Nex
     next(error);
   }
 }
+
+// Printing Settings
+export async function getPrintingSettings(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const settings = await settingsService.getPrintingSettings();
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updatePrintingSettings(req: Request, res: Response, next: NextFunction) {
+  try {
+    const setting = await settingsService.updatePrintingSettings(req.body);
+    res.json({ success: true, message: 'Configuración de impresión actualizada', data: setting });
+  } catch (error) {
+    next(error);
+  }
+}

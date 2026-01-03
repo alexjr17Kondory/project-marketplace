@@ -8,6 +8,7 @@ import {
   NotFoundError,
   ConflictError,
 } from '../utils/errors';
+import { sendPasswordResetEmail, sendWelcomeEmail } from './email.service';
 import type {
   RegisterInput,
   LoginInput,
@@ -72,6 +73,11 @@ export async function register(data: RegisterInput): Promise<AuthResponse> {
     userId: user.id,
     email: user.email,
     roleId: user.roleId,
+  });
+
+  // Enviar email de bienvenida (no bloquear el registro)
+  sendWelcomeEmail(user.email, user.name).catch((err) => {
+    console.error('Error enviando email de bienvenida:', err);
   });
 
   const permissions = Array.isArray(user.role.permissions)
@@ -199,11 +205,20 @@ export async function forgotPassword(email: string): Promise<void> {
     },
   });
 
+  // Construir URL de reset
+  const frontendUrl = process.env['FRONTEND_URL'] || 'http://localhost:5173';
+  const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
   // En desarrollo, mostrar el token en consola
   console.log(`[Auth] Token de recuperación para ${email}: ${resetToken}`);
-  console.log(`[Auth] URL de reset: http://localhost:5173/reset-password?token=${resetToken}`);
+  console.log(`[Auth] URL de reset: ${resetUrl}`);
 
-  // TODO: Enviar email con el link de reset
+  // Enviar email con el link de reset
+  await sendPasswordResetEmail(email, {
+    userName: user.name,
+    resetUrl,
+    expiresIn: '1 hora',
+  });
 }
 
 export async function resetPassword(data: ResetPasswordInput): Promise<void> {

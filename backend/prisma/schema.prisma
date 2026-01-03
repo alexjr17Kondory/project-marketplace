@@ -376,6 +376,10 @@ model Order {
   userId Int?
   user   User? @relation(fields: [userId], references: [id])
 
+  // Cliente POS (separado de usuarios de tienda online)
+  posCustomerId Int?
+  posCustomer   POSCustomer? @relation(fields: [posCustomerId], references: [id])
+
   // Datos del cliente para ventas POS sin usuario registrado
   customerName  String?
   customerEmail String?
@@ -392,6 +396,14 @@ model Order {
   status        OrderStatus @default(PENDING)
   paymentMethod String // Método preferido (puede cambiar con cada intento)
   paymentRef    String? // Referencia del último pago exitoso
+
+  // Campos para pagos POS:
+  cashAmount    Decimal? @db.Decimal(10, 2) // Monto pagado en efectivo
+  cardAmount    Decimal? @db.Decimal(10, 2) // Monto pagado con tarjeta
+  cardReference String? // Referencia/autorización del datafono
+  cardType      String? // Tipo de tarjeta (Visa, Mastercard, etc.)
+  cardLastFour  String? // Últimos 4 dígitos de la tarjeta
+  paymentEvidence String? @db.LongText // URL/base64 de imagen de evidencia de pago (transferencias)
 
   // NUEVOS CAMPOS POS:
   saleChannel    SaleChannel @default(ONLINE)
@@ -533,6 +545,30 @@ enum PaymentStatus {
 }
 
 // ==================== PUNTO DE VENTA (POS) ====================
+
+// Cliente de POS (separado de User - NO puede hacer login)
+model POSCustomer {
+  id     Int    @id @default(autoincrement())
+  cedula String @unique // Cédula/NIT - identificador principal
+
+  name   String
+  email  String?
+  phone  String?
+
+  // Estadísticas de compras
+  totalPurchases Int     @default(0) // Número total de compras
+  totalSpent     Decimal @default(0) @db.Decimal(10, 2) // Monto total gastado
+
+  // Órdenes asociadas
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cedula])
+  @@index([name])
+  @@map("pos_customers")
+}
 
 model CashRegister {
   id       Int     @id @default(autoincrement())

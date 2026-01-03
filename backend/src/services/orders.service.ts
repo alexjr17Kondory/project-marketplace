@@ -2,6 +2,7 @@ import { Prisma, OrderStatus } from '@prisma/client';
 import { prisma } from '../config/database';
 import { NotFoundError, BadRequestError } from '../utils/errors';
 import { getAvailableStockForTemplate } from './template-recipes.service';
+import { sendOrderConfirmation, sendOrderStatusUpdate } from './email.service';
 
 // Tipos de movimiento
 type VariantMovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'RETURN' | 'DAMAGE' | 'INITIAL';
@@ -151,10 +152,19 @@ async function getOrderSettings() {
   const orderValue = orderSettings?.value as any || {};
   const paymentValue = paymentSettings?.value as any || {};
 
+  // Usar taxRate de payment_settings si está disponible (se configura desde el admin panel)
+  let taxRate = paymentValue.taxRate ?? orderValue.taxRate ?? 19;
+  // Convertir a decimal si viene como porcentaje
+  if (taxRate > 1) {
+    taxRate = taxRate / 100;
+  }
+
   return {
     shippingCost: orderValue.shippingCost || 12000,
-    taxRate: orderValue.taxRate || 0.19,
+    taxRate,
     freeShippingThreshold: orderValue.freeShippingThreshold || 150000,
+    // taxEnabled indica si se debe calcular el impuesto
+    taxEnabled: paymentValue.taxEnabled ?? false,
     // taxIncluded indica si el IVA ya está incluido en el precio del producto
     // Por defecto true (estándar en Colombia)
     taxIncluded: paymentValue.taxIncluded ?? true,
@@ -254,9 +264,12 @@ export async function createOrder(userId: number, data: CreateOrderInput): Promi
   const shippingCost = subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingCost;
 
   // Calcular impuesto:
+  // - Si taxEnabled=false: no se calcula impuesto
   // - Si taxIncluded=true: el IVA ya está incluido en el precio, no se suma al total
   // - Si taxIncluded=false: se calcula y suma el IVA al subtotal
-  const tax = settings.taxIncluded ? 0 : Math.round(subtotal * settings.taxRate);
+  const tax = settings.taxEnabled && !settings.taxIncluded
+    ? Math.round(subtotal * settings.taxRate)
+    : 0;
   const total = subtotal + shippingCost + tax;
 
   // Generar número de orden
@@ -341,6 +354,33 @@ export async function createOrder(userId: number, data: CreateOrderInput): Promi
 
     return newOrder;
   });
+
+  // Enviar email de confirmación
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (user?.email) {
+    const shippingData = data.shipping as any;
+    const shippingAddress = shippingData
+      ? `${shippingData.address}, ${shippingData.city}, ${shippingData.state || ''} ${shippingData.postalCode || ''}, ${shippingData.country || 'Colombia'}`
+      : 'No especificada';
+
+    sendOrderConfirmation({
+      orderNumber,
+      customerName: user.name,
+      customerEmail: user.email,
+      items: orderItems.map((item) => ({
+        name: item.productName,
+        quantity: item.quantity,
+        price: item.unitPrice * item.quantity,
+      })),
+      subtotal,
+      shipping: shippingCost,
+      total,
+      shippingAddress,
+      paymentMethod: data.paymentMethod === 'cash' ? 'Contra entrega' : 'Pago en línea',
+    }).catch((err) => {
+      console.error('Error enviando email de confirmación:', err);
+    });
+  }
 
   return formatOrderResponse(order);
 }
@@ -831,6 +871,21 @@ export async function updateOrderStatus(
       },
     },
   });
+
+  // Enviar email de actualización de estado
+  if (updated.user?.email) {
+    sendOrderStatusUpdate(updated.user.email, {
+      orderNumber: updated.orderNumber,
+      customerName: updated.user.name || 'Cliente',
+      newStatus: data.status,
+      statusLabel: STATUS_LABELS[data.status],
+      trackingNumber: data.trackingNumber,
+      trackingUrl: data.trackingUrl,
+      message: data.notes,
+    }).catch((err) => {
+      console.error('Error enviando email de actualización de estado:', err);
+    });
+  }
 
   return formatOrderResponse(updated);
 }

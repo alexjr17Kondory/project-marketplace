@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DollarSign, Clock, TrendingUp, CheckCircle } from 'lucide-react';
+import { DollarSign, Clock, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
 import { usePOS } from '../../context/POSContext';
 import { useToast } from '../../context/ToastContext';
 import * as cashRegisterService from '../../services/cash-register.service';

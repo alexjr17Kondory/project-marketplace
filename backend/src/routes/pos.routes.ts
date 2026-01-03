@@ -85,4 +85,59 @@ router.get(
   posController.getSaleDetail
 );
 
+/**
+ * GET /api/pos/customer/search
+ * Buscar cliente por cédula
+ * Permisos: pos.access o pos.create_sale
+ */
+router.get(
+  '/customer/search',
+  requireAnyPermission('pos.access', 'pos.create_sale'),
+  posController.searchCustomerByCedula
+);
+
+/**
+ * POST /api/pos/sale/:id/send-invoice
+ * Enviar factura por email
+ * Permisos: pos.access o pos.view_sales
+ */
+router.post(
+  '/sale/:id/send-invoice',
+  requireAnyPermission('pos.access', 'pos.view_sales'),
+  posController.sendInvoiceEmail
+);
+
+/**
+ * GET /api/pos/sale/:id/invoice-pdf
+ * Generar PDF de factura para impresión
+ * Permisos: pos.access o pos.view_sales
+ */
+router.get(
+  '/sale/:id/invoice-pdf',
+  requireAnyPermission('pos.access', 'pos.view_sales'),
+  posController.getInvoicePDF
+);
+
+/**
+ * POST /api/pos/sale/:id/payment-evidence
+ * Subir evidencia de pago (imagen) para transferencias
+ * Permisos: pos.access o pos.create_sale
+ */
+router.post(
+  '/sale/:id/payment-evidence',
+  requireAnyPermission('pos.access', 'pos.create_sale'),
+  posController.uploadPaymentEvidence
+);
+
+/**
+ * GET /api/pos/sale/:id/payment-evidence
+ * Obtener evidencia de pago
+ * Permisos: pos.access o pos.view_sales
+ */
+router.get(
+  '/sale/:id/payment-evidence',
+  requireAnyPermission('pos.access', 'pos.view_sales'),
+  posController.getPaymentEvidence
+);
+
 export default router;

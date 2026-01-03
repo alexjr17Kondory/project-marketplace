@@ -13,6 +13,7 @@ import { useAuth } from './AuthContext';
 interface OrderConfig {
   shippingCost: number;
   freeShippingThreshold: number;
+  taxEnabled: boolean;
   taxRate: number;
   taxIncluded: boolean;
 }
@@ -48,6 +49,7 @@ const INITIAL_CART: Cart = {
 const DEFAULT_ORDER_CONFIG: OrderConfig = {
   shippingCost: 12000,
   freeShippingThreshold: 150000,
+  taxEnabled: false, // Por defecto deshabilitado
   taxRate: 0.19,
   taxIncluded: true,
 };
@@ -246,6 +248,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         const shippingCost = publicSettings.shipping?.cost ?? DEFAULT_ORDER_CONFIG.shippingCost;
         const freeShippingThreshold = publicSettings.shipping?.freeThreshold ?? DEFAULT_ORDER_CONFIG.freeShippingThreshold;
 
+        // Obtener configuración de impuestos
+        const taxEnabled = (publicSettings.tax as any)?.enabled ?? DEFAULT_ORDER_CONFIG.taxEnabled;
+
         // Obtener tasa de impuestos - puede venir de tax.rate o de payment.taxRate
         let taxRate = DEFAULT_ORDER_CONFIG.taxRate;
         if (publicSettings.tax?.rate !== undefined) {
@@ -260,6 +265,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         setOrderConfig({
           shippingCost,
           freeShippingThreshold,
+          taxEnabled,
           taxRate,
           taxIncluded,
         });
@@ -344,9 +350,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const subtotal = itemsWithStock.reduce((sum, item) => sum + item.subtotal, 0);
 
     // Calcular impuestos según configuración
+    // Solo calcular si taxEnabled es true
     // Si taxIncluded es true, el impuesto ya está incluido en el precio
     // Si taxIncluded es false, se suma al subtotal
-    const tax = orderConfig.taxIncluded ? 0 : Math.round(subtotal * orderConfig.taxRate);
+    const tax = orderConfig.taxEnabled && !orderConfig.taxIncluded
+      ? Math.round(subtotal * orderConfig.taxRate)
+      : 0;
 
     // Calcular envío: gratis si supera el umbral
     const shipping = subtotal >= orderConfig.freeShippingThreshold ? 0 : orderConfig.shippingCost;

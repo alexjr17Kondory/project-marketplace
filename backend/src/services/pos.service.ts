@@ -3,6 +3,7 @@ import { getVariantByBarcode } from './variants.service';
 import { getCurrentSession } from './cash-register.service';
 import { getAvailableStockForTemplate } from './template-recipes.service';
 
+// Prisma Client regenerated with POSCustomer model
 const prisma = new PrismaClient();
 
 // ==================== TIPOS ====================
@@ -26,9 +27,13 @@ export interface CreateSaleInput {
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
-  paymentMethod: 'cash' | 'card' | 'mixed';
+  customerCedula?: string; // NIT/Cédula del cliente
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'mixed';
   cashAmount?: number;
   cardAmount?: number;
+  cardReference?: string; // Referencia/autorización del datafono
+  cardType?: string; // Visa, Mastercard, etc.
+  cardLastFour?: string; // Últimos 4 dígitos
   discount?: number;
   notes?: string;
 }
@@ -103,7 +108,7 @@ export async function scanProduct(barcode: string) {
         : null),
     },
     color: variant.color?.name || 'N/A',
-    size: variant.size?.name || 'N/A',
+    size: variant.size?.abbreviation || variant.size?.name || 'N/A',
     sku: variant.sku,
     barcode: variant.barcode,
     price: variant.finalPrice,
@@ -222,7 +227,7 @@ export async function searchProductsAndTemplates(query: string) {
           ? variantByBarcode.product.images[0]
           : null),
         color: variantByBarcode.color?.name || 'N/A',
-        size: variantByBarcode.size?.name || 'N/A',
+        size: variantByBarcode.size?.abbreviation || variantByBarcode.size?.name || 'N/A',
         sku: variantByBarcode.sku,
         barcode: variantByBarcode.barcode,
         price: variantByBarcode.finalPrice,
@@ -392,7 +397,7 @@ export async function searchProductsAndTemplates(query: string) {
           ? product.images[0]
           : null),
         color: variant.color?.name || 'N/A',
-        size: variant.size?.name || 'N/A',
+        size: variant.size?.abbreviation || variant.size?.name || 'N/A',
         sku: variant.sku || product.sku,
         barcode: variant.barcode,
         price: finalPrice,
@@ -483,7 +488,7 @@ export async function calculateSale(items: SaleItem[], globalDiscount: number = 
       variantId: variant.id,
       productName: variant.product.name,
       color: variant.color?.name || 'N/A',
-      size: variant.size?.name || 'N/A',
+      size: variant.size?.abbreviation || variant.size?.name || 'N/A',
       quantity: item.quantity,
       unitPrice,
       discount: itemDiscount,
@@ -502,6 +507,74 @@ export async function calculateSale(items: SaleItem[], globalDiscount: number = 
     total,
     items: calculatedItems,
   };
+}
+
+/**
+ * Crear o actualizar cliente POS (tabla separada de usuarios)
+ * Si existe por cédula, actualiza datos faltantes
+ * Si no existe, crea un nuevo cliente POS
+ */
+async function upsertPOSCustomer(
+  tx: any,
+  cedula?: string,
+  name?: string,
+  email?: string,
+  phone?: string,
+  orderTotal?: number
+): Promise<number | null> {
+  // Si no hay cédula, no podemos identificar al cliente
+  if (!cedula || !cedula.trim()) {
+    return null;
+  }
+
+  const trimmedCedula = cedula.trim();
+
+  // Buscar cliente POS existente por cédula
+  let customer = await tx.pOSCustomer.findUnique({
+    where: { cedula: trimmedCedula },
+  });
+
+  if (customer) {
+    // Cliente existe, actualizar datos faltantes y estadísticas
+    const updateData: any = {
+      totalPurchases: { increment: 1 },
+    };
+
+    if (orderTotal) {
+      updateData.totalSpent = { increment: orderTotal };
+    }
+
+    if (name && name.trim() && (!customer.name || customer.name === 'Cliente POS')) {
+      updateData.name = name.trim();
+    }
+    if (phone && phone.trim() && !customer.phone) {
+      updateData.phone = phone.trim();
+    }
+    if (email && email.trim() && !customer.email) {
+      updateData.email = email.trim();
+    }
+
+    customer = await tx.pOSCustomer.update({
+      where: { id: customer.id },
+      data: updateData,
+    });
+
+    return customer.id;
+  }
+
+  // Cliente no existe, crear uno nuevo en tabla POSCustomer
+  const newCustomer = await tx.pOSCustomer.create({
+    data: {
+      cedula: trimmedCedula,
+      name: name?.trim() || 'Cliente POS',
+      email: email?.trim() || null,
+      phone: phone?.trim() || null,
+      totalPurchases: 1,
+      totalSpent: orderTotal || 0,
+    },
+  });
+
+  return newCustomer.id;
 }
 
 /**
@@ -560,11 +633,25 @@ export async function createSale(data: CreateSaleInput) {
 
   // Crear orden en transacción
   return await prisma.$transaction(async (tx) => {
+    // Crear o actualizar cliente POS si se proporciona cédula
+    let posCustomerId: number | null = null;
+
+    if (data.customerCedula) {
+      posCustomerId = await upsertPOSCustomer(
+        tx,
+        data.customerCedula,
+        data.customerName,
+        data.customerEmail,
+        data.customerPhone,
+        calculation.total
+      );
+    }
+
     // Crear orden
     const order = await tx.order.create({
       data: {
         orderNumber: generatePOSOrderNumber(),
-        userId: data.customerId || null,
+        posCustomerId: posCustomerId,
         customerEmail: data.customerEmail || 'venta-pos@local.com',
         customerName: data.customerName || 'Cliente POS',
         customerPhone: data.customerPhone || null,
@@ -574,7 +661,13 @@ export async function createSale(data: CreateSaleInput) {
         total: calculation.total,
         status: OrderStatus.PAID,
         paymentMethod: data.paymentMethod,
-        paymentRef: `POS-${Date.now()}`,
+        paymentRef: data.cardReference || `POS-${Date.now()}`,
+        // Campos de pago POS:
+        cashAmount: data.cashAmount || null,
+        cardAmount: data.cardAmount || null,
+        cardReference: data.cardReference || null,
+        cardType: data.cardType || null,
+        cardLastFour: data.cardLastFour || null,
         saleChannel: SaleChannel.POS,
         sellerId: data.sellerId,
         cashRegisterId: data.cashRegisterId,
@@ -582,7 +675,7 @@ export async function createSale(data: CreateSaleInput) {
           {
             status: 'PAID',
             timestamp: new Date().toISOString(),
-            note: `Venta POS - ${data.paymentMethod}`,
+            note: `Venta POS - ${data.paymentMethod}${data.cardReference ? ` - Ref: ${data.cardReference}` : ''}`,
           },
         ],
         paidAt: new Date(),
@@ -614,7 +707,7 @@ export async function createSale(data: CreateSaleInput) {
           productImage: (Array.isArray(variant.product.images) && variant.product.images.length > 0
             ? String(variant.product.images[0])
             : ''),
-          size: variant.size?.name || 'N/A',
+          size: variant.size?.abbreviation || variant.size?.name || 'N/A',
           color: variant.color?.name || 'N/A',
           quantity: item.quantity,
           unitPrice: item.price,
@@ -792,6 +885,8 @@ export async function cancelSale(orderId: number, sellerId: number, reason: stri
 
 /**
  * Obtener historial de ventas
+ * Nota: No devuelve paymentEvidence completo para optimizar rendimiento
+ * Solo devuelve hasPaymentEvidence: boolean
  */
 export async function getSalesHistory(filter: {
   sellerId?: number;
@@ -800,7 +895,7 @@ export async function getSalesHistory(filter: {
   dateTo?: Date;
   status?: OrderStatus;
 }) {
-  return await prisma.order.findMany({
+  const orders = await prisma.order.findMany({
     where: {
       saleChannel: SaleChannel.POS,
       sellerId: filter.sellerId,
@@ -811,13 +906,37 @@ export async function getSalesHistory(filter: {
         lte: filter.dateTo,
       },
     },
-    include: {
+    select: {
+      id: true,
+      orderNumber: true,
+      customerName: true,
+      customerEmail: true,
+      customerPhone: true,
+      subtotal: true,
+      discount: true,
+      tax: true,
+      total: true,
+      status: true,
+      paymentMethod: true,
+      cashAmount: true,
+      cardAmount: true,
+      cardReference: true,
+      cardType: true,
+      cardLastFour: true,
+      paymentEvidence: true, // Solo para verificar si existe
+      notes: true,
+      createdAt: true,
+      updatedAt: true,
       items: true,
-      user: {
+      posCustomer: {
         select: {
           id: true,
+          cedula: true,
           name: true,
           email: true,
+          phone: true,
+          totalPurchases: true,
+          totalSpent: true,
         },
       },
       seller: {
@@ -832,6 +951,12 @@ export async function getSalesHistory(filter: {
       createdAt: 'desc',
     },
   });
+
+  // Transformar paymentEvidence a boolean para no enviar el base64 completo
+  return orders.map((order) => ({
+    ...order,
+    paymentEvidence: order.paymentEvidence ? 'exists' : null,
+  }));
 }
 
 /**
@@ -852,12 +977,15 @@ export async function getSaleById(id: number) {
           },
         },
       },
-      user: {
+      posCustomer: {
         select: {
           id: true,
+          cedula: true,
           name: true,
           email: true,
           phone: true,
+          totalPurchases: true,
+          totalSpent: true,
         },
       },
       seller: {
@@ -880,4 +1008,259 @@ export async function getSaleById(id: number) {
   }
 
   return order;
+}
+
+/**
+ * Buscar cliente POS por cédula
+ */
+export async function searchCustomerByCedula(cedula: string) {
+  const customer = await prisma.pOSCustomer.findUnique({
+    where: {
+      cedula: cedula.trim(),
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      cedula: true,
+      totalPurchases: true,
+      totalSpent: true,
+    },
+  });
+
+  return customer;
+}
+
+/**
+ * Enviar factura POS por email
+ */
+export async function sendInvoiceEmail(orderId: number, email: string) {
+  // Importación dinámica para evitar dependencia circular
+  const { sendPOSInvoice } = await import('./email.service');
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          variant: {
+            include: {
+              product: true,
+              color: true,
+              size: true,
+            },
+          },
+        },
+      },
+      user: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+      seller: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new Error('Venta no encontrada');
+  }
+
+  if (order.saleChannel !== SaleChannel.POS) {
+    throw new Error('Solo se pueden enviar facturas de ventas POS');
+  }
+
+  // Mapear método de pago
+  const paymentMethodLabels: Record<string, string> = {
+    cash: 'Efectivo',
+    card: 'Tarjeta',
+    mixed: 'Mixto (Efectivo + Tarjeta)',
+  };
+
+  // Preparar datos del email
+  const emailData = {
+    orderNumber: order.orderNumber,
+    customerName: order.customerName || order.user?.name || 'Cliente',
+    customerEmail: email,
+    date: order.createdAt,
+    items: order.items.map((item) => {
+      const variantInfo = item.variant
+        ? `${item.variant.product.name} (${item.variant.color?.name || ''} - ${item.variant.size?.abbreviation || item.variant.size?.name || ''})`
+        : item.productName;
+
+      return {
+        name: variantInfo,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        subtotal: Number(item.unitPrice) * item.quantity,
+      };
+    }),
+    subtotal: Number(order.subtotal),
+    discount: Number(order.discount || 0),
+    tax: Number(order.tax || 0),
+    total: Number(order.total),
+    paymentMethod: paymentMethodLabels[order.paymentMethod || 'cash'] || 'Efectivo',
+    sellerName: order.seller?.name || 'Vendedor',
+  };
+
+  const sent = await sendPOSInvoice(emailData);
+
+  if (!sent) {
+    throw new Error('Error al enviar el email');
+  }
+
+  // Actualizar email del cliente si no tenía
+  if (!order.customerEmail && email) {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { customerEmail: email },
+    });
+  }
+
+  return { success: true, message: 'Factura enviada correctamente' };
+}
+
+/**
+ * Generar PDF de factura POS (sin enviar email)
+ */
+export async function generateInvoicePDF(orderId: number): Promise<Buffer> {
+  // Importación dinámica para evitar dependencia circular
+  const { generatePOSInvoicePDF } = await import('./email.service');
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          variant: {
+            include: {
+              product: true,
+              color: true,
+              size: true,
+            },
+          },
+        },
+      },
+      user: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+      seller: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new Error('Venta no encontrada');
+  }
+
+  if (order.saleChannel !== SaleChannel.POS) {
+    throw new Error('Solo se pueden generar facturas de ventas POS');
+  }
+
+  // Mapear método de pago
+  const paymentMethodLabels: Record<string, string> = {
+    cash: 'Efectivo',
+    card: 'Tarjeta',
+    mixed: 'Mixto (Efectivo + Tarjeta)',
+  };
+
+  // Preparar datos del PDF
+  const pdfData = {
+    orderNumber: order.orderNumber,
+    customerName: order.customerName || order.user?.name || 'Cliente',
+    customerEmail: order.customerEmail || '',
+    date: order.createdAt,
+    items: order.items.map((item) => {
+      const variantInfo = item.variant
+        ? `${item.variant.product.name} (${item.variant.color?.name || ''} - ${item.variant.size?.abbreviation || item.variant.size?.name || ''})`
+        : item.productName;
+
+      return {
+        name: variantInfo,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        subtotal: Number(item.unitPrice) * item.quantity,
+      };
+    }),
+    subtotal: Number(order.subtotal),
+    discount: Number(order.discount || 0),
+    tax: Number(order.tax || 0),
+    total: Number(order.total),
+    paymentMethod: paymentMethodLabels[order.paymentMethod || 'cash'] || 'Efectivo',
+    sellerName: order.seller?.name || 'Vendedor',
+  };
+
+  return await generatePOSInvoicePDF(pdfData);
+}
+
+/**
+ * Subir evidencia de pago para una venta de transferencia
+ */
+export async function uploadPaymentEvidence(
+  orderId: number,
+  evidence: string, // URL o base64 de la imagen
+  userId: number
+) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+  });
+
+  if (!order) {
+    throw new Error('Venta no encontrada');
+  }
+
+  if (order.saleChannel !== SaleChannel.POS) {
+    throw new Error('Solo se pueden subir evidencias de ventas POS');
+  }
+
+  if (order.paymentMethod !== 'transfer') {
+    throw new Error('Solo se pueden subir evidencias para pagos por transferencia');
+  }
+
+  // Verificar que el usuario sea el vendedor o tenga permisos
+  if (order.sellerId !== userId) {
+    throw new Error('No tienes permiso para modificar esta venta');
+  }
+
+  const updatedOrder = await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      paymentEvidence: evidence,
+    },
+    select: {
+      id: true,
+      orderNumber: true,
+      // NO devolver paymentEvidence para optimizar respuesta en móviles
+    },
+  });
+
+  return {
+    ...updatedOrder,
+    paymentEvidence: 'uploaded', // Solo indicar que se subió, no devolver el base64
+  };
+}
+
+/**
+ * Obtener evidencia de pago de una venta
+ */
+export async function getPaymentEvidence(orderId: number): Promise<string | null> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      paymentEvidence: true,
+    },
+  });
+
+  return order?.paymentEvidence || null;
 }

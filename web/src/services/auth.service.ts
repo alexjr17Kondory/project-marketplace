@@ -97,9 +97,21 @@ export const authService = {
     await api.post('/auth/forgot-password', { email });
   },
 
+  // Validar token de reset (verificación básica de formato)
+  // La validación real ocurre en el backend al resetear
+  async validateResetToken(token: string, _email: string): Promise<boolean> {
+    // Verificar que el token tenga formato válido (64 caracteres hex)
+    if (!token || token.length !== 64) {
+      return false;
+    }
+    // Si el token tiene formato correcto, asumimos que es válido
+    // El backend validará el token real al hacer el reset
+    return true;
+  },
+
   // Restablecer contraseña
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    await api.post('/auth/reset-password', { token, newPassword });
+    await api.post('/auth/reset-password', { token, password: newPassword });
   },
 
   // Logout

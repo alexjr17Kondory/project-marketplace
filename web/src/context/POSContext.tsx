@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import * as posService from '../services/pos.service';
 import * as cashRegisterService from '../services/cash-register.service';
 import type { ScanProductResponse, Sale, SaleItem, CreateSaleRequest, TemplateZoneInfo } from '../services/pos.service';
 import type { CashSession } from '../services/cash-register.service';
 import { useToast } from './ToastContext';
+import { useSettings } from './SettingsContext';
 
 // ==================== TYPES ====================
 
@@ -69,6 +70,7 @@ const POSContext = createContext<POSContextType | undefined>(undefined);
 
 export function POSProvider({ children }: { children: React.ReactNode }) {
   const { showToast } = useToast();
+  const { settings } = useSettings();
 
   // Session state
   const [currentSession, setCurrentSession] = useState<CashSession | null>(null);
@@ -82,9 +84,18 @@ export function POSProvider({ children }: { children: React.ReactNode }) {
   const [isProcessingSale, setIsProcessingSale] = useState(false);
   const [isScanningProduct, setIsScanningProduct] = useState(false);
 
+  // Tax configuration from settings
+  const taxConfig = useMemo(() => ({
+    enabled: settings.payment?.taxEnabled ?? false,
+    rate: (settings.payment?.taxRate ?? 19) / 100, // Convert percentage to decimal
+    included: settings.payment?.taxIncluded ?? false,
+  }), [settings.payment?.taxEnabled, settings.payment?.taxRate, settings.payment?.taxIncluded]);
+
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
-  const tax = (subtotal - discount) * 0.19; // 19% IVA
+  const taxableAmount = subtotal - discount;
+  // Solo calcular impuesto si está habilitado
+  const tax = taxConfig.enabled && !taxConfig.included ? Math.round(taxableAmount * taxConfig.rate) : 0;
   const total = subtotal - discount + tax;
 
   /**

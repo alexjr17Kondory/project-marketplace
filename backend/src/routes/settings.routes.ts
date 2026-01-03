@@ -86,6 +86,10 @@ router.put('/catalog/config', authenticate, requireAdmin, settingsController.upd
 router.get('/legal/config', authenticate, requireAdmin, settingsController.getLegalSettings);
 router.put('/legal/config', authenticate, requireAdmin, settingsController.updateLegalSettings);
 
+// Printing Settings
+router.get('/printing/config', authenticate, requireAdmin, settingsController.getPrintingSettings);
+router.put('/printing/config', authenticate, requireAdmin, settingsController.updatePrintingSettings);
+
 // ==================== RUTAS ADMIN GENÉRICAS ====================
 
 /**

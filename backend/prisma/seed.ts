@@ -1158,14 +1158,44 @@ async function main() {
     create: {
       key: 'payment_settings',
       value: {
-        enabledMethods: ['cash', 'transfer', 'nequi'],
-        bankInfo: {
-          bankName: 'Bancolombia',
-          accountType: 'Ahorros',
-          accountNumber: '123-456789-00',
-          accountHolder: 'Sublimados SAS',
-        },
-        nequiNumber: '3001234567',
+        // Configuración de impuestos
+        taxEnabled: false, // Por defecto deshabilitado para pequeños negocios
+        taxRate: 19, // 19% IVA Colombia
+        taxIncluded: true, // Los precios incluyen IVA por defecto
+
+        // Métodos de pago configurados
+        methods: [
+          {
+            id: 'wompi',
+            type: 'gateway',
+            name: 'Wompi',
+            description: 'Paga con tarjeta de crédito, débito, PSE o Nequi',
+            enabled: false, // Deshabilitado hasta configurar credenciales
+            config: {
+              publicKey: '', // Configurar en producción
+              eventsSecret: '', // Configurar en producción
+              testMode: true,
+              testPublicKey: 'pub_test_XXXXXXXXXXXXXXXXXXXXXXXX',
+              testEventsSecret: 'test_events_XXXXXXXXXXXXXXXXXXXXXXXX',
+            },
+          },
+          {
+            id: 'pickup',
+            type: 'offline',
+            name: 'Pago en tienda',
+            description: 'Recoge y paga en nuestra tienda física',
+            enabled: true,
+            config: {
+              instructions: 'Puedes recoger tu pedido en nuestra tienda y pagar en efectivo, tarjeta o transferencia.',
+              address: 'Calle Principal #123, Local 45',
+              phone: '300 123 4567',
+              schedule: 'Lunes a Sábado: 9:00 AM - 6:00 PM',
+              acceptsCash: true,
+              acceptsCard: true,
+              acceptsTransfer: true,
+            },
+          },
+        ],
       },
     },
   });

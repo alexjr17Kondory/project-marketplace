@@ -63,8 +63,12 @@ export const SettingsPaymentPage = () => {
   });
   const [showSecrets, setShowSecrets] = useState(false);
 
-  const handleUpdateTax = (taxRate: number, taxIncluded: boolean) => {
-    updatePaymentSettings({ taxRate, taxIncluded });
+  const handleUpdateTax = (updates: { taxEnabled?: boolean; taxRate?: number; taxIncluded?: boolean }) => {
+    updatePaymentSettings({
+      taxEnabled: updates.taxEnabled ?? settings.payment?.taxEnabled ?? false,
+      taxRate: updates.taxRate ?? settings.payment?.taxRate ?? 0,
+      taxIncluded: updates.taxIncluded ?? settings.payment?.taxIncluded ?? false,
+    });
     toast.success('Configuración de impuestos actualizada');
   };
 
@@ -218,11 +222,35 @@ export const SettingsPaymentPage = () => {
       <div className="space-y-6">
         {/* Impuestos */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-orange-500" />
-            Configuración de Impuestos
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-orange-500" />
+              Configuración de Impuestos (IVA)
+            </h3>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.payment?.taxEnabled ?? false}
+                onChange={(e) => handleUpdateTax({ taxEnabled: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+              <span className="ms-3 text-sm font-medium text-gray-700">
+                {settings.payment?.taxEnabled ? 'Habilitado' : 'Deshabilitado'}
+              </span>
+            </label>
+          </div>
+
+          {!settings.payment?.taxEnabled && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-700">
+                <strong>Impuestos deshabilitados.</strong> Los precios se mostrarán sin IVA en POS y tienda online.
+                Ideal para negocios pequeños no responsables de IVA.
+              </p>
+            </div>
+          )}
+
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${!settings.payment?.taxEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tasa de Impuesto (%)
@@ -231,17 +259,22 @@ export const SettingsPaymentPage = () => {
                 type="number"
                 min="0"
                 max="100"
-                value={settings.payment?.taxRate ?? 0}
-                onChange={(e) => handleUpdateTax(parseFloat(e.target.value) || 0, settings.payment?.taxIncluded ?? false)}
+                value={settings.payment?.taxRate ?? 19}
+                onChange={(e) => handleUpdateTax({ taxRate: parseFloat(e.target.value) || 0 })}
+                disabled={!settings.payment?.taxEnabled}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                En Colombia el IVA general es del 19%
+              </p>
             </div>
             <div className="flex items-center">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={settings.payment?.taxIncluded ?? false}
-                  onChange={(e) => handleUpdateTax(settings.payment?.taxRate ?? 0, e.target.checked)}
-                  className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                  onChange={(e) => handleUpdateTax({ taxIncluded: e.target.checked })}
+                  disabled={!settings.payment?.taxEnabled}
+                  className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-50"
                 />
                 <span className="text-sm text-gray-700">
                   Los precios ya incluyen impuestos

@@ -69,6 +69,7 @@ import {
   SettingsLegalPage,
   SettingsHomePage,
   SettingsCatalogPage,
+  SettingsPrintingPage,
   LabelTemplatesPage,
 } from './pages/admin/settings';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -590,6 +591,14 @@ function App() {
                                       element={
                                         <PermissionRoute permission="settings.general">
                                           <LabelTemplatesPage />
+                                        </PermissionRoute>
+                                      }
+                                    />
+                                    <Route
+                                      path="/settings/printing"
+                                      element={
+                                        <PermissionRoute permission="settings.general">
+                                          <SettingsPrintingPage />
                                         </PermissionRoute>
                                       }
                                     />

@@ -21,6 +21,7 @@ export const SETTING_KEYS = {
   HOME: 'home_settings',
   CATALOG: 'catalog_settings',
   LEGAL: 'legal_settings',
+  PRINTING: 'printing_settings',
 } as const;
 
 // Valores por defecto
@@ -103,6 +104,7 @@ const DEFAULT_SETTINGS: Record<string, any> = {
         },
       },
     ],
+    taxEnabled: false, // Por defecto deshabilitado para pequeños negocios
     taxRate: 19,
     taxIncluded: true,
   },
@@ -334,6 +336,23 @@ const DEFAULT_SETTINGS: Record<string, any> = {
       lastUpdated: null,
     },
   },
+  [SETTING_KEYS.PRINTING]: {
+    // Formato de papel para tickets POS
+    ticketFormat: '80mm',
+    ticketWidth: 80,
+    ticketHeight: 0, // 0 = continuo para tickets térmicos
+    ticketMargins: { top: 5, right: 5, bottom: 10, left: 5 },
+    ticketLogo: '', // Logo específico para tickets (opcional)
+    // Opciones de visibilidad del header
+    showLogo: true,
+    showStoreName: true, // Mostrar nombre de la empresa
+    showNit: true, // Mostrar NIT
+    // Opciones generales
+    showQR: false,
+    fontSize: 'medium',
+    showPreviewModal: true,
+    selectedTemplateId: 'thermal-80mm',
+  },
 };
 
 // Obtener todas las configuraciones
@@ -486,6 +505,16 @@ export async function updateLegalSettings(data: any) {
   return updateSetting(SETTING_KEYS.LEGAL, data);
 }
 
+// Printing Settings
+export async function getPrintingSettings() {
+  const setting = await getSettingByKey(SETTING_KEYS.PRINTING);
+  return setting.value;
+}
+
+export async function updatePrintingSettings(data: any) {
+  return updateSetting(SETTING_KEYS.PRINTING, data);
+}
+
 // Configuración pública (para el frontend)
 export async function getPublicSettings() {
   const [store, order, payment, general, appearance, home, catalog] = await Promise.all([
@@ -512,7 +541,9 @@ export async function getPublicSettings() {
       freeThreshold: order.freeShippingThreshold,
     },
     tax: {
-      rate: order.taxRate,
+      enabled: payment.taxEnabled ?? false,
+      // Usar taxRate de payment_settings (se configura desde el admin panel)
+      rate: payment.taxRate ?? order.taxRate ?? 19,
       // taxIncluded viene de payment_settings, indica si el IVA está incluido en los precios
       included: payment.taxIncluded ?? true,
     },

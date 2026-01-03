@@ -273,38 +273,38 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 lg:p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[95vh] lg:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-purple-50">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{template.name}</h2>
-            <p className="text-sm text-gray-600 mt-1">Selecciona las zonas de personalización</p>
+        <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-purple-50">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg lg:text-2xl font-bold text-gray-900 truncate">{template.name}</h2>
+            <p className="text-xs lg:text-sm text-gray-600">Selecciona las zonas de personalización</p>
           </div>
           <button
             onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors ml-2 flex-shrink-0"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 lg:w-6 lg:h-6" />
           </button>
         </div>
 
-        {/* Content - Two Columns */}
-        <div className="flex-1 overflow-y-auto flex">
+        {/* Content - Responsive Layout */}
+        <div className="flex-1 overflow-y-auto flex flex-col lg:flex-row">
           {/* Left Column - Image with Zone Markers */}
-          <div className="w-1/3 bg-gray-50 p-6 flex flex-col items-center justify-center border-r border-gray-200">
+          <div className="w-full lg:w-1/3 bg-gray-50 p-2 lg:p-6 flex flex-col items-center justify-start lg:justify-center border-b lg:border-b-0 lg:border-r border-gray-200">
             {currentImage ? (
-              <div className="relative w-full max-w-sm">
+              <div className="relative w-full max-w-[180px] sm:max-w-[220px] lg:max-w-sm">
                 <img
                   ref={imageRef}
                   src={currentImage}
                   alt={template.name}
                   onLoad={handleImageLoad}
-                  className="w-full rounded-lg shadow-lg object-contain"
+                  className="w-full rounded-lg shadow-lg object-contain max-h-[150px] sm:max-h-[180px] lg:max-h-none"
                 />
                 {/* SKU Badge */}
-                <div className="absolute top-2 right-2 bg-white px-3 py-1 rounded-full shadow-md">
-                  <span className="text-xs font-semibold text-gray-700">SKU: {template.sku}</span>
+                <div className="absolute top-1 right-1 lg:top-2 lg:right-2 bg-white px-1.5 lg:px-3 py-0.5 lg:py-1 rounded-full shadow-md">
+                  <span className="text-[10px] lg:text-xs font-semibold text-gray-700">SKU: {template.sku}</span>
                 </div>
                 {/* Zone Markers - Show only zones of current view type */}
                 {imageLoaded && selectedZones
@@ -359,18 +359,18 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
                   })}
               </div>
             ) : (
-              <div className="w-full max-w-sm aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
-                <Package className="w-24 h-24 text-gray-400" />
+              <div className="w-full max-w-[180px] sm:max-w-[220px] lg:max-w-sm aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
+                <Package className="w-16 h-16 lg:w-24 lg:h-24 text-gray-400" />
               </div>
             )}
 
             {/* Info Compacta - Todo en una card */}
-            <div className="mt-4 w-full max-w-sm">
-              <div className="bg-white border-2 border-gray-300 rounded-lg p-3 space-y-2">
+            <div className="mt-2 lg:mt-4 w-full max-w-[180px] sm:max-w-[220px] lg:max-w-sm">
+              <div className="bg-white border-2 border-gray-300 rounded-lg p-2 lg:p-3 space-y-1.5 lg:space-y-2">
                 {/* Precio Base */}
-                <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+                <div className="flex items-center justify-between pb-1.5 lg:pb-2 border-b border-gray-200">
                   <span className="text-xs font-medium text-gray-600">Precio Base</span>
-                  <span className="text-lg font-bold text-indigo-600">
+                  <span className="text-base lg:text-lg font-bold text-indigo-600">
                     ${Number(template.basePrice).toLocaleString()}
                   </span>
                 </div>
@@ -436,8 +436,8 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
           </div>
 
           {/* Right Column - Zones */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="space-y-6">
+          <div className="flex-1 p-3 lg:p-6 overflow-y-auto">
+            <div className="space-y-4 lg:space-y-6">
               {Object.entries(zonesByType).map(([type, zones]) => {
                 const colors = typeColors[type] || typeColors['Otro'];
                 // Get the slug of this type from the first zone
@@ -449,26 +449,26 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
                     {/* Type Header - Clickeable para cambiar vista */}
                     <button
                       onClick={() => setViewingZoneTypeSlug(typeSlug)}
-                      className={`w-full ${colors.bg} ${colors.border} border-l-4 rounded-r-lg px-4 py-2 mb-3 flex items-center justify-between transition-all cursor-pointer ${
+                      className={`w-full ${colors.bg} ${colors.border} border-l-4 rounded-r-lg px-3 lg:px-4 py-1.5 lg:py-2 mb-2 lg:mb-3 flex items-center justify-between transition-all cursor-pointer ${
                         isViewing
                           ? `${colors.selectedBg} ring-2 ring-inset ${colors.selectedBorder} shadow-md`
                           : `hover:${colors.selectedBg} hover:shadow-sm`
                       }`}
                       title={isViewing ? `Viendo ${type}` : `Click para ver ${type}`}
                     >
-                      <h3 className={`font-semibold ${colors.text} flex items-center gap-2`}>
-                        <Eye className={`w-5 h-5 ${isViewing ? 'fill-current' : ''}`} />
+                      <h3 className={`font-semibold text-sm lg:text-base ${colors.text} flex items-center gap-1.5 lg:gap-2`}>
+                        <Eye className={`w-4 h-4 lg:w-5 lg:h-5 ${isViewing ? 'fill-current' : ''}`} />
                         {type}
                       </h3>
                       {isViewing && (
-                        <span className={`text-xs px-2 py-1 rounded-full ${colors.selectedBg} ${colors.text} font-medium`}>
+                        <span className={`text-xs px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-full ${colors.selectedBg} ${colors.text} font-medium`}>
                           Visible
                         </span>
                       )}
                     </button>
 
                     {/* Zones Grid */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:gap-3">
                       {zones.map(zone => {
                         const selectedIdForType = selectedZonesByType.get(zone.zoneTypeSlug);
                         const isSelected = selectedIdForType === zone.id;
@@ -480,7 +480,7 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
                             onClick={() => toggleZone(zone.id)}
                             disabled={isDisabled}
                             className={`
-                              relative border-2 rounded-lg p-4 transition-all text-left
+                              relative border-2 rounded-lg p-3 lg:p-4 transition-all text-left
                               ${isSelected
                                 ? `${colors.selectedBg} ${colors.selectedBorder} shadow-md`
                                 : `bg-white ${colors.border} hover:shadow-sm`}
@@ -490,23 +490,23 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
                             {/* Checkmark */}
                             <div className="absolute top-2 right-2">
                               {isSelected ? (
-                                <CheckCircle className={`w-5 h-5 ${colors.text}`} />
+                                <CheckCircle className={`w-4 h-4 lg:w-5 lg:h-5 ${colors.text}`} />
                               ) : (
-                                <div className={`w-5 h-5 border-2 ${colors.border} rounded-full`} />
+                                <div className={`w-4 h-4 lg:w-5 lg:h-5 border-2 ${colors.border} rounded-full`} />
                               )}
                             </div>
 
                             {/* Zone Name */}
-                            <h4 className="font-medium text-gray-900 pr-6 mb-2">{zone.name}</h4>
+                            <h4 className="font-medium text-sm lg:text-base text-gray-900 pr-6 mb-1 lg:mb-2">{zone.name}</h4>
 
                             {/* Price */}
-                            <p className={`text-lg font-bold ${colors.text}`}>
+                            <p className={`text-base lg:text-lg font-bold ${colors.text}`}>
                               +${Number(zone.price).toLocaleString()}
                             </p>
 
                             {/* Required Badge */}
                             {zone.isRequired && (
-                              <div className="mt-2">
+                              <div className="mt-1 lg:mt-2">
                                 <span className="inline-block px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded">
                                   Requerida
                                 </span>
@@ -522,9 +522,9 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
 
               {/* Blocked Zones Warning */}
               {template.zones.filter(z => z.isBlocked).length > 0 && (
-                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <h4 className="text-sm font-medium text-red-900 mb-2">⚠️ Zonas No Disponibles</h4>
-                  <div className="space-y-1">
+                <div className="mt-3 lg:mt-4 p-3 lg:p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <h4 className="text-xs lg:text-sm font-medium text-red-900 mb-1 lg:mb-2">⚠️ Zonas No Disponibles</h4>
+                  <div className="space-y-0.5 lg:space-y-1">
                     {template.zones.filter(z => z.isBlocked).map(zone => (
                       <div key={zone.id} className="text-xs text-red-600">
                         • {zone.name} ({zone.zoneType})
@@ -538,22 +538,22 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
         </div>
 
         {/* Footer - Summary and Actions */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center justify-between gap-6">
+        <div className="px-4 lg:px-6 py-3 lg:py-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-6">
             {/* Summary */}
             <div className="flex-1">
               <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-sm text-gray-600">Total con</span>
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-xs lg:text-sm text-gray-600">Total con</span>
+                <span className="text-xs lg:text-sm font-semibold text-gray-900">
                   {selectedZones.length} zona{selectedZones.length !== 1 ? 's' : ''} seleccionada{selectedZones.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-green-600">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-2xl lg:text-3xl font-bold text-green-600">
                   ${totalPrice.toLocaleString()}
                 </span>
                 {selectedZones.length > 0 && (
-                  <span className="text-sm text-gray-500">
+                  <span className="text-xs lg:text-sm text-gray-500">
                     (Base ${Number(template.basePrice).toLocaleString()} + Zonas ${(totalPrice - Number(template.basePrice)).toLocaleString()})
                   </span>
                 )}
@@ -561,19 +561,20 @@ export default function ZoneSelectionModal({ template, onConfirm, onCancel }: Zo
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-2 lg:gap-3">
               <button
                 onClick={onCancel}
-                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                className="flex-1 lg:flex-none px-4 lg:px-6 py-2.5 lg:py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium text-sm lg:text-base"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirm}
-                className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-md hover:shadow-lg flex items-center gap-2"
+                className="flex-1 lg:flex-none px-4 lg:px-8 py-2.5 lg:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-sm lg:text-base"
               >
-                <CheckCircle className="w-5 h-5" />
-                Agregar al Carrito
+                <CheckCircle className="w-4 h-4 lg:w-5 lg:h-5" />
+                <span className="hidden sm:inline">Agregar al Carrito</span>
+                <span className="sm:hidden">Agregar</span>
               </button>
             </div>
           </div>

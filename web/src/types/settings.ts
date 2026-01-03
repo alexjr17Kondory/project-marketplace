@@ -5,6 +5,22 @@ export interface BrandColors {
   accent: string;    // Color de acento (ej: #f59e0b - amber-500)
 }
 
+// Régimen tributario en Colombia
+export type TaxRegime = 'responsable_iva' | 'no_responsable' | 'regimen_simple';
+
+// Información fiscal de la empresa
+export interface FiscalInfo {
+  nit?: string;           // NIT de la empresa (ej: "901.234.567-8")
+  taxRegime?: TaxRegime;  // Régimen tributario
+  legalName?: string;     // Razón social (si es diferente al nombre comercial)
+  // Datos de resolución de facturación DIAN (opcional, para factura electrónica)
+  invoiceResolution?: string;      // Número de resolución
+  invoiceResolutionDate?: string;  // Fecha de la resolución (YYYY-MM-DD)
+  invoicePrefix?: string;          // Prefijo de facturación (ej: "FE")
+  invoiceRangeFrom?: number;       // Rango autorizado desde
+  invoiceRangeTo?: number;         // Rango autorizado hasta
+}
+
 // Settings types
 export interface GeneralSettings {
   siteName: string;
@@ -26,6 +42,8 @@ export interface GeneralSettings {
     twitter?: string;
     whatsapp?: string;
   };
+  // Información fiscal
+  fiscal?: FiscalInfo;
 }
 
 // Presets de colores de marca
@@ -201,8 +219,9 @@ export interface WompiConfig {
 
 export interface PaymentSettings {
   methods: PaymentMethodConfig[];
-  taxRate: number;
-  taxIncluded: boolean;
+  taxEnabled: boolean; // Si los impuestos están habilitados
+  taxRate: number;     // Tasa de impuesto (ej: 19 para 19%)
+  taxIncluded: boolean; // Si los precios ya incluyen impuestos
 }
 
 // Página legal individual
@@ -529,3 +548,153 @@ export const CURRENCY_OPTIONS = [
   { code: 'EUR', symbol: 'E', name: 'Euro' },
   { code: 'MXN', symbol: '$', name: 'Peso Mexicano' },
 ];
+
+// ============================================
+// Configuración de Impresión (POS)
+// ============================================
+
+// Tipo de formato de papel
+export type PaperFormat = '58mm' | '80mm' | 'letter' | 'a4' | 'custom';
+
+// Plantilla de papel predefinida
+export interface PaperTemplate {
+  id: string;
+  name: string;
+  description: string;
+  format: PaperFormat;
+  width: number;  // en mm
+  height: number; // en mm (0 = continuo para tickets)
+  compatiblePrinters: string[];
+  recommended: boolean;
+  previewImage?: string;
+}
+
+// Configuración de impresión seleccionada (solo POS)
+export interface PrintSettings {
+  // Formato de papel para tickets POS
+  ticketFormat: PaperFormat;
+  ticketWidth: number;  // ancho en mm
+  ticketHeight?: number; // alto en mm (0 = continuo para tickets térmicos)
+  ticketMargins: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  // Logo del ticket (puede ser diferente al logo general)
+  ticketLogo?: string;
+  // Opciones de visibilidad del header
+  showLogo: boolean;
+  showStoreName: boolean; // Mostrar nombre de la empresa
+  showNit: boolean; // Mostrar NIT
+  // Opciones generales
+  showQR: boolean;
+  fontSize: 'small' | 'medium' | 'large';
+  // Mostrar modal de vista previa antes de imprimir
+  showPreviewModal: boolean;
+  // Plantilla seleccionada
+  selectedTemplateId?: string;
+}
+
+// Plantillas de papel predefinidas para POS
+export const PAPER_TEMPLATES: PaperTemplate[] = [
+  // Tickets térmicos pequeños (58mm)
+  {
+    id: 'thermal-58mm',
+    name: 'Ticket Térmico 58mm',
+    description: 'Para impresoras térmicas pequeñas. El más común en terminales de pago.',
+    format: '58mm',
+    width: 58,
+    height: 0, // Continuo
+    compatiblePrinters: [
+      'Epson TM-T20',
+      'Star TSP100',
+      'POS-58',
+      'XP-58',
+      'Bixolon SRP-350',
+    ],
+    recommended: false,
+  },
+  // Tickets estándar POS (80mm)
+  {
+    id: 'thermal-80mm',
+    name: 'Ticket Térmico 80mm',
+    description: 'Estándar para la mayoría de impresoras POS profesionales.',
+    format: '80mm',
+    width: 80,
+    height: 0,
+    compatiblePrinters: [
+      'Epson TM-T88',
+      'Epson TM-T82',
+      'Star TSP650',
+      'Bixolon SRP-330',
+      'Citizen CT-S310',
+      'HP Engage One',
+      'NCR RealPOS',
+    ],
+    recommended: true,
+  },
+  // Hoja Carta
+  {
+    id: 'letter',
+    name: 'Hoja Carta',
+    description: 'Formato estándar de carta (8.5" x 11"). Ideal para facturas formales.',
+    format: 'letter',
+    width: 216,
+    height: 279,
+    compatiblePrinters: [
+      'Cualquier impresora de escritorio',
+      'HP LaserJet',
+      'Epson EcoTank',
+      'Canon PIXMA',
+      'Brother HL',
+    ],
+    recommended: false,
+  },
+  // Hoja A4
+  {
+    id: 'a4',
+    name: 'Hoja A4',
+    description: 'Formato internacional A4 (210mm x 297mm). Estándar en muchos países.',
+    format: 'a4',
+    width: 210,
+    height: 297,
+    compatiblePrinters: [
+      'Cualquier impresora de escritorio',
+      'HP LaserJet',
+      'Epson EcoTank',
+      'Canon PIXMA',
+      'Brother HL',
+    ],
+    recommended: false,
+  },
+  // Media carta
+  {
+    id: 'half-letter',
+    name: 'Media Carta',
+    description: 'Mitad de hoja carta. Útil para facturas compactas.',
+    format: 'custom',
+    width: 140,
+    height: 216,
+    compatiblePrinters: [
+      'Impresoras de escritorio con alimentación manual',
+    ],
+    recommended: false,
+  },
+];
+
+// Configuración por defecto de impresión (solo POS)
+export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
+  ticketFormat: '80mm',
+  ticketWidth: 80,
+  ticketHeight: 0, // 0 = continuo para tickets térmicos
+  ticketMargins: { top: 5, right: 5, bottom: 10, left: 5 },
+  ticketLogo: '',
+  showLogo: true,
+  showStoreName: true,
+  showNit: true,
+  showQR: false,
+  fontSize: 'medium',
+  showPreviewModal: true,
+  selectedTemplateId: 'thermal-80mm',
+};

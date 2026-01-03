@@ -46,6 +46,11 @@ const mockSettings: Settings = {
       instagram: 'https://instagram.com/styleprint',
       whatsapp: '+573001234567',
     },
+    fiscal: {
+      nit: '901.234.567-8',
+      taxRegime: 'responsable_iva',
+      legalName: 'StylePrint S.A.S.',
+    },
   },
   appearance: {
     brandColors: {
@@ -259,6 +264,7 @@ const mockSettings: Settings = {
         },
       },
     ],
+    taxEnabled: false, // Por defecto deshabilitado para pequeños negocios
     taxRate: 19,
     taxIncluded: true,
   },
@@ -878,7 +884,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       ...method,
       id: `pm-${Date.now()}`,
     };
-    const currentPayment = settings.payment || { taxRate: 0, taxIncluded: false, methods: [] };
+    const currentPayment = settings.payment || { taxEnabled: false, taxRate: 0, taxIncluded: false, methods: [] };
     const newPayment = {
       ...currentPayment,
       methods: [...(currentPayment.methods || []), newMethod],
@@ -889,7 +895,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updatePaymentMethod = async (id: string, data: Partial<PaymentMethodConfig>): Promise<void> => {
-    const currentPayment = settings.payment || { taxRate: 0, taxIncluded: false, methods: [] };
+    const currentPayment = settings.payment || { taxEnabled: false, taxRate: 0, taxIncluded: false, methods: [] };
     const newPayment = {
       ...currentPayment,
       methods: (currentPayment.methods || []).map((method) =>
@@ -902,7 +908,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deletePaymentMethod = async (id: string): Promise<void> => {
-    const currentPayment = settings.payment || { taxRate: 0, taxIncluded: false, methods: [] };
+    const currentPayment = settings.payment || { taxEnabled: false, taxRate: 0, taxIncluded: false, methods: [] };
     const newPayment = {
       ...currentPayment,
       methods: (currentPayment.methods || []).filter((method) => method.id !== id),
@@ -913,7 +919,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const togglePaymentMethod = async (id: string): Promise<void> => {
-    const currentPayment = settings.payment || { taxRate: 0, taxIncluded: false, methods: [] };
+    const currentPayment = settings.payment || { taxEnabled: false, taxRate: 0, taxIncluded: false, methods: [] };
     const newPayment = {
       ...currentPayment,
       methods: (currentPayment.methods || []).map((method) =>
