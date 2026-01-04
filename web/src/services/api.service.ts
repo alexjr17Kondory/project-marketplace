@@ -57,6 +57,14 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
+        // Si el token expiró o es inválido (401), disparar evento para cerrar sesión
+        if (response.status === 401) {
+          // Limpiar localStorage
+          localStorage.removeItem('marketplace_auth');
+          // Disparar evento custom para que AuthContext lo maneje
+          window.dispatchEvent(new CustomEvent('auth:token-expired'));
+          throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+        }
         throw new Error(data.message || 'Error en la solicitud');
       }
 

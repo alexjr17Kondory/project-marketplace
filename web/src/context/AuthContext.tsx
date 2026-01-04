@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { authService } from '../services';
 import type { AuthResponse, User as ApiUser } from '../services/auth.service';
 
@@ -82,6 +82,7 @@ const mapApiUserToUser = (apiUser: ApiUser, storedAuth?: AuthResponse | null): U
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const hasRedirectedRef = useRef(false);
 
   // Cargar usuario desde localStorage al iniciar
   useEffect(() => {
@@ -90,6 +91,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(mapApiUserToUser(storedAuth.user, storedAuth));
     }
     setIsLoading(false);
+  }, []);
+
+  // Escuchar evento de token expirado para cerrar sesión automáticamente
+  useEffect(() => {
+    const handleTokenExpired = () => {
+      // Evitar múltiples redirecciones
+      if (hasRedirectedRef.current) return;
+      hasRedirectedRef.current = true;
+
+      // Limpiar estado de usuario
+      setUser(null);
+
+      // Redirigir a inicio si estamos en rutas protegidas
+      const currentPath = window.location.pathname;
+      // Si estamos en una ruta protegida, redirigir al inicio
+      if (currentPath.includes('/admin-panel') || currentPath.includes('/pos') || currentPath.includes('/profile') || currentPath.includes('/my-orders')) {
+        window.location.href = '/?session=expired';
+      }
+
+      // Reset flag después de un tiempo
+      setTimeout(() => {
+        hasRedirectedRef.current = false;
+      }, 1000);
+    };
+
+    window.addEventListener('auth:token-expired', handleTokenExpired);
+    return () => {
+      window.removeEventListener('auth:token-expired', handleTokenExpired);
+    };
   }, []);
 
   // Obtener rol del usuario
