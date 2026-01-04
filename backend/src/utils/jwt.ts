@@ -10,7 +10,7 @@ export interface JwtPayload {
 export function generateToken(payload: JwtPayload): string {
   const secret = env.JWT_SECRET;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (jwt as any).sign(payload, secret, { expiresIn: '30d' });
+  return (jwt as any).sign(payload, secret, { expiresIn: '30d' }); // TESTING: Cambiar a '30d' en producción
 }
 
 export function verifyToken(token: string): JwtPayload {

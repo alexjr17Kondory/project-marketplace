@@ -65,12 +65,6 @@ export const ForgotPasswordModal = ({ isOpen, onClose, onBackToLogin }: ForgotPa
             Hemos enviado un enlace de recuperación a <strong>{email}</strong>.
             Revisa tu bandeja de entrada.
           </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-            <p className="text-amber-800 text-sm">
-              <strong>Nota de desarrollo:</strong> Como esto es un demo, el enlace de recuperación
-              está disponible en la consola del navegador (F12 → Console).
-            </p>
-          </div>
           <Button onClick={handleBackToLogin} className="w-full">
             Volver a Iniciar Sesión
           </Button>

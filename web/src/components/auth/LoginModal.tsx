@@ -90,12 +90,6 @@ export const LoginModal = ({ isOpen, onClose, initialMode = 'login' }: LoginModa
             Hemos enviado un enlace de recuperación a <strong>{formData.email}</strong>.
             Revisa tu bandeja de entrada.
           </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-            <p className="text-amber-800 text-sm">
-              <strong>Nota de desarrollo:</strong> Como esto es un demo, el enlace de recuperación
-              está disponible en la consola del navegador (F12 → Console).
-            </p>
-          </div>
           <Button onClick={() => switchMode('login')} className="w-full">
             Volver a Iniciar Sesión
           </Button>
@@ -207,21 +201,6 @@ export const LoginModal = ({ isOpen, onClose, initialMode = 'login' }: LoginModa
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
-            </div>
-          )}
-
-          {mode === 'login' && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
-              <p className="font-medium mb-2">Credenciales de prueba:</p>
-              <div className="space-y-1 text-xs">
-                <p><span className="font-medium">Admin:</span> admin@marketplace.com / <code className="bg-blue-100 px-1 rounded">admin123</code></p>
-              </div>
-              <div className="mt-1 space-y-1 text-xs">
-                <p><span className="font-medium">Vendedor:</span> vendedor@marketplace.com / <code className="bg-blue-100 px-1 rounded">vendedor123</code></p>
-              </div>
-              <div className="mt-1 space-y-1 text-xs">
-                <p><span className="font-medium">Cliente:</span> cliente@marketplace.com / <code className="bg-blue-100 px-1 rounded">cliente123</code></p>
-              </div>
             </div>
           )}
 
